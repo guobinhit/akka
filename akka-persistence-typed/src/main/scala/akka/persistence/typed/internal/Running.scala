@@ -343,12 +343,12 @@ private[akka] object Running {
           if (snapshotReason == SnapshotWithRetention) {
             // deletion of old events and snspahots are triggered by the SaveSnapshotSuccess
             setup.retention match {
-              case DisabledRetentionCriteria                     => // no further actions
-              case s @ SnapshotRetentionCriteriaImpl(_, _, true) =>
+              case DisabledRetentionCriteria                          => // no further actions
+              case s @ SnapshotCountRetentionCriteriaImpl(_, _, true) =>
                 // deleteEventsOnSnapshot == true, deletion of old events
                 val deleteEventsToSeqNr = s.deleteUpperSequenceNr(meta.sequenceNr)
-                internalDeleteEvents(deleteEventsToSeqNr, meta.sequenceNr)
-              case s @ SnapshotRetentionCriteriaImpl(_, _, false) =>
+                internalDeleteEvents(meta.sequenceNr, deleteEventsToSeqNr)
+              case s @ SnapshotCountRetentionCriteriaImpl(_, _, false) =>
                 // deleteEventsOnSnapshot == false, deletion of old snapshots
                 val deleteSnapshotsToSeqNr = s.deleteUpperSequenceNr(meta.sequenceNr)
                 internalDeleteSnapshots(s.deleteLowerSequenceNr(deleteSnapshotsToSeqNr), deleteSnapshotsToSeqNr)
@@ -446,8 +446,8 @@ private[akka] object Running {
       case DeleteMessagesSuccess(toSequenceNr) =>
         setup.log.debug("Persistent events to sequenceNr [{}] deleted successfully.", toSequenceNr)
         setup.retention match {
-          case DisabledRetentionCriteria        => // no further actions
-          case s: SnapshotRetentionCriteriaImpl =>
+          case DisabledRetentionCriteria             => // no further actions
+          case s: SnapshotCountRetentionCriteriaImpl =>
             // The reason for -1 is that a snapshot at the exact toSequenceNr is still useful and the events
             // after that can be replayed after that snapshot, but replaying the events after toSequenceNr without
             // starting at the snapshot at toSequenceNr would be invalid.

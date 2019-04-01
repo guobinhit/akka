@@ -6,7 +6,7 @@ package akka.persistence.typed.javadsl
 
 import akka.annotation.DoNotInherit
 import akka.persistence.typed.internal.DisabledRetentionCriteria
-import akka.persistence.typed.internal.SnapshotRetentionCriteriaImpl
+import akka.persistence.typed.internal.SnapshotCountRetentionCriteriaImpl
 
 /**
  * Criteria for retention/deletion of snapshots and events.
@@ -30,21 +30,21 @@ object RetentionCriteria {
    * less than the sequence number of the saved snapshot minus `keepNSnapshots * numberOfEvents` are automatically
    * deleted.
    *
-   * Use [[SnapshotRetentionCriteria.withDeleteEventsOnSnapshot]] to
+   * Use [[SnapshotCountRetentionCriteria.withDeleteEventsOnSnapshot]] to
    * delete old events. Events are not deleted by default.
    */
-  def snapshotEvery(numberOfEvents: Int, keepNSnapshots: Int): SnapshotRetentionCriteria =
-    SnapshotRetentionCriteriaImpl(numberOfEvents, keepNSnapshots, deleteEventsOnSnapshot = false)
+  def snapshotEvery(numberOfEvents: Int, keepNSnapshots: Int): SnapshotCountRetentionCriteria =
+    SnapshotCountRetentionCriteriaImpl(numberOfEvents, keepNSnapshots, deleteEventsOnSnapshot = false)
 
 }
 
-@DoNotInherit abstract class SnapshotRetentionCriteria extends RetentionCriteria {
+@DoNotInherit abstract class SnapshotCountRetentionCriteria extends RetentionCriteria {
 
   /**
    * Delete events after saving snapshot via [[RetentionCriteria.snapshotEvery()]].
    * Events that have sequence number less than the snapshot sequence number minus
    * `keepNSnapshots * numberOfEvents` are deleted.
    */
-  def withDeleteEventsOnSnapshot: SnapshotRetentionCriteria
+  def withDeleteEventsOnSnapshot: SnapshotCountRetentionCriteria
 
 }

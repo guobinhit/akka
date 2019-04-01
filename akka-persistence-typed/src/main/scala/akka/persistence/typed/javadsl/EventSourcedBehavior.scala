@@ -122,24 +122,27 @@ abstract class EventSourcedBehavior[Command, Event, State] private[akka] (
   def snapshotSelectionCriteria: SnapshotSelectionCriteria = SnapshotSelectionCriteria.latest
 
   /**
-   * Initiates a snapshot if the given function returns true.
+   * Initiates a snapshot if the given predicate evaluates to true.
+   *
+   * Decide to store a snapshot based on the State, Event and sequenceNr when the event has
+   * been successfully persisted.
+   *
    * When persisting multiple events at once the snapshot is triggered after all the events have
    * been persisted.
-   *
-   * receives the State, Event and the sequenceNr used for the Event
    *
    * Snapshots triggered by `snapshotWhen` will not trigger deletes of old snapshots and events if
    * [[EventSourcedBehavior.retentionCriteria]] with [[RetentionCriteria.snapshotEvery]] is used together with
    * `shouldSnapshot`. Such deletes are only triggered by snapshots matching the `numberOfEvents` in the
    * [[RetentionCriteria]].
    *
-   * @return `true` if snapshot should be saved for the given event
+   * @return `true` if snapshot should be saved at the given `state`, `event` and `sequenceNr` when the event has
+   *         been successfully persisted
    */
   def shouldSnapshot(@unused state: State, @unused event: Event, @unused sequenceNr: Long): Boolean = false
 
   /**
    * Criteria for retention/deletion of snapshots and events.
-   * By default retention is disabled, i.e. snapshots are not saved and deleted automatically.
+   * By default, retention is disabled and snapshots are not saved and deleted automatically.
    */
   def retentionCriteria: RetentionCriteria = RetentionCriteria.disabled
 

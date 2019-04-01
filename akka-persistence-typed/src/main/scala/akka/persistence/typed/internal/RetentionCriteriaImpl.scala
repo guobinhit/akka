@@ -11,15 +11,15 @@ import akka.persistence.typed.javadsl
 /**
  * INTERNAL API
  */
-@InternalApi private[akka] final case class SnapshotRetentionCriteriaImpl(
+@InternalApi private[akka] final case class SnapshotCountRetentionCriteriaImpl(
     snapshotEveryNEvents: Int,
     keepNSnapshots: Int,
     deleteEventsOnSnapshot: Boolean)
-    extends javadsl.SnapshotRetentionCriteria
-    with scaladsl.SnapshotRetentionCriteria {
+    extends javadsl.SnapshotCountRetentionCriteria
+    with scaladsl.SnapshotCountRetentionCriteria {
 
-  require(snapshotEveryNEvents > 0, s"snapshotEveryNEvents must be greater than 0, was [$snapshotEveryNEvents]")
-  require(keepNSnapshots > 0, s"keepNSnapshots must be greater than 0, was [$keepNSnapshots]")
+  require(snapshotEveryNEvents > 0, s"'snapshotEveryNEvents' must be greater than 0, was [$snapshotEveryNEvents]")
+  require(keepNSnapshots > 0, s"'keepNSnapshots' must be greater than 0, was [$keepNSnapshots]")
 
   def snapshotWhen(currentSequenceNr: Long): Boolean =
     currentSequenceNr % snapshotEveryNEvents == 0
@@ -36,7 +36,7 @@ import akka.persistence.typed.javadsl
     math.max(0, upperSequenceNr - (keepNSnapshots * snapshotEveryNEvents))
   }
 
-  override def withDeleteEventsOnSnapshot: SnapshotRetentionCriteriaImpl =
+  override def withDeleteEventsOnSnapshot: SnapshotCountRetentionCriteriaImpl =
     copy(deleteEventsOnSnapshot = true)
 
   override def asScala: scaladsl.RetentionCriteria = this

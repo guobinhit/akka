@@ -105,11 +105,11 @@ private[akka] trait JournalInteractions[C, E, S] {
   }
 
   /**
-   * On [[akka.persistence.SaveSnapshotSuccess]], if `SnapshotRetentionCriteria.deleteEventsOnSnapshot`
-   * is enabled, old messages are deleted based on `SnapshotRetentionCriteria.snapshotEveryNEvents`
+   * On [[akka.persistence.SaveSnapshotSuccess]], if `SnapshotCountRetentionCriteria.deleteEventsOnSnapshot`
+   * is enabled, old messages are deleted based on `SnapshotCountRetentionCriteria.snapshotEveryNEvents`
    * before old snapshots are deleted.
    */
-  protected def internalDeleteEvents(toSequenceNr: Long, lastSequenceNr: Long): Unit =
+  protected def internalDeleteEvents(lastSequenceNr: Long, toSequenceNr: Long): Unit =
     if (toSequenceNr > 0) {
       val self = setup.selfUntyped
 

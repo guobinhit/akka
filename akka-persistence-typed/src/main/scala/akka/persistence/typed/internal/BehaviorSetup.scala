@@ -137,7 +137,7 @@ private[akka] final class BehaviorSetup[C, E, S](
       case DisabledRetentionCriteria =>
         if (snapshotWhen(state, event, sequenceNr)) SnapshotWithoutRetention
         else NoSnapshot
-      case s: SnapshotRetentionCriteriaImpl =>
+      case s: SnapshotCountRetentionCriteriaImpl =>
         if (s.snapshotWhen(sequenceNr)) SnapshotWithRetention
         else if (snapshotWhen(state, event, sequenceNr)) SnapshotWithoutRetention
         else NoSnapshot

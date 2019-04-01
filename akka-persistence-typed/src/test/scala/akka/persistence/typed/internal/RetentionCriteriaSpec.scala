@@ -14,7 +14,7 @@ class RetentionCriteriaSpec extends TestSuite with Matchers with WordSpecLike {
   "RetentionCriteria" must {
 
     "snapshotWhen the sequenceNr matches numberOfEvents" in {
-      val criteria = RetentionCriteria.snapshotEvery(3, 2).asInstanceOf[SnapshotRetentionCriteriaImpl]
+      val criteria = RetentionCriteria.snapshotEvery(3, 2).asInstanceOf[SnapshotCountRetentionCriteriaImpl]
       criteria.snapshotWhen(1) should ===(false)
       criteria.snapshotWhen(2) should ===(false)
       criteria.snapshotWhen(3) should ===(true)
@@ -25,7 +25,7 @@ class RetentionCriteriaSpec extends TestSuite with Matchers with WordSpecLike {
     }
 
     "have valid sequenceNr range based on keepNSnapshots" in {
-      val criteria = RetentionCriteria.snapshotEvery(3, 2).asInstanceOf[SnapshotRetentionCriteriaImpl]
+      val criteria = RetentionCriteria.snapshotEvery(3, 2).asInstanceOf[SnapshotCountRetentionCriteriaImpl]
       val expected = List(
         1 -> (0 -> 0),
         3 -> (0 -> 0),
