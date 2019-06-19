@@ -65,6 +65,8 @@ import akka.event.Logging
 import akka.util.JavaDurationConverters._
 import akka.util.ccompat._
 
+import com.github.ghik.silencer.silent
+
 @ccompatUsedUntil213
 object ReplicatorSettings {
 
@@ -87,7 +89,7 @@ object ReplicatorSettings {
       case _               => config.getDuration("pruning-interval", MILLISECONDS).millis
     }
 
-    import scala.collection.JavaConverters._
+    import akka.util.ccompat.JavaConverters._
     new ReplicatorSettings(
       role = roleOption(config.getString("role")),
       gossipInterval = config.getDuration("gossip-interval", MILLISECONDS).millis,
@@ -177,7 +179,7 @@ final class ReplicatorSettings(
       deltaCrdtEnabled: Boolean,
       maxDeltaSize: Int) =
     this(
-      role.toSet,
+      role.iterator.toSet,
       gossipInterval,
       notifySubscribersInterval,
       maxDeltaElements,
@@ -201,7 +203,7 @@ final class ReplicatorSettings(
       pruningInterval: FiniteDuration,
       maxPruningDissemination: FiniteDuration) =
     this(
-      roles = role.toSet,
+      roles = role.iterator.toSet,
       gossipInterval,
       notifySubscribersInterval,
       maxDeltaElements,
@@ -270,9 +272,9 @@ final class ReplicatorSettings(
       deltaCrdtEnabled,
       200)
 
-  def withRole(role: String): ReplicatorSettings = copy(roles = ReplicatorSettings.roleOption(role).toSet)
+  def withRole(role: String): ReplicatorSettings = copy(roles = ReplicatorSettings.roleOption(role).iterator.toSet)
 
-  def withRole(role: Option[String]): ReplicatorSettings = copy(roles = role.toSet)
+  def withRole(role: Option[String]): ReplicatorSettings = copy(roles = role.iterator.toSet)
 
   @varargs
   def withRoles(roles: String*): ReplicatorSettings = copy(roles = roles.toSet)
@@ -325,7 +327,7 @@ final class ReplicatorSettings(
    * Java API
    */
   def withDurableKeys(durableKeys: java.util.Set[String]): ReplicatorSettings = {
-    import scala.collection.JavaConverters._
+    import akka.util.ccompat.JavaConverters._
     withDurableKeys(durableKeys.asScala.toSet)
   }
 
@@ -464,7 +466,7 @@ object Replicator {
      * Java API
      */
     def getKeyIds: java.util.Set[String] = {
-      import scala.collection.JavaConverters._
+      import akka.util.ccompat.JavaConverters._
       keyIds.asJava
     }
   }
@@ -1230,14 +1232,19 @@ final class Replicator(settings: ReplicatorSettings) extends Actor with ActorLog
 
   //Start periodic gossip to random nodes in cluster
   import context.dispatcher
-  val gossipTask = context.system.scheduler.schedule(gossipInterval, gossipInterval, self, GossipTick)
+  val gossipTask = context.system.scheduler.scheduleWithFixedDelay(gossipInterval, gossipInterval, self, GossipTick)
   val notifyTask =
-    context.system.scheduler.schedule(notifySubscribersInterval, notifySubscribersInterval, self, FlushChanges)
+    context.system.scheduler.scheduleWithFixedDelay(
+      notifySubscribersInterval,
+      notifySubscribersInterval,
+      self,
+      FlushChanges)
   val pruningTask =
     if (pruningInterval >= Duration.Zero)
-      Some(context.system.scheduler.schedule(pruningInterval, pruningInterval, self, RemovedNodePruningTick))
+      Some(
+        context.system.scheduler.scheduleWithFixedDelay(pruningInterval, pruningInterval, self, RemovedNodePruningTick))
     else None
-  val clockTask = context.system.scheduler.schedule(gossipInterval, gossipInterval, self, ClockTick)
+  val clockTask = context.system.scheduler.scheduleWithFixedDelay(gossipInterval, gossipInterval, self, ClockTick)
 
   val serializer = SerializationExtension(context.system).serializerFor(classOf[DataEnvelope])
   val maxPruningDisseminationNanos = maxPruningDissemination.toNanos
@@ -1289,7 +1296,7 @@ final class Replicator(settings: ReplicatorSettings) extends Actor with ActorLog
       val deltaPropagationInterval = (gossipInterval / deltaPropagationSelector.gossipIntervalDivisor).max(200.millis)
       Some(
         context.system.scheduler
-          .schedule(deltaPropagationInterval, deltaPropagationInterval, self, DeltaPropagationTick))
+          .scheduleWithFixedDelay(deltaPropagationInterval, deltaPropagationInterval, self, DeltaPropagationTick))
     } else None
 
   // cluster nodes, doesn't contain selfAddress, doesn't contain joining and weaklyUp
@@ -1329,7 +1336,9 @@ final class Replicator(settings: ReplicatorSettings) extends Actor with ActorLog
   // possibility to disable Gossip for testing purpose
   var fullStateGossipEnabled = true
 
+  @silent
   val subscribers = new mutable.HashMap[KeyId, mutable.Set[ActorRef]] with mutable.MultiMap[KeyId, ActorRef]
+  @silent
   val newSubscribers = new mutable.HashMap[KeyId, mutable.Set[ActorRef]] with mutable.MultiMap[KeyId, ActorRef]
   var subscriptionKeys = Map.empty[KeyId, KeyR]
 

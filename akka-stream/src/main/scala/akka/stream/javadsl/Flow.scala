@@ -69,7 +69,7 @@ object Flow {
    */
   def setup[I, O, M](
       factory: BiFunction[ActorMaterializer, Attributes, Flow[I, O, M]]): Flow[I, O, CompletionStage[M]] =
-    scaladsl.Flow.setup((mat, attr) ⇒ factory(mat, attr).asScala).mapMaterializedValue(_.toJava).asJava
+    scaladsl.Flow.setup((mat, attr) => factory(mat, attr).asScala).mapMaterializedValue(_.toJava).asJava
 
   /**
    * Creates a `Flow` from a `Sink` and a `Source` where the Flow's input
@@ -298,7 +298,7 @@ object Flow {
 
 /** Create a `Flow` which can process elements of type `T`. */
 final class Flow[In, Out, Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends Graph[FlowShape[In, Out], Mat] {
-  import scala.collection.JavaConverters._
+  import akka.util.ccompat.JavaConverters._
 
   override def shape: FlowShape[In, Out] = delegate.shape
   override def traversalBuilder = delegate.traversalBuilder

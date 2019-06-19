@@ -20,6 +20,7 @@ import akka.actor.Props
 import akka.actor.Stash
 import akka.actor.Terminated
 import akka.actor.Timers
+import akka.annotation.InternalStableApi
 import akka.cluster.Cluster
 import akka.cluster.ddata.ORSet
 import akka.cluster.ddata.ORSetKey
@@ -162,6 +163,7 @@ private[akka] object Shard {
  *
  * @see [[ClusterSharding$ ClusterSharding extension]]
  */
+@InternalStableApi
 private[akka] class Shard(
     typeName: String,
     shardId: ShardRegion.ShardId,
@@ -198,7 +200,7 @@ private[akka] class Shard(
   import context.dispatcher
   val passivateIdleTask = if (settings.passivateIdleEntityAfter > Duration.Zero) {
     val idleInterval = settings.passivateIdleEntityAfter / 2
-    Some(context.system.scheduler.schedule(idleInterval, idleInterval, self, PassivateIdleTick))
+    Some(context.system.scheduler.scheduleWithFixedDelay(idleInterval, idleInterval, self, PassivateIdleTick))
   } else {
     None
   }
@@ -380,6 +382,7 @@ private[akka] class Shard(
       entityTerminated(ref)
   }
 
+  @InternalStableApi
   def entityTerminated(ref: ActorRef): Unit = {
     val id = idByRef(ref)
     idByRef -= ref
@@ -430,9 +433,18 @@ private[akka] class Shard(
 
   // EntityStopped handler
   def passivateCompleted(event: EntityStopped): Unit = {
-    log.debug("Entity stopped after passivation [{}]", event.entityId)
+    val hasBufferedMessages = messageBuffers.getOrEmpty(event.entityId).nonEmpty
     state = state.copy(state.entities - event.entityId)
-    messageBuffers.remove(event.entityId)
+    if (hasBufferedMessages) {
+      log.debug(
+        "Entity stopped after passivation [{}], but will be started again due to buffered messages.",
+        event.entityId)
+      processChange(EntityStarted(event.entityId))(sendMsgBuffer)
+    } else {
+      log.debug("Entity stopped after passivation [{}]", event.entityId)
+      messageBuffers.remove(event.entityId)
+    }
+
   }
 
   // EntityStarted handler
@@ -486,6 +498,7 @@ private[akka] class Shard(
     getOrCreateEntity(id).tell(payload, snd)
   }
 
+  @InternalStableApi
   def getOrCreateEntity(id: EntityId): ActorRef = {
     val name = URLEncoder.encode(id, "utf-8")
     context.child(name) match {
@@ -533,7 +546,7 @@ private[akka] class RememberEntityStarter(
 
   val tickTask = {
     val resendInterval = settings.tuningParameters.retryInterval
-    context.system.scheduler.schedule(resendInterval, resendInterval, self, Tick)
+    context.system.scheduler.scheduleWithFixedDelay(resendInterval, resendInterval, self, Tick)
   }
 
   def sendStart(ids: Set[ShardRegion.EntityId]): Unit = {

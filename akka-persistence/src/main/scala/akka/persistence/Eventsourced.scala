@@ -8,7 +8,7 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.{ Actor, ActorCell, DeadLetter, StashOverflowException }
-import akka.annotation.InternalApi
+import akka.annotation.{ InternalApi, InternalStableApi }
 import akka.dispatch.Envelope
 import akka.event.{ Logging, LoggingAdapter }
 import akka.util.Helpers.ConfigOps
@@ -139,6 +139,7 @@ private[persistence] trait Eventsourced
    * Called whenever a message replay succeeds.
    * May be implemented by subclass.
    */
+  @InternalStableApi
   private[akka] def onReplaySuccess(): Unit = ()
 
   /**
@@ -184,6 +185,7 @@ private[persistence] trait Eventsourced
    * @param cause failure cause.
    * @param event the event that was to be persisted
    */
+  @InternalStableApi
   protected def onPersistFailure(cause: Throwable, event: Any, seqNr: Long): Unit = {
     log.error(
       cause,
@@ -201,6 +203,7 @@ private[persistence] trait Eventsourced
    * @param cause failure cause
    * @param event the event that was to be persisted
    */
+  @InternalStableApi
   protected def onPersistRejected(cause: Throwable, event: Any, seqNr: Long): Unit = {
     log.error(
       cause,
@@ -229,6 +232,7 @@ private[persistence] trait Eventsourced
   private def unstashInternally(all: Boolean): Unit =
     if (all) internalStash.unstashAll() else internalStash.unstash()
 
+  @InternalStableApi
   private def startRecovery(recovery: Recovery): Unit = {
     val timeout = {
       val journalPluginConfig = this match {
@@ -705,7 +709,7 @@ private[persistence] trait Eventsourced
       // protect against snapshot stalling forever because of journal overloaded and such
       val timeoutCancellable = {
         import context.dispatcher
-        context.system.scheduler.schedule(timeout, timeout, self, RecoveryTick(snapshot = false))
+        context.system.scheduler.scheduleWithFixedDelay(timeout, timeout, self, RecoveryTick(snapshot = false))
       }
       var eventSeenInInterval = false
       var _recoveryRunning = true

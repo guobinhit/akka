@@ -5,28 +5,28 @@
 package akka.actor
 
 import java.io.Closeable
+import java.util.Optional
 import java.util.concurrent._
 import java.util.concurrent.atomic.AtomicReference
 
-import com.typesafe.config.{ Config, ConfigFactory }
-import akka.ConfigurationException
-import akka.event._
-import akka.dispatch._
-import akka.japi.Util.immutableSeq
 import akka.actor.dungeon.ChildrenContainer
-import akka.util._
-import akka.util.Helpers.toRootLowerCase
-import scala.annotation.tailrec
-import scala.collection.immutable
-import scala.concurrent.{ ExecutionContext, ExecutionContextExecutor, Future, Promise }
-import scala.util.{ Failure, Success, Try }
-import scala.util.control.{ ControlThrowable, NonFatal }
-import java.util.Optional
-
 import akka.actor.setup.{ ActorSystemSetup, Setup }
 import akka.annotation.InternalApi
+import akka.ConfigurationException
+import akka.dispatch._
+import akka.event._
+import akka.japi.Util.immutableSeq
+import akka.util.Helpers.toRootLowerCase
+import akka.util._
+import com.typesafe.config.{ Config, ConfigFactory }
+import scala.annotation.tailrec
+import scala.collection.immutable
 import scala.compat.java8.FutureConverters
 import scala.compat.java8.OptionConverters._
+import scala.concurrent.duration.Duration
+import scala.concurrent.{ ExecutionContext, ExecutionContextExecutor, Future, Promise }
+import scala.util.control.{ ControlThrowable, NonFatal }
+import scala.util.{ Failure, Success, Try }
 
 object BootstrapSetup {
 
@@ -82,11 +82,23 @@ object BootstrapSetup {
 
 }
 
-abstract class ProviderSelection private (private[akka] val identifier: String)
+/**
+ * @param identifier the simple name of the selected provider
+ * @param fqcn the fully-qualified class name of the selected provider
+ */
+abstract class ProviderSelection private (
+    private[akka] val identifier: String,
+    private[akka] val fqcn: String,
+    private[akka] val hasCluster: Boolean)
 object ProviderSelection {
-  case object Local extends ProviderSelection("local")
-  case object Remote extends ProviderSelection("remote")
-  case object Cluster extends ProviderSelection("cluster")
+  private[akka] val RemoteActorRefProvider = "akka.remote.RemoteActorRefProvider"
+  private[akka] val ClusterActorRefProvider = "akka.cluster.ClusterActorRefProvider"
+
+  case object Local extends ProviderSelection("local", classOf[LocalActorRefProvider].getName, hasCluster = false)
+  // these two cannot be referenced by class as they may not be on the classpath
+  case object Remote extends ProviderSelection("remote", RemoteActorRefProvider, hasCluster = false)
+  case object Cluster extends ProviderSelection("cluster", ClusterActorRefProvider, hasCluster = true)
+  final case class Custom(override val fqcn: String) extends ProviderSelection("custom", fqcn, hasCluster = false)
 
   /**
    * JAVA API
@@ -103,6 +115,15 @@ object ProviderSelection {
    */
   def cluster(): ProviderSelection = Cluster
 
+  /** INTERNAL API */
+  @InternalApi private[akka] def apply(providerClass: String): ProviderSelection =
+    providerClass match {
+      case "local" => Local
+      // additional fqcn for older configs not using 'remote' or 'cluster'
+      case "remote" | RemoteActorRefProvider   => Remote
+      case "cluster" | ClusterActorRefProvider => Cluster
+      case fqcn                                => Custom(fqcn)
+    }
 }
 
 /**
@@ -331,18 +352,16 @@ object ActorSystem {
     import config._
 
     final val ConfigVersion: String = getString("akka.version")
-    final val ProviderClass: String =
-      setup
-        .get[BootstrapSetup]
-        .flatMap(_.actorRefProvider)
-        .map(_.identifier)
-        .getOrElse(getString("akka.actor.provider")) match {
-        case "local" => classOf[LocalActorRefProvider].getName
-        // these two cannot be referenced by class as they may not be on the classpath
-        case "remote"  => "akka.remote.RemoteActorRefProvider"
-        case "cluster" => "akka.cluster.ClusterActorRefProvider"
-        case fqcn      => fqcn
-      }
+
+    private final val providerSelectionSetup = setup
+      .get[BootstrapSetup]
+      .flatMap(_.actorRefProvider)
+      .map(_.identifier)
+      .getOrElse(getString("akka.actor.provider"))
+
+    final val ProviderSelectionType: ProviderSelection = ProviderSelection(providerSelectionSetup)
+
+    final val ProviderClass: String = ProviderSelectionType.fqcn
 
     final val SupervisorStrategyClass: String = getString("akka.actor.guardian-supervisor-strategy")
     final val CreationTimeout: Timeout = Timeout(config.getMillisDuration("akka.actor.creation-timeout"))
@@ -367,6 +386,13 @@ object ActorSystem {
       case _               => config.getInt("akka.log-dead-letters")
     }
     final val LogDeadLettersDuringShutdown: Boolean = config.getBoolean("akka.log-dead-letters-during-shutdown")
+    final val LogDeadLettersSuspendDuration: Duration = {
+      val key = "akka.log-dead-letters-suspend-duration"
+      toRootLowerCase(config.getString(key)) match {
+        case "infinite" => Duration.Inf
+        case _          => config.getMillisDuration(key)
+      }
+    }
 
     final val AddLoggingReceive: Boolean = getBoolean("akka.actor.debug.receive")
     final val DebugAutoReceive: Boolean = getBoolean("akka.actor.debug.autoreceive")
@@ -512,13 +538,12 @@ abstract class ActorSystem extends ActorRefFactory {
    * effort basis and hence not strictly guaranteed.
    */
   def deadLetters: ActorRef
-  //#scheduler
+
   /**
    * Light-weight scheduler for running asynchronous tasks after some deadline
    * in the future. Not terribly precise but cheap.
    */
   def scheduler: Scheduler
-  //#scheduler
 
   /**
    * Java API: Light-weight scheduler for running asynchronous tasks after some deadline

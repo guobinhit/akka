@@ -24,12 +24,12 @@ import scala.util.Success
 import scala.util.Try
 import scala.util.control.NoStackTrace
 import scala.util.control.NonFatal
-
 import akka.Done
 import akka.NotUsed
 import akka.actor.Actor
 import akka.actor.Props
 import akka.actor._
+import akka.annotation.InternalStableApi
 import akka.dispatch.Dispatchers
 import akka.event.Logging
 import akka.event.LoggingAdapter
@@ -503,7 +503,7 @@ private[remote] abstract class ArteryTransport(_system: ExtendedActorSystem, _pr
   private def startRemoveQuarantinedAssociationTask(): Unit = {
     val removeAfter = settings.Advanced.RemoveQuarantinedAssociationAfter
     val interval = removeAfter / 2
-    system.scheduler.schedule(removeAfter, interval) {
+    system.scheduler.scheduleWithFixedDelay(removeAfter, interval) { () =>
       if (!isShutdown)
         associationRegistry.removeUnusedQuarantined(removeAfter)
     }(system.dispatchers.internalDispatcher)
@@ -793,6 +793,7 @@ private[remote] abstract class ArteryTransport(_system: ExtendedActorSystem, _pr
     }
   }
 
+  @InternalStableApi
   override def quarantine(remoteAddress: Address, uid: Option[Long], reason: String): Unit = {
     quarantine(remoteAddress, uid, reason, harmless = false)
   }

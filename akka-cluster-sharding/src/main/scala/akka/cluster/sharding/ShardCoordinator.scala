@@ -109,14 +109,14 @@ object ShardCoordinator {
         shardId: ShardId,
         currentShardAllocations: Map[ActorRef, immutable.IndexedSeq[ShardId]]): Future[ActorRef] = {
 
-      import scala.collection.JavaConverters._
+      import akka.util.ccompat.JavaConverters._
       allocateShard(requester, shardId, currentShardAllocations.asJava)
     }
 
     override final def rebalance(
         currentShardAllocations: Map[ActorRef, immutable.IndexedSeq[ShardId]],
         rebalanceInProgress: Set[ShardId]): Future[Set[ShardId]] = {
-      import scala.collection.JavaConverters._
+      import akka.util.ccompat.JavaConverters._
       implicit val ec = ExecutionContexts.sameThreadExecutionContext
       rebalance(currentShardAllocations.asJava, rebalanceInProgress.asJava).map(_.asScala.toSet)
     }
@@ -497,7 +497,8 @@ abstract class ShardCoordinator(
   var regionTerminationInProgress = Set.empty[ActorRef]
 
   import context.dispatcher
-  val rebalanceTask = context.system.scheduler.schedule(rebalanceInterval, rebalanceInterval, self, RebalanceTick)
+  val rebalanceTask =
+    context.system.scheduler.scheduleWithFixedDelay(rebalanceInterval, rebalanceInterval, self, RebalanceTick)
 
   cluster.subscribe(self, initialStateMode = InitialStateAsEvents, ClusterShuttingDown.getClass)
 
@@ -724,11 +725,14 @@ abstract class ShardCoordinator(
       true
     } else {
       state.shards.get(shard) match {
-        case Some(ref) =>
-          if (regionTerminationInProgress(ref))
-            log.debug("GetShardHome [{}] request ignored, due to region [{}] termination in progress.", shard, ref)
+        case Some(shardRegionRef) =>
+          if (regionTerminationInProgress(shardRegionRef))
+            log.debug(
+              "GetShardHome [{}] request ignored, due to region [{}] termination in progress.",
+              shard,
+              shardRegionRef)
           else
-            sender() ! ShardHome(shard, ref)
+            sender() ! ShardHome(shard, shardRegionRef)
           true
         case None =>
           false // location not known, yet, caller will handle allocation
@@ -1104,7 +1108,7 @@ class DDataShardCoordinator(
       stateInitialized()
       activate()
 
-    case g: GetShardHome ⇒
+    case g: GetShardHome =>
       stashGetShardHomeRequest(sender(), g)
 
     case _ => stash()
@@ -1171,12 +1175,18 @@ class DDataShardCoordinator(
     unstashAll()
   }
 
-  private def stashGetShardHomeRequest(sender: ActorRef, request: GetShardHome): Unit =
+  private def stashGetShardHomeRequest(sender: ActorRef, request: GetShardHome): Unit = {
+    log.debug(
+      "GetShardHome [{}] request from [{}] stashed, because waiting for initial state or update of state. " +
+      "It will be handled afterwards.",
+      request.shard,
+      sender)
     getShardHomeRequests += (sender -> request)
+  }
 
   private def unstashGetShardHomeRequests(): Unit = {
     getShardHomeRequests.foreach {
-      case (originalSender, request) ⇒ self.tell(request, sender = originalSender)
+      case (originalSender, request) => self.tell(request, sender = originalSender)
     }
     getShardHomeRequests = Set.empty
   }

@@ -6,7 +6,7 @@ package akka.remote.artery
 
 import java.net.InetAddress
 
-import scala.collection.JavaConverters._
+import akka.util.ccompat.JavaConverters._
 import scala.concurrent.duration._
 
 import akka.NotUsed
@@ -203,6 +203,10 @@ private[akka] final class ArterySettings private (config: Config) {
         config
           .getMillisDuration("client-liveness-timeout")
           .requiring(interval => interval > Duration.Zero, "client-liveness-timeout must be more than zero")
+      val PublicationUnblockTimeout: FiniteDuration =
+        config
+          .getMillisDuration("publication-unblock-timeout")
+          .requiring(interval => interval > Duration.Zero, "publication-unblock-timeout must be greater than zero")
       val ImageLivenessTimeout: FiniteDuration = config
         .getMillisDuration("image-liveness-timeout")
         .requiring(interval => interval > Duration.Zero, "image-liveness-timeout must be more than zero")
