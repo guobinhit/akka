@@ -68,12 +68,23 @@ Use @apidoc[AbstractPersistentActorWithAtLeastOnceDelivery] instead.
 * `Logging.getLogger(UntypedActor)` Untyped actor has been removed, use AbstractActor instead.
 * `LoggingReceive.create(Receive, ActorContext)` use `AbstractActor.Receive` instead.
 * `ActorMaterialzierSettings.withAutoFusing` disabling fusing is no longer possible.
+* `AbstractActor.getChild` use `findChild` instead.
+* `Actor.getRef` use `Actor.getActorRef` instead.
+* `CircuitBreaker.onOpen` use `CircuitBreaker.addOnOpenListener`
+* `CircuitBreaker.onHalfOpen` use `CircuitBreaker.addOnHalfOpenListener`
+* `CircuitBreaker.onClose` use `CircuitBreaker.addOnCloseListener`
+* `Source.actorSubscriber`, use `Source.fromGraph` instead.
+* `Source.actorActorPublisher`, use `Source.fromGraph` instead.
 
 ### JavaTestKit removed
 
 The `JavaTestKit` has been deprecated since `2.5.0`. Use `akka.testkit.javadsl.TestKit` instead.
 
 ## Deprecated features
+
+### PersistentFSM
+
+[Migration guide to Persistence Typed](../persistence-fsm.md) is in the PersistentFSM documentation.
 
 ### TypedActor
 
@@ -120,15 +131,23 @@ Artery has the same functionality as classic remoting and you should normally on
 configuration to switch.
 To switch a full cluster restart is required and any overrides for classic remoting need to be ported to Artery configuration.
 
-Artery defaults to TCP (see @ref:[selected transport](#selecting-a-transport)) which is a good start
+Artery defaults to TCP (see @ref:[selected transport](../remoting-artery.md#selecting-a-transport)) which is a good start
 when migrating from classic remoting.
 
 The protocol part in the Akka `Address`, for example `"akka.tcp://actorSystemName@10.0.0.1:2552/user/actorName"`
 has changed from `akka.tcp` to `akka`. If you have configured or hardcoded any such addresses you have to change
-them to `"akka://actorSystemName@10.0.0.1:2552/user/actorName"`. `akka` is used also when TLS is enabled.
+them to `"akka://actorSystemName@10.0.0.1:25520/user/actorName"`. `akka` is used also when TLS is enabled.
 One typical place where such address is used is in the `seed-nodes` configuration.
 
-The configuration is different, so you might have to revisit any custom configuration. See the full
+The default port is 25520 instead of 2552 to avoid connections between Artery and classic remoting due to
+misconfiguration. You can run Artery on 2552 if you prefer that (e.g. existing firewall rules) and then you
+have to configure the port with:
+
+```
+akka.remote.artery.canonical.port = 2552
+```
+
+The configuration for Artery is different, so you might have to revisit any custom configuration. See the full
 @ref:[reference configuration for Artery](../general/configuration.md#config-akka-remote-artery) and
 @ref:[reference configuration for classic remoting](../general/configuration.md#config-akka-remote).
 
@@ -143,6 +162,11 @@ is completely different. It will require a full cluster shutdown and new startup
 If using SSL then `tcp-tls` needs to be enabled and setup. See @ref[Artery docs for SSL](../remoting-artery.md#configuring-ssl-tls-for-akka-remoting)
 for how to do this.
 
+The following events that are published to the `eventStream` have changed:
+
+* classic `akka.remote.QuarantinedEvent` is `akka.remote.artery.QuarantinedEvent` in Artery
+* classic `akka.remote.GracefulShutdownQuarantinedEvent` is `akka.remote.artery.GracefulShutdownQuarantinedEvent` in Artery
+* classic `akka.remote.ThisActorSystemQuarantinedEvent` is `akka.remote.artery.ThisActorSystemQuarantinedEvent` in Artery
 
 #### Migration from 2.5.x Artery to 2.6.x Artery
 
@@ -175,18 +199,109 @@ Classic remoting is deprecated but can be used in `2.6.` Explicitly disable Arte
 specific to classic remoting needs to be moved to `akka.remote.classic`. To see which configuration options
 are specific to classic search for them in: [`akka-remote/reference.conf`](/akka-remote/src/main/resources/reference.conf)
 
+## Java Serialization
+
+Java serialization is known to be slow and [prone to attacks](https://community.hpe.com/t5/Security-Research/The-perils-of-Java-deserialization/ba-p/6838995)
+of various kinds - it never was designed for high throughput messaging after all.
+One may think that network bandwidth and latency limit the performance of remote messaging, but serialization is a more typical bottleneck.
+
+From Akka 2.6.0 the Akka serialization with Java serialization is disabled by default and Akka
+itself doesn't use Java serialization for any of its internal messages.
+
+For compatibility with older systems that rely on Java serialization it can be enabled with the following configuration:
+
+```ruby
+akka.actor.allow-java-serialization = on
+```
+
+Akka will still log warning when Java serialization is used and to silent that you may add:
+
+```ruby
+akka.actor.warn-about-java-serializer-usage = off
+```
+
+### Rolling update
+
+You can replace Java serialization, if you use that, with for example the new
+@ref:[Serialization with Jackson](../serialization-jackson.md) and still be able to perform a rolling updates
+without bringing down the entire cluster.
+
+The procedure for changing from Java serialization to Jackson would look like:
+
+1. Rolling update from 2.5.24 (or later) to 2.6.0
+    * Use config `allow-java-serialization=on`.
+    * Roll out the change.
+    * Java serialization will be used as before.
+    * This step is optional and you could combine it with next step if you like, but could be good to
+      make one change at a time.
+1. Rolling update to support deserialization but not enable serialization
+    * Change message classes by adding the marker interface and possibly needed annotations as
+      described in @ref:[Serialization with Jackson](../serialization-jackson.md).
+    * Test the system with the new serialization in a new test cluster (no rolling update).
+    * Remove the binding for the marker interface, so that Jackson is not used for serialization yet.
+    * Roll out the change.
+    * Java serialization is still used, but this version is prepared for next roll out.
+1. Rolling update to enable serialization with Jackson.
+    * Add the binding to the marker interface to the Jackson serializer.
+    * Roll out the change.
+    * Old nodes will still send messages with Java serialization, and that can still be deserialized by new nodes.
+    * New nodes will send messages with Jackson serialization, and old node can deserialize those because they were
+      prepared in previous roll out.
+1. Rolling update to disable Java serialization
+    * Remove `allow-java-serialization` config, to use the default `allow-java-serialization=off`.
+    * Remove `.warn-about-java-serializer-usage` config if you had changed that, to use the default `.warn-about-java-serializer-usage=on`.
+    * Roll out the change.
+
+### Java serialization in consistent hashing
+
+When using a consistent hashing router keys that were not bytes or a String are serialized.
+You might have to add a serializer for you hash keys, unless one of the default serializer are not
+handling that type and it was previously "accidentally" serialized with Java serialization.
 
 ## Configuration and behavior changes
 
 The following documents configuration changes and behavior changes where no action is required. In some cases the old
 behavior can be restored via configuration.
 
-### Remoting dependencies have been made optional
+### Remoting
+
+#### Remoting dependencies have been made optional
 
 Classic remoting depends on Netty and Artery UDP depends on Aeron. These are now both optional dependencies that need
-to be explicitly added. See @ref[classic remoting](../remoting.md) or [artery remoting](../remoting-artery.md) for instructions.
+to be explicitly added. See @ref[classic remoting](../remoting.md) or @ref[artery remoting](../remoting-artery.md) for instructions.
 
-## Schedule periodically with fixed-delay vs. fixed-rate
+#### Remote watch and deployment have been disabled without Cluster use
+
+By default, these remoting features are disabled when not using Akka Cluster:
+
+* Remote Deployment: falls back to creating a local actor
+* Remote Watch: ignores the watch and unwatch request, and `Terminated` will not be delivered when the remote actor is stopped or if a remote node crashes
+ 
+Watching an actor on a node outside the cluster may have unexpected
+@ref[consequences](../remoting-artery.md#quarantine), such as quarantining
+so it has been disabled by default in Akka 2.6. This is the case if either
+cluster is not used at all (only plain remoting) or when watching an actor outside of the cluster.
+
+On the other hand, failure detection between nodes of the same cluster
+do not have that shortcoming. Thus, when remote watching or deployment is used within
+the same cluster, they are working the same in 2.6 as before, except that a remote watch attempt before a node has joined 
+will log a warning and be ignored, it must be done after the node has joined.
+
+To optionally enable a watch without Akka Cluster or across a Cluster boundary between Cluster and non Cluster, 
+knowing the consequences, all watchers (cluster as well as remote) need to set
+```
+akka.remote.use-unsafe-remote-features-outside-cluster = on`.
+```
+
+When enabled
+
+* An initial warning is logged on startup of `RemoteActorRefProvider`
+* A warning will be logged on remote watch attempts, which you can suppress by setting
+```
+akka.remote.warn-unsafe-watch-outside-cluster = off
+```
+
+### Schedule periodically with fixed-delay vs. fixed-rate
 
 The `Scheduler.schedule` method has been deprecated in favor of selecting `scheduleWithFixedDelay` or
 `scheduleAtFixedRate`.
@@ -233,7 +348,7 @@ blocking and protect a bit against starving the internal actors. Since the inter
 the default dispatcher has been adjusted down to `1.0` which means the number of threads will be one per core, but at least
 `8` and at most `64`. This can be tuned using the individual settings in `akka.actor.default-dispatcher.fork-join-executor`.
 
-### Cluster sharding
+### Cluster Sharding
 
 #### waiting-for-state-timeout reduced to 2s
 
@@ -241,7 +356,7 @@ This has been reduced to speed up ShardCoordinator initialization in smaller clu
 The read from ddata is a ReadMajority, for small clusters (< majority-min-cap) every node needs to respond
 so is more likely to timeout if there are nodes restarting e.g. when there is a rolling re-deploy happening.
 
-### Passivate idle entity
+#### Passivate idle entity
 
 The configuration `akka.cluster.sharding.passivate-idle-entity-after` is now enabled by default.
 Sharding will passivate entities when they have not received any messages after this duration.
@@ -249,6 +364,27 @@ To disable passivation you can use configuration:
 
 ```
 akka.cluster.sharding.passivate-idle-entity-after = off
+```
+
+It is always disabled if @ref:[Remembering Entities](../cluster-sharding.md#remembering-entities) is enabled.
+
+#### Cluster Sharding stats
+
+A new field has been added to the response of a `ShardRegion.GetClusterShardingStats` command
+for any shards per region that may have failed or not responded within the new configurable `akka.cluster.sharding.shard-region-query-timeout`. 
+This is described further in @ref:[inspecting sharding state](../cluster-sharding.md#inspecting-cluster-sharding-state).
+
+### Distributed Data
+
+Configuration properties for controlling sizes of `Gossip` and `DeltaPropagation` messages in Distributed Data
+have been reduced. Previous defaults sometimes resulted in messages exceeding max payload size for remote
+actor messages.
+
+The new configuration properties are:
+
+```
+akka.cluster.distributed-data.max-delta-elements = 500
+akka.cluster.distributed-data.delta-crdt.max-delta-size = 50
 ```
 
 ### CoordinatedShutdown is run from ActorSystem.terminate
@@ -266,6 +402,11 @@ and then it will behave as in Akka 2.5.x:
 akka.coordinated-shutdown.run-by-actor-system-terminate = off
 ```
 
+### IOSources & FileIO
+
+`FileIO.toPath`, `StreamConverters.fromInputStream`, and `StreamConverters.fromOutputStream` now always fail the materialized value in case of failure. 
+It is no longer required to both check the materialized value and the `Try[Done]` inside the @apidoc[IOResult]. In case of an IO failure
+the exception will be @apidoc[IOOperationIncompleteException] instead of @apidoc[AbruptIOTerminationException].
 
 ### Akka now uses Fork Join Pool from JDK
 
@@ -278,6 +419,22 @@ When the number of dead letters have reached configured `akka.log-dead-letters` 
 more dead letters in Akka 2.5. In Akka 2.6 the count is reset after configured `akka.log-dead-letters-suspend-duration`.
 
 `akka.log-dead-letters-during-shutdown` default configuration changed from `on` to `off`.
+
+### Cluster failure detection
+
+Default number of nodes that each node is observing for failure detection has increased from 5 to 9.
+The reason is to have better coverage and unreachability information for downing decisions.
+
+Configuration property:
+
+```
+akka.cluster.monitored-by-nr-of-members = 9
+```
+
+### TestKit
+
+`expectNoMessage()` without timeout parameter is now using a new configuration property
+`akka.test.expect-no-message-default` (short timeout) instead of `remainingOrDefault` (long timeout).
 
 ## Source incompatibilities
 
@@ -325,15 +482,23 @@ made before finalizing the APIs. Compared to Akka 2.5.x the source incompatible 
   prefer `Behaviors.withTimers`.
 * `TimerScheduler.startPeriodicTimer`, replaced by `startTimerWithFixedDelay` or `startTimerAtFixedRate`
 * `Routers.pool` now take a factory function rather than a `Behavior` to protect against accidentally sharing same behavior instance and state across routees.
-* The `request` parameter in Distributed Data commands was removed, in favor of using `ask`.
+* The `request` parameter in Distributed Data commands was removed, in favor of using `ask` with the new `ReplicatorMessageAdapter`.
 * Removed `Behavior.same`, `Behavior.unhandled`, `Behavior.stopped`, `Behavior.empty`, and `Behavior.ignore` since
   they were redundant with corresponding @scala[scaladsl.Behaviors.x]@java[javadsl.Behaviors.x].
 * `ActorContext` parameter removed in `javadsl.ReceiveBuilder` for the functional style in Java. Use `Behaviors.setup`
    to retrieve `ActorContext`, and use an enclosing class to hold initialization parameters and `ActorContext`.
-* Java @apidoc[akka.cluster.sharding.typed.javadsl.EntityRef] ask timeout now takes a `java.time.Duration` rather than a @apidoc[Timeout]
-
+* Java @javadoc[EntityRef](akka.cluster.sharding.typed.javadsl.EntityRef) ask timeout now takes a `java.time.Duration` rather than a @apidoc[Timeout]
+* Changed method signature for `EventAdapter.fromJournal` and support for `manifest` in `EventAdapter`.
+* Renamed @scala[`widen`]@java[`Behaviors.widen`] to @scala[`transformMessages`]@java[`Behaviors.transformMessages`]
+* `BehaviorInterceptor`, `Behaviors.monitor`, `Behaviors.withMdc` and @scala[`transformMessages`]@java[`Behaviors.transformMessages`] takes
+  a @scala[`ClassTag` parameter (probably source compatible)]@java[`interceptMessageClass` parameter].
+  `interceptMessageType` method in `BehaviorInterceptor` is replaced with this @scala[`ClassTag`]@java[`Class`] parameter.
+* `Behavior.orElse` has been removed because it wasn't safe together with `narrow`.
+* `StashBuffer`s are now created with `Behaviors.withStash` rather than instantiating directly
+* To align with the Akka Typed style guide `SpawnProtocol` is now created through @scala[`SpawnProtocol()`]@java[`SpawnProtocol.create()`], the special `Spawn` message
+  factories has been removed and the top level of the actor protocol is now `SpawnProtocol.Command`
 
 #### Akka Typed Stream API changes
 
-* `ActorSoruce.actorRef` relying on `PartialFunction` has been replaced in the Java API with a variant more suitable to be called by Java.
+* `ActorSource.actorRef` relying on `PartialFunction` has been replaced in the Java API with a variant more suitable to be called by Java.
 

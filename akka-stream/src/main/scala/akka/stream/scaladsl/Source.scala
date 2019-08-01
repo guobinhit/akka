@@ -6,9 +6,8 @@ package akka.stream.scaladsl
 
 import java.util.concurrent.CompletionStage
 
-import akka.actor.{ ActorRef, Cancellable, Props }
-import akka.annotation.{ ApiMayChange, InternalApi }
-import akka.stream.actor.ActorPublisher
+import akka.actor.{ ActorRef, Cancellable }
+import akka.annotation.InternalApi
 import akka.stream.impl.Stages.DefaultAttributes
 import akka.stream.impl.fusing.GraphStages
 import akka.stream.impl.fusing.GraphStages._
@@ -222,10 +221,6 @@ final class Source[+Out, +Mat](
       combineRest(2, rest.iterator)
     })
 
-  /**
-   * API MAY CHANGE
-   */
-  @ApiMayChange
   def asSourceWithContext[Ctx](f: Out => Ctx): SourceWithContext[Out, Ctx, Mat] =
     new SourceWithContext(this.map(e => (e, f(e))))
 }
@@ -462,21 +457,6 @@ object Source {
     fromGraph(new SubscriberSource[T](DefaultAttributes.subscriberSource, shape("SubscriberSource")))
 
   /**
-   * Creates a `Source` that is materialized to an [[akka.actor.ActorRef]] which points to an Actor
-   * created according to the passed in [[akka.actor.Props]]. Actor created by the `props` must
-   * be [[akka.stream.actor.ActorPublisher]].
-   *
-   * @deprecated Use `akka.stream.stage.GraphStage` and `fromGraph` instead, it allows for all operations an Actor would and is more type-safe as well as guaranteed to be ReactiveStreams compliant.
-   */
-  @deprecated(
-    "Use `akka.stream.stage.GraphStage` and `fromGraph` instead, it allows for all operations an Actor would and is more type-safe as well as guaranteed to be ReactiveStreams compliant.",
-    since = "2.5.0")
-  def actorPublisher[T](props: Props): Source[T, ActorRef] = {
-    require(classOf[ActorPublisher[_]].isAssignableFrom(props.actorClass()), "Actor must be ActorPublisher")
-    fromGraph(new ActorPublisherSource(props, DefaultAttributes.actorPublisherSource, shape("ActorPublisherSource")))
-  }
-
-  /**
    * INTERNAL API
    *
    * Creates a `Source` that is materialized as an [[akka.actor.ActorRef]].
@@ -543,17 +523,18 @@ object Source {
    * this Source; as such, it is never safe to assume the downstream will always generate demand.
    *
    * The stream can be completed successfully by sending the actor reference a [[akka.actor.Status.Success]].
-   * If the content is [[akka.stream.CompletionStrategy.immediately]] the completion will be signaled immediately,
-   * otherwise if the content is [[akka.stream.CompletionStrategy.draining]] (or anything else)
-   * already buffered elements will be signaled before signaling completion.
+   * If the content is [[akka.stream.CompletionStrategy.immediately]] the completion will be signaled immediately.
+   * Otherwise, if the content is [[akka.stream.CompletionStrategy.draining]] (or anything else)
+   * already buffered elements will be sent out before signaling completion.
    * Sending [[akka.actor.PoisonPill]] will signal completion immediately but this behavior is deprecated and scheduled to be removed.
+   * Using [[akka.actor.ActorSystem.stop]] to stop the actor and complete the stream is *not supported*.
    *
    * The stream can be completed with failure by sending a [[akka.actor.Status.Failure]] to the
    * actor reference. In case the Actor is still draining its internal buffer (after having received
    * a [[akka.actor.Status.Success]]) before signaling completion and it receives a [[akka.actor.Status.Failure]],
    * the failure will be signaled downstream immediately (instead of the completion signal).
    *
-   * The actor will be stopped when the stream is completed, failed or canceled from downstream,
+   * The actor will be stopped when the stream is canceled from downstream,
    * i.e. you can watch it to get notified when that happens.
    *
    * See also [[akka.stream.scaladsl.Source.queue]].

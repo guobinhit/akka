@@ -14,8 +14,14 @@ object RemoteDeploymentSpec {
     var target: ActorRef = context.system.deadLetters
 
     def receive = {
-      case ex: Exception => throw ex
-      case x             => target = sender(); sender() ! x
+      case "throwInvalidActorNameException" =>
+        // InvalidActorNameException is supported by akka-misc
+        throw InvalidActorNameException("wrong name")
+      case "throwException" =>
+        // no specific serialization binding for Exception
+        throw new Exception("crash")
+      case x =>
+        target = sender(); sender() ! x
     }
 
     override def preStart(): Unit = {}
@@ -63,6 +69,7 @@ class RemoteDeploymentSpec
     extends ArteryMultiNodeSpec(ConfigFactory.parseString("""
     akka.remote.artery.advanced.inbound-lanes = 10
     akka.remote.artery.advanced.outbound-lanes = 3
+    akka.remote.use-unsafe-remote-features-outside-cluster = on
     """).withFallback(ArterySpecSupport.defaultConfig)) {
 
   import RemoteDeploymentSpec._
@@ -72,6 +79,7 @@ class RemoteDeploymentSpec
     s"""
     akka.actor.deployment {
       /blub.remote = "akka://${system.name}@localhost:$port"
+      /blub2.remote = "akka://${system.name}@localhost:$port"
       "/parent*/*".remote = "akka://${system.name}@localhost:$port"
     }
     akka.remote.artery.advanced.inbound-lanes = 10
@@ -91,13 +99,31 @@ class RemoteDeploymentSpec
 
       r.tell(42, senderProbe.ref)
       senderProbe.expectMsg(42)
-      EventFilter[Exception]("crash", occurrences = 1).intercept {
-        r ! new Exception("crash")
+      EventFilter[Exception]("wrong name", occurrences = 1).intercept {
+        r ! "throwInvalidActorNameException"
       }(masterSystem)
       senderProbe.expectMsg("preRestart")
       r.tell(43, senderProbe.ref)
       senderProbe.expectMsg(43)
-      system.stop(r)
+      masterSystem.stop(r)
+      senderProbe.expectMsg("postStop")
+    }
+
+    "create and supervise children on remote node for unknown exception" in {
+      val senderProbe = TestProbe()(masterSystem)
+      val r = masterSystem.actorOf(Props[Echo1], "blub2")
+      r.path.toString should ===(
+        s"akka://${system.name}@localhost:${port}/remote/akka/${masterSystem.name}@localhost:${masterPort}/user/blub2")
+
+      r.tell(42, senderProbe.ref)
+      senderProbe.expectMsg(42)
+      EventFilter[Exception]("Serialization of [java.lang.Exception] failed. crash", occurrences = 1).intercept {
+        r ! "throwException"
+      }(masterSystem)
+      senderProbe.expectMsg("preRestart")
+      r.tell(43, senderProbe.ref)
+      senderProbe.expectMsg(43)
+      masterSystem.stop(r)
       senderProbe.expectMsg("postStop")
     }
 

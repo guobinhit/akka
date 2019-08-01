@@ -1,12 +1,12 @@
-# Akka Typed
+# Actors
 
 @@toc { depth=2 }
 
 @@@ index
 
-* [guide](guide/index.md)
 * [actors](actors.md)
 * [dispatchers](dispatchers.md)
+* [mailboxes](mailboxes.md)
 * [coexisting](coexisting.md)
 * [actor-lifecycle](actor-lifecycle.md)
 * [interaction patterns](interaction-patterns.md)
@@ -15,12 +15,8 @@
 * [routers](routers.md)
 * [stash](stash.md)
 * [stream](stream.md)
-* [cluster](cluster.md)
-* [distributed-data](distributed-data.md)
-* [cluster-singleton](cluster-singleton.md)
-* [cluster-sharding](cluster-sharding.md)
-* [persistence](persistence.md)
 * [fsm](fsm.md)
 * [testing](testing.md)
+* [style-guide](style-guide.md)
 
 @@@

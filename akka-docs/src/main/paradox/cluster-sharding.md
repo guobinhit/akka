@@ -1,4 +1,15 @@
-# Cluster Sharding
+# Classic Cluster Sharding
+
+@@@ note
+
+Akka Classic is the original Actor APIs, which have been improved by more type safe and guided Actor APIs, 
+known as Akka Typed. Akka Classic is still fully supported and existing applications can continue to use 
+the classic APIs. It is also possible to use Akka Typed together with classic actors within the same 
+ActorSystem, see @ref[coexistence](typed/coexisting.md). For new projects we recommend using the new Actor APIs.
+
+For the new API see @ref[cluster-sharding](typed/cluster-sharding.md).
+
+@@@
 
 ## Dependency
 
@@ -71,7 +82,7 @@ When using the sharding extension you are first, typically at system startup on 
 in the cluster, supposed to register the supported entity types with the `ClusterSharding.start`
 method. `ClusterSharding.start` gives you the reference which you can pass along.
 Please note that `ClusterSharding.start` will start a `ShardRegion` in [proxy only mode](#proxy-only-mode) 
-in case if there is no match between the roles of the current cluster node and the role specified in 
+when there is no match between the roles of the current cluster node and the role specified in 
 `ClusterShardingSettings`.
 
 Scala
@@ -327,7 +338,7 @@ See @ref:[How To Startup when Cluster Size Reached](cluster-usage.md#min-members
 The `ShardRegion` actor can also be started in proxy only mode, i.e. it will not
 host any entities itself, but knows how to delegate messages to the right location.
 A `ShardRegion` is started in proxy only mode with the `ClusterSharding.startProxy` method.
-Also a `ShardRegion` is started in proxy only mode in case if there is no match between the
+Also a `ShardRegion` is started in proxy only mode when there is no match between the
 roles of the current cluster node and the role specified in `ClusterShardingSettings` 
 passed to the `ClusterSharding.start` method.
 
@@ -352,6 +363,7 @@ or by explicitly setting `ClusterShardingSettings.passivateIdleEntityAfter` to a
 time to keep the actor alive. Note that only messages sent through sharding are counted, so direct messages
 to the `ActorRef` or messages that the actor sends to itself are not counted in this activity.
 Passivation can be disabled by setting `akka.cluster.sharding.passivate-idle-entity-after = off`.
+It is always disabled if @ref:[Remembering Entities](#remembering-entities) is enabled.
 
 <a id="cluster-sharding-remembering"></a>
 ## Remembering Entities
@@ -399,7 +411,7 @@ e.g. with @ref:[Persistence](persistence.md).
 
 The performance cost of `rememberEntities` is rather high when starting/stopping entities and when
 shards are rebalanced. This cost increases with number of entities per shard and we currently don't
-recommend using it with more than 10000 entities per shard.
+recommend using it with more than 10000 active (non passivated) entities per shard.
 
 ## Supervision
 
@@ -423,7 +435,7 @@ Java
 
 Note that stopped entities will be started again when a new message is targeted to the entity.
 
-If 'on stop' backoff supervision strategy is used, a final termination message must be set and used for passivation, see @ref:[Supervision](general/supervision.md#Sharding)
+If 'on stop' backoff supervision strategy is used, a final termination message must be set and used for passivation, see @ref:[Supervision](general/supervision.md#sharding)
 
 ## Graceful Shutdown
 
@@ -511,7 +523,9 @@ the identifiers of the shards running in a Region and what entities are alive fo
 
 `ShardRegion.GetClusterShardingStats` which will query all the regions in the cluster and return
 a `ShardRegion.ClusterShardingStats` containing the identifiers of the shards running in each region and a count
-of entities that are alive in each shard.
+of entities that are alive in each shard. If any shard queries failed, for example due to timeout
+if a shard was too busy to reply within the configured `akka.cluster.sharding.shard-region-query-timeout`, 
+`ShardRegion.ClusterShardingStats` will also include the set of shard identifiers by region that failed.
 
 The type names of all started shards can be acquired via @scala[`ClusterSharding.shardTypeNames`]  @java[`ClusterSharding.getShardTypeNames`].
 

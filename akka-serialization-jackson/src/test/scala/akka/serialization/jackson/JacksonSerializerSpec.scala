@@ -68,6 +68,7 @@ object ScalaTestMessages {
   final case class CommandWithTypedActorRef(name: String, replyTo: akka.actor.typed.ActorRef[String])
       extends TestMessage
   final case class CommandWithAddress(name: String, address: Address) extends TestMessage
+  case object SingletonCaseObject extends TestMessage
 
   final case class Event1(field1: String) extends TestMessage
   final case class Event2(field1V2: String, field2: Int) extends TestMessage
@@ -308,7 +309,6 @@ abstract class JacksonSerializerSpec(serializerName: String)
       "akka.serialization.jackson.ScalaTestMessages$$Event2" = "akka.serialization.jackson.ScalaTestEventMigration"
     }
     akka.actor {
-      allow-java-serialization = off
       serialization-bindings {
         "akka.serialization.jackson.ScalaTestMessages$$TestMessage" = $serializerName
         "akka.serialization.jackson.JavaTestMessages$$TestMessage" = $serializerName
@@ -355,15 +355,8 @@ abstract class JacksonSerializerSpec(serializerName: String)
     deserialized should ===(obj)
   }
 
-  /**
-   * @return tuple of (blob, serializerId, manifest)
-   */
-  def serializeToBinary(obj: AnyRef, sys: ActorSystem = system): Array[Byte] = {
-    withTransportInformation(sys) { () =>
-      val serializer = serializerFor(obj, sys)
-      serializer.toBinary(obj)
-    }
-  }
+  def serializeToBinary(obj: AnyRef, sys: ActorSystem = system): Array[Byte] =
+    serialization(sys).serialize(obj).get
 
   def deserializeFromBinary(
       blob: Array[Byte],
@@ -508,6 +501,11 @@ abstract class JacksonSerializerSpec(serializerName: String)
       }
     }
 
+    "serialize case object" in {
+      checkSerialization(TopLevelSingletonCaseObject)
+      checkSerialization(SingletonCaseObject)
+    }
+
     "serialize with ActorRef" in {
       val echo = system.actorOf(TestActors.echoActorProps)
       checkSerialization(CommandWithActorRef("echo", echo))
@@ -613,7 +611,7 @@ abstract class JacksonSerializerSpec(serializerName: String)
       }
     }
 
-    // FIXME test configured modules with `*` and that the Akka modules are found
-
   }
 }
+
+case object TopLevelSingletonCaseObject extends ScalaTestMessages.TestMessage

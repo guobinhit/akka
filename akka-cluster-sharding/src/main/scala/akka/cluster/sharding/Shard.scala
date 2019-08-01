@@ -198,7 +198,7 @@ private[akka] class Shard(
   private var handOffStopper: Option[ActorRef] = None
 
   import context.dispatcher
-  val passivateIdleTask = if (settings.passivateIdleEntityAfter > Duration.Zero) {
+  val passivateIdleTask = if (settings.passivateIdleEntityAfter > Duration.Zero && !settings.rememberEntities) {
     val idleInterval = settings.passivateIdleEntityAfter / 2
     Some(context.system.scheduler.scheduleWithFixedDelay(idleInterval, idleInterval, self, PassivateIdleTick))
   } else {
@@ -252,7 +252,7 @@ private[akka] class Shard(
   def processChange[E <: StateChange](event: E)(handler: E => Unit): Unit =
     handler(event)
 
-  def receive = receiveCommand
+  def receive: Receive = receiveCommand
 
   // Don't send back ShardInitialized so that messages are buffered in the ShardRegion
   // while awaiting the lease

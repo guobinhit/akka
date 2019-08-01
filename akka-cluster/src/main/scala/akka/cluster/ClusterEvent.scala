@@ -129,21 +129,21 @@ object ClusterEvent {
     /**
      * Java API: get current unreachable set.
      */
-    @silent
+    @silent("deprecated")
     def getUnreachable: java.util.Set[Member] =
       scala.collection.JavaConverters.setAsJavaSetConverter(unreachable).asJava
 
     /**
      * Java API: All data centers in the cluster
      */
-    @silent
+    @silent("deprecated")
     def getUnreachableDataCenters: java.util.Set[String] =
       scala.collection.JavaConverters.setAsJavaSetConverter(unreachableDataCenters).asJava
 
     /**
      * Java API: get current “seen-by” set.
      */
-    @silent
+    @silent("deprecated")
     def getSeenBy: java.util.Set[Address] =
       scala.collection.JavaConverters.setAsJavaSetConverter(seenBy).asJava
 
@@ -171,7 +171,7 @@ object ClusterEvent {
     /**
      * Java API: All node roles in the cluster
      */
-    @silent
+    @silent("deprecated")
     def getAllRoles: java.util.Set[String] =
       scala.collection.JavaConverters.setAsJavaSetConverter(allRoles).asJava
 
@@ -183,7 +183,7 @@ object ClusterEvent {
     /**
      * Java API: All data centers in the cluster
      */
-    @silent
+    @silent("deprecated")
     def getAllDataCenters: java.util.Set[String] =
       scala.collection.JavaConverters.setAsJavaSetConverter(allDataCenters).asJava
 
@@ -192,6 +192,14 @@ object ClusterEvent {
      */
     def withUnreachableDataCenters(unreachableDataCenters: Set[DataCenter]): CurrentClusterState =
       new CurrentClusterState(members, unreachable, seenBy, leader, roleLeaderMap, unreachableDataCenters)
+
+    /**
+     * INTERNAL API
+     * Returns true if the address is a cluster member and that member is `MemberStatus.Up`.
+     */
+    @InternalApi
+    private[akka] def isMemberUp(address: Address): Boolean =
+      members.exists(m => m.address == address && m.status == MemberStatus.Up)
 
     // for binary compatibility (used to be a case class)
     def copy(

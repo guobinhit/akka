@@ -1,8 +1,19 @@
-# Dispatchers
+# Classic Dispatchers
+
+@@@ note
+
+Akka Classic is the original Actor APIs, which have been improved by more type safe and guided Actor APIs, 
+known as Akka Typed. Akka Classic is still fully supported and existing applications can continue to use 
+the classic APIs. It is also possible to use Akka Typed together with classic actors within the same 
+ActorSystem, see @ref[coexistence](typed/coexisting.md). For new projects we recommend using the new Actor APIs.
+
+For the new API see @ref[dispatchers](typed/dispatchers.md).
+
+@@@
 
 ## Dependency
 
-Dispatchers are part of core akka, which means that they are part of the akka-actor dependency:
+Dispatchers are part of core Akka, which means that they are part of the akka-actor dependency:
 
 @@dependency[sbt,Maven,Gradle] {
   group="com.typesafe.akka"
@@ -42,6 +53,7 @@ Scala
 
 Java
 :  @@snip [DispatcherDocTest.java](/akka-docs/src/test/java/jdocs/dispatcher/DispatcherDocTest.java) { #lookup }
+
 ## Setting the dispatcher for an Actor
 
 So in case you want to give your `Actor` a different dispatcher than the default, you need to do two things, of which the first
@@ -140,7 +152,7 @@ There are 3 different types of message dispatchers:
 
     * Sharability: Unlimited
     * Mailboxes: Any, creates one per Actor per Thread (on demand)
-    * Use cases: Testing
+    * Use cases: Debugging and testing
     * Driven by: The calling thread (duh)
 
 ### More dispatcher configuration examples
