@@ -13,11 +13,13 @@ To use Akka Streams, add the module to your project:
 ## Integrating with Actors
 
 For piping the elements of a stream as messages to an ordinary actor you can use
-`ask` in a `mapAsync` or use `Sink.actorRefWithAck`.
+`ask` in a `mapAsync` or use `Sink.actorRefWithBackpressure`.
 
 Messages can be sent to a stream with `Source.queue` or via the `ActorRef` that is
 materialized by `Source.actorRef`.
 
+Additionally you can use `ActorSource.actorRef`, `ActorSource.actorRefWithBackpressure`, `ActorSink.actorRef` and `ActorSink.actorRefWithBackpressure` shown below.
+ 
 ### ask
 
 @@@ note
@@ -69,10 +71,10 @@ If you are intending to ask multiple actors by using @ref:[Actor routers](../rou
 you should use `mapAsyncUnordered` and perform the ask manually in there, as the ordering of the replies is not important,
 since multiple actors are being asked concurrently to begin with, and no single actor is the one to be watched by the operator.
 
-### Sink.actorRefWithAck
+### Sink.actorRefWithBackpressure
 
 @@@ note
-  See also: @ref[Sink.actorRefWithAck operator reference docs](operators/Sink/actorRefWithAck.md)
+  See also: @ref[Sink.actorRefWithBackpressure operator reference docs](operators/Sink/actorRefWithBackpressure.md)
 @@@
 
 The sink sends the elements of the stream to the given `ActorRef` that sends back back-pressure signal.
@@ -85,18 +87,18 @@ given `onCompleteMessage` will be sent to the destination actor. When the stream
 failure a `akka.actor.Status.Failure` message will be sent to the destination actor.
 
 Scala
-:   @@snip [IntegrationDocSpec.scala](/akka-docs/src/test/scala/docs/stream/IntegrationDocSpec.scala) { #actorRefWithAck }
+:   @@snip [IntegrationDocSpec.scala](/akka-docs/src/test/scala/docs/stream/IntegrationDocSpec.scala) { #actorRefWithBackpressure }
 
 Java
-:   @@snip [IntegrationDocTest.java](/akka-docs/src/test/java/jdocs/stream/IntegrationDocTest.java) { #actorRefWithAck }
+:   @@snip [IntegrationDocTest.java](/akka-docs/src/test/java/jdocs/stream/IntegrationDocTest.java) { #actorRefWithBackpressure }
 
 The receiving actor would then need to be implemented similar to the following:
 
 Scala
-:   @@snip [IntegrationDocSpec.scala](/akka-docs/src/test/scala/docs/stream/IntegrationDocSpec.scala) { #actorRefWithAck-actor }
+:   @@snip [IntegrationDocSpec.scala](/akka-docs/src/test/scala/docs/stream/IntegrationDocSpec.scala) { #actorRefWithBackpressure-actor }
 
 Java
-:   @@snip [IntegrationDocTest.java](/akka-docs/src/test/java/jdocs/stream/IntegrationDocTest.java) { #actorRefWithAck-actor }
+:   @@snip [IntegrationDocTest.java](/akka-docs/src/test/java/jdocs/stream/IntegrationDocTest.java) { #actorRefWithBackpressure-actor }
 
 Note that replying to the sender of the elements (the "stream") is required as lack of those ack signals would be interpreted
 as back-pressure (as intended), and no new elements will be sent into the actor until it acknowledges some elements.
@@ -111,7 +113,7 @@ Using `Sink.actorRef` or ordinary `tell` from a `map` or `foreach` operator mean
 no back-pressure signal from the destination actor, i.e. if the actor is not consuming the messages
 fast enough the mailbox of the actor will grow, unless you use a bounded mailbox with zero
 *mailbox-push-timeout-time* or use a rate limiting operator in front. It's often better to
-use `Sink.actorRefWithAck` or `ask` in `mapAsync`, though.
+use `Sink.actorRefWithBackpressure` or `ask` in `mapAsync`, though.
 
 @@@
 
@@ -180,6 +182,39 @@ Scala
 
 Java
 :   @@snip [IntegrationDocTest.java](/akka-docs/src/test/java/jdocs/stream/IntegrationDocTest.java) { #source-actorRef }
+
+
+### ActorSource.actorRef
+
+Materialize an @java[`ActorRef<T>`]@scala[`ActorRef[T]`]; sending messages to it will emit them on the stream only if they are of the same type as the stream.
+
+@@@ note
+  See also: @ref[ActorSource.actorRef operator reference docs](operators/ActorSource/actorRef.md)
+@@@
+
+### ActorSource.actorRefWithBackpressure
+
+Materialize an @java[`ActorRef<T>`]@scala[`ActorRef[T]`]; sending messages to it will emit them on the stream. The source acknowledges reception after emitting a message, to provide back pressure from the source.
+
+@@@ note
+  See also: @ref[ActorSource.actorRefWithBackpressure operator reference docs](operators/ActorSource/actorRefWithBackpressure.md)
+@@@
+
+### ActorSink.actorRef
+
+Sends the elements of the stream to the given @java[`ActorRef<T>`]@scala[`ActorRef[T]`], without considering backpressure.
+
+@@@ note
+  See also: @ref[ActorSink.actorRef operator reference docs](operators/ActorSink/actorRef.md)
+@@@
+
+### ActorSink.actorRefWithBackpressure
+
+Sends the elements of the stream to the given @java[`ActorRef<T>`]@scala[`ActorRef[T]`] with backpressure, to be able to signal demand when the actor is ready to receive more elements.
+
+@@@ note
+  See also: @ref[ActorSink.actorRefWithBackpressure operator reference docs](operators/ActorSink/actorRefWithBackpressure.md)
+@@@
 
 ## Integrating with External Services
 
@@ -384,7 +419,7 @@ is `completed` before `g`, but still emitted afterwards.
 
 The numbers in parenthesis illustrates how many calls that are in progress at
 the same time. Here the downstream demand and thereby the number of concurrent
-calls are limited by the buffer size (4) of the `ActorMaterializerSettings`.
+calls are limited by the buffer size (4) set with an attribute.
 
 Here is how we can use the same service with `mapAsyncUnordered`:
 
@@ -444,7 +479,7 @@ Note that `after` lines are not in the same order as the `before` lines. For exa
 
 The numbers in parenthesis illustrates how many calls that are in progress at
 the same time. Here the downstream demand and thereby the number of concurrent
-calls are limited by the buffer size (4) of the `ActorMaterializerSettings`.
+calls are limited by the buffer size (4) set with an attribute.
 
 <a id="reactive-streams-integration"></a>
 ## Integrating with Reactive Streams

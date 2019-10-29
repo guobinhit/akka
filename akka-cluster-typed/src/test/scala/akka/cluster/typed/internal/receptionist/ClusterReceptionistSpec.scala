@@ -4,42 +4,35 @@
 
 package akka.cluster.typed.internal.receptionist
 
-import java.nio.charset.StandardCharsets
-
-import akka.actor.{ ExtendedActorSystem, RootActorPath }
-import akka.actor.typed.receptionist.{ Receptionist, ServiceKey }
-import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.scaladsl.adapter._
-import akka.actor.typed.{ ActorRef, ActorRefResolver }
-import akka.cluster.MemberStatus
-import akka.cluster.typed.{ Cluster, Join }
-import akka.serialization.SerializerWithStringManifest
-import akka.actor.testkit.typed.FishingOutcome
-import akka.actor.testkit.typed.scaladsl.{ ActorTestKit, FishingOutcomes, TestProbe }
-import com.typesafe.config.ConfigFactory
-import org.scalatest.{ Matchers, WordSpec }
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
+import akka.actor.RootActorPath
+import akka.actor.testkit.typed.FishingOutcome
+import akka.actor.testkit.typed.scaladsl.ActorTestKit
+import akka.actor.testkit.typed.scaladsl.FishingOutcomes
+import akka.actor.testkit.typed.scaladsl.LogCapturing
+import akka.actor.testkit.typed.scaladsl.TestProbe
+import akka.actor.typed.ActorRef
+import akka.actor.typed.receptionist.Receptionist
+import akka.actor.typed.receptionist.ServiceKey
+import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.scaladsl.adapter._
+import akka.cluster.MemberStatus
+import akka.cluster.typed.Cluster
 import akka.cluster.typed.Down
+import akka.cluster.typed.Join
 import akka.cluster.typed.JoinSeedNodes
 import akka.cluster.typed.Leave
+import akka.serialization.jackson.CborSerializable
+import com.typesafe.config.ConfigFactory
+import org.scalatest.Matchers
+import org.scalatest.WordSpec
 
 object ClusterReceptionistSpec {
   val config = ConfigFactory.parseString(s"""
       akka.loglevel = DEBUG # issue #24960
-      akka.actor {
-        provider = cluster
-        serialize-messages = off
-        serializers {
-          test = "akka.cluster.typed.internal.receptionist.ClusterReceptionistSpec$$PingSerializer"
-        }
-        serialization-bindings {
-          "akka.cluster.typed.internal.receptionist.ClusterReceptionistSpec$$Ping" = test
-          "akka.cluster.typed.internal.receptionist.ClusterReceptionistSpec$$Pong$$" = test
-          "akka.cluster.typed.internal.receptionist.ClusterReceptionistSpec$$Perish$$" = test
-        }
-      }
+      akka.actor.provider = cluster
       akka.remote.classic.netty.tcp.port = 0
       akka.remote.classic.netty.tcp.host = 127.0.0.1
       akka.remote.artery.canonical.port = 0
@@ -52,16 +45,15 @@ object ClusterReceptionistSpec {
       }
 
       akka.cluster {
-        #auto-down-unreachable-after = 0s
         jmx.multi-mbeans-in-same-jvm = on
         failure-detector.acceptable-heartbeat-pause = 3s
       }
     """)
 
-  case object Pong
+  case object Pong extends CborSerializable
   trait PingProtocol
-  case class Ping(respondTo: ActorRef[Pong.type]) extends PingProtocol
-  case object Perish extends PingProtocol
+  case class Ping(respondTo: ActorRef[Pong.type]) extends PingProtocol with CborSerializable
+  case object Perish extends PingProtocol with CborSerializable
 
   val pingPongBehavior = Behaviors.receive[PingProtocol] { (_, msg) =>
     msg match {
@@ -74,32 +66,10 @@ object ClusterReceptionistSpec {
     }
   }
 
-  class PingSerializer(system: ExtendedActorSystem) extends SerializerWithStringManifest {
-    def identifier: Int = 47
-    def manifest(o: AnyRef): String = o match {
-      case _: Ping => "a"
-      case Pong    => "b"
-      case Perish  => "c"
-    }
-
-    def toBinary(o: AnyRef): Array[Byte] = o match {
-      case p: Ping =>
-        ActorRefResolver(system.toTyped).toSerializationFormat(p.respondTo).getBytes(StandardCharsets.UTF_8)
-      case Pong   => Array.emptyByteArray
-      case Perish => Array.emptyByteArray
-    }
-
-    def fromBinary(bytes: Array[Byte], manifest: String): AnyRef = manifest match {
-      case "a" => Ping(ActorRefResolver(system.toTyped).resolveActorRef(new String(bytes, StandardCharsets.UTF_8)))
-      case "b" => Pong
-      case "c" => Perish
-    }
-  }
-
   val PingKey = ServiceKey[PingProtocol]("pingy")
 }
 
-class ClusterReceptionistSpec extends WordSpec with Matchers {
+class ClusterReceptionistSpec extends WordSpec with Matchers with LogCapturing {
 
   import ClusterReceptionistSpec._
   import Receptionist._
@@ -240,7 +210,7 @@ class ClusterReceptionistSpec extends WordSpec with Matchers {
 
         regProbe2.expectMessageType[Listing].serviceInstances(PingKey).size should ===(2)
 
-        akka.cluster.Cluster(system1.toUntyped).shutdown()
+        akka.cluster.Cluster(system1.toClassic).shutdown()
 
         regProbe2.expectNoMessage(3.seconds)
 
@@ -592,7 +562,7 @@ class ClusterReceptionistSpec extends WordSpec with Matchers {
     "not conflict with the ClusterClient receptionist default name" in {
       val testKit = ActorTestKit(s"ClusterReceptionistSpec-test-9", ClusterReceptionistSpec.config)
       try {
-        testKit.system.systemActorOf(Behaviors.ignore, "receptionist")(3.seconds)
+        testKit.system.systemActorOf(Behaviors.ignore, "receptionist")
       } finally {
         testKit.shutdownTestKit()
       }

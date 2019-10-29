@@ -8,20 +8,17 @@ import akka.Done
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.adapter._
-import akka.testkit.EventFilter
 import akka.actor.testkit.typed.scaladsl.TestProbe
-
 import scala.concurrent._
 import scala.concurrent.duration._
+
 import akka.actor.testkit.typed.TestException
+import akka.actor.testkit.typed.scaladsl.LoggingTestKit
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
-import com.typesafe.config.ConfigFactory
+import akka.actor.testkit.typed.scaladsl.LogCapturing
 import org.scalatest.WordSpecLike
 
 object WatchSpec {
-  val config = ConfigFactory.parseString("""
-       akka.loggers = ["akka.testkit.TestEventListener"]
-    """.stripMargin)
 
   case object Stop
 
@@ -30,9 +27,11 @@ object WatchSpec {
       case (_, Stop) => Behaviors.stopped
     }
 
-  val mutableTerminatorBehavior = new AbstractBehavior[Stop.type] {
-    override def onMessage(message: Stop.type) = message match {
-      case Stop => Behaviors.stopped
+  val mutableTerminatorBehavior = Behaviors.setup[Stop.type] { context =>
+    new AbstractBehavior[Stop.type](context) {
+      override def onMessage(message: Stop.type) = message match {
+        case Stop => Behaviors.stopped
+      }
     }
   }
 
@@ -44,9 +43,9 @@ object WatchSpec {
   case class StartWatchingWith(watchee: ActorRef[Stop.type], message: CustomTerminationMessage) extends Message
 }
 
-class WatchSpec extends ScalaTestWithActorTestKit(WatchSpec.config) with WordSpecLike {
+class WatchSpec extends ScalaTestWithActorTestKit with WordSpecLike with LogCapturing {
 
-  implicit def untypedSystem = system.toUntyped
+  implicit def classicSystem = system.toClassic
 
   import WatchSpec._
 
@@ -110,7 +109,7 @@ class WatchSpec extends ScalaTestWithActorTestKit(WatchSpec.config) with WordSpe
         },
         "supervised-child-parent")
 
-      EventFilter[TestException](occurrences = 1).intercept {
+      LoggingTestKit.error[TestException].intercept {
         parent ! "boom"
       }
       probe.expectMessageType[ChildHasFailed].t.cause shouldEqual ex
@@ -145,7 +144,7 @@ class WatchSpec extends ScalaTestWithActorTestKit(WatchSpec.config) with WordSpe
       }
       val parent = spawn(behavior, "parent")
 
-      EventFilter[TestException](occurrences = 1).intercept {
+      LoggingTestKit.error[TestException].intercept {
         parent ! "boom"
       }
       probe.expectMessageType[ChildHasFailed].t.cause shouldEqual ex
@@ -184,8 +183,8 @@ class WatchSpec extends ScalaTestWithActorTestKit(WatchSpec.config) with WordSpe
           },
           "grosso-bosso")
 
-      EventFilter[TestException](occurrences = 1).intercept {
-        EventFilter[DeathPactException](occurrences = 1).intercept {
+      LoggingTestKit.error[TestException].intercept {
+        LoggingTestKit.error[DeathPactException].intercept {
           grossoBosso ! "boom"
         }
       }
@@ -325,7 +324,9 @@ class WatchSpec extends ScalaTestWithActorTestKit(WatchSpec.config) with WordSpe
     "fail when watch is used after watchWith on same subject" in new ErrorTestSetup {
       watcher ! StartWatchingWith(terminator, CustomTerminationMessage)
 
-      EventFilter[IllegalStateException](pattern = ".*termination message was not overwritten.*", occurrences = 1)
+      LoggingTestKit
+        .error[IllegalStateException]
+        .withMessageContains("termination message was not overwritten")
         .intercept {
           watcher ! StartWatching(terminator)
         }
@@ -336,7 +337,9 @@ class WatchSpec extends ScalaTestWithActorTestKit(WatchSpec.config) with WordSpe
     "fail when watchWitch is used after watchWith with different termination message" in new ErrorTestSetup {
       watcher ! StartWatchingWith(terminator, CustomTerminationMessage)
 
-      EventFilter[IllegalStateException](pattern = ".*termination message was not overwritten.*", occurrences = 1)
+      LoggingTestKit
+        .error[IllegalStateException]
+        .withMessageContains("termination message was not overwritten")
         .intercept {
           watcher ! StartWatchingWith(terminator, CustomTerminationMessage2)
         }
@@ -346,7 +349,9 @@ class WatchSpec extends ScalaTestWithActorTestKit(WatchSpec.config) with WordSpe
     "fail when watchWith is used after watch on same subject" in new ErrorTestSetup {
       watcher ! StartWatching(terminator)
 
-      EventFilter[IllegalStateException](pattern = ".*termination message was not overwritten.*", occurrences = 1)
+      LoggingTestKit
+        .error[IllegalStateException]
+        .withMessageContains("termination message was not overwritten")
         .intercept {
           watcher ! StartWatchingWith(terminator, CustomTerminationMessage)
         }

@@ -188,7 +188,7 @@ final class Flow[-In, +Out, +Mat](
    * | Resulting Flow            |
    * |                           |
    * | +------+        +------+  |
-   * | |      | ~Out~> |      | ~~> O2
+   * | |      | ~Out~> |      | ~~> O1
    * | | flow |        | bidi |  |
    * | |      | <~In~  |      | <~~ I2
    * | +------+        +------+  |
@@ -198,7 +198,7 @@ final class Flow[-In, +Out, +Mat](
    * value of the current flow (ignoring the [[BidiFlow]]’s value), use
    * [[Flow#joinMat[I2* joinMat]] if a different strategy is needed.
    */
-  def join[I2, O2, Mat2](bidi: Graph[BidiShape[Out, O2, I2, In], Mat2]): Flow[I2, O2, Mat] = joinMat(bidi)(Keep.left)
+  def join[I2, O1, Mat2](bidi: Graph[BidiShape[Out, O1, I2, In], Mat2]): Flow[I2, O1, Mat] = joinMat(bidi)(Keep.left)
 
   /**
    * Join this [[Flow]] to a [[BidiFlow]] to close off the “top” of the protocol stack:
@@ -207,7 +207,7 @@ final class Flow[-In, +Out, +Mat](
    * | Resulting Flow            |
    * |                           |
    * | +------+        +------+  |
-   * | |      | ~Out~> |      | ~~> O2
+   * | |      | ~Out~> |      | ~~> O1
    * | | flow |        | bidi |  |
    * | |      | <~In~  |      | <~~ I2
    * | +------+        +------+  |
@@ -219,8 +219,8 @@ final class Flow[-In, +Out, +Mat](
    * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
    * where appropriate instead of manually writing functions that pass through one of the values.
    */
-  def joinMat[I2, O2, Mat2, M](bidi: Graph[BidiShape[Out, O2, I2, In], Mat2])(
-      combine: (Mat, Mat2) => M): Flow[I2, O2, M] = {
+  def joinMat[I2, O1, Mat2, M](bidi: Graph[BidiShape[Out, O1, I2, In], Mat2])(
+      combine: (Mat, Mat2) => M): Flow[I2, O1, M] = {
     val newBidiShape = bidi.shape.deepCopy()
     val newFlowShape = shape.deepCopy()
 
@@ -287,6 +287,9 @@ final class Flow[-In, +Out, +Mat](
    * Connect the `Source` to this `Flow` and then connect it to the `Sink` and run it. The returned tuple contains
    * the materialized values of the `Source` and `Sink`, e.g. the `Subscriber` of a of a [[Source#subscriber]] and
    * and `Publisher` of a [[Sink#publisher]].
+   *
+   * Note that the `ActorSystem` can be used as the implicit `materializer` parameter to use the
+   * [[akka.stream.SystemMaterializer]] for running the stream.
    */
   def runWith[Mat1, Mat2](source: Graph[SourceShape[In], Mat1], sink: Graph[SinkShape[Out], Mat2])(
       implicit materializer: Materializer): (Mat1, Mat2) =
@@ -390,11 +393,21 @@ object Flow {
 
   /**
    * Defers the creation of a [[Flow]] until materialization. The `factory` function
+   * exposes [[Materializer]] which is going to be used during materialization and
+   * [[Attributes]] of the [[Flow]] returned by this method.
+   */
+  def fromMaterializer[T, U, M](factory: (Materializer, Attributes) => Flow[T, U, M]): Flow[T, U, Future[M]] =
+    Flow.fromGraph(new SetupFlowStage(factory))
+
+  /**
+   * Defers the creation of a [[Flow]] until materialization. The `factory` function
    * exposes [[ActorMaterializer]] which is going to be used during materialization and
    * [[Attributes]] of the [[Flow]] returned by this method.
    */
+  @deprecated("Use 'fromMaterializer' instead", "2.6.0")
   def setup[T, U, M](factory: (ActorMaterializer, Attributes) => Flow[T, U, M]): Flow[T, U, Future[M]] =
-    Flow.fromGraph(new SetupFlowStage(factory))
+    Flow.fromGraph(new SetupFlowStage((materializer, attributes) =>
+      factory(ActorMaterializerHelper.downcast(materializer), attributes)))
 
   /**
    * Creates a `Flow` from a `Sink` and a `Source` where the Flow's input
@@ -568,10 +581,9 @@ object Flow {
    *
    * '''Cancels when''' downstream cancels
    */
-  @Deprecated
   @deprecated(
-    "Use lazyInitAsync instead. (lazyInitAsync returns a flow with a more useful materialized value.)",
-    "2.5.12")
+    "Use 'Flow.futureFlow' in combination with prefixAndTail(1) instead, see `futureFlow` operator docs for details",
+    "2.6.0")
   def lazyInit[I, O, M](flowFactory: I => Future[Flow[I, O, M]], fallback: () => M): Flow[I, O, M] =
     Flow.fromGraph(new LazyFlow[I, O, M](flowFactory)).mapMaterializedValue(_ => fallback())
 
@@ -591,8 +603,71 @@ object Flow {
    *
    * '''Cancels when''' downstream cancels
    */
+  @deprecated("Use 'Flow.lazyFutureFlow' instead", "2.6.0")
   def lazyInitAsync[I, O, M](flowFactory: () => Future[Flow[I, O, M]]): Flow[I, O, Future[Option[M]]] =
-    Flow.fromGraph(new LazyFlow[I, O, M](_ => flowFactory()))
+    Flow.fromGraph(new LazyFlow[I, O, M](_ => flowFactory())).mapMaterializedValue { v =>
+      implicit val ec = akka.dispatch.ExecutionContexts.sameThreadExecutionContext
+      v.map[Option[M]](Some.apply _).recover { case _: NeverMaterializedException => None }
+    }
+
+  /**
+   * Turn a `Future[Flow]` into a flow that will consume the values of the source when the future completes successfully.
+   * If the `Future` is completed with a failure the stream is failed.
+   *
+   * The materialized future value is completed with the materialized value of the future flow or failed with a
+   * [[NeverMaterializedException]] if upstream fails or downstream cancels before the future has completed.
+   */
+  def futureFlow[I, O, M](flow: Future[Flow[I, O, M]]): Flow[I, O, Future[M]] =
+    lazyFutureFlow(() => flow)
+
+  /**
+   * Defers invoking the `create` function to create a future flow until there is downstream demand and passing
+   * that downstream demand upstream triggers the first element.
+   *
+   * The materialized future value is completed with the materialized value of the created flow when that has successfully
+   * been materialized.
+   *
+   * If the `create` function throws or returns a future that fails the stream is failed, in this case the materialized
+   * future value is failed with a [[NeverMaterializedException]].
+   *
+   * Note that asynchronous boundaries (and other operators) in the stream may do pre-fetching which counter acts
+   * the laziness and can trigger the factory earlier than expected.
+   *
+   * '''Emits when''' the internal flow is successfully created and it emits
+   *
+   * '''Backpressures when''' the internal flow is successfully created and it backpressures or downstream backpressures
+   *
+   * '''Completes when''' upstream completes and all elements have been emitted from the internal flow
+   *
+   * '''Cancels when''' downstream cancels
+   */
+  def lazyFlow[I, O, M](create: () => Flow[I, O, M]): Flow[I, O, Future[M]] =
+    lazyFutureFlow(() => Future.successful(create()))
+
+  /**
+   * Defers invoking the `create` function to create a future flow until there downstream demand has caused upstream
+   * to send a first element.
+   *
+   * The materialized future value is completed with the materialized value of the created flow when that has successfully
+   * been materialized.
+   *
+   * If the `create` function throws or returns a future that fails the stream is failed, in this case the materialized
+   * future value is failed with a [[NeverMaterializedException]].
+   *
+   * Note that asynchronous boundaries (and other operators) in the stream may do pre-fetching which counter acts
+   * the laziness and can trigger the factory earlier than expected.
+   *
+   * '''Emits when''' the internal flow is successfully created and it emits
+   *
+   * '''Backpressures when''' the internal flow is successfully created and it backpressures or downstream backpressures
+   *
+   * '''Completes when''' upstream completes and all elements have been emitted from the internal flow
+   *
+   * '''Cancels when''' downstream cancels
+   */
+  def lazyFutureFlow[I, O, M](create: () => Future[Flow[I, O, M]]): Flow[I, O, Future[M]] =
+    Flow.fromGraph(new LazyFlow(_ => create()))
+
 }
 
 object RunnableGraph {
@@ -622,6 +697,9 @@ final case class RunnableGraph[+Mat](override val traversalBuilder: TraversalBui
 
   /**
    * Run this flow and return the materialized instance from the flow.
+   *
+   * Note that the `ActorSystem` can be used as the implicit `materializer` parameter to use the
+   * [[akka.stream.SystemMaterializer]] for running the stream.
    */
   def run()(implicit materializer: Materializer): Mat = materializer.materialize(this)
 
@@ -2318,8 +2396,8 @@ trait FlowOps[+Out, +Mat] {
    * of time between events.
    *
    * If you want to be sure that no time interval has no more than specified number of events you need to use
-   * [[throttle()]] with maximumBurst attribute.
-   * @see [[#throttle]]
+   * [[throttle]] with maximumBurst attribute.
+   * @see [[throttle]]
    */
   @Deprecated
   @deprecated("Use throttle without `maximumBurst` parameter instead.", "2.5.12")
@@ -2333,8 +2411,8 @@ trait FlowOps[+Out, +Mat] {
    * of time between events.
    *
    * If you want to be sure that no time interval has no more than specified number of events you need to use
-   * [[throttle()]] with maximumBurst attribute.
-   * @see [[#throttle]]
+   * [[throttle]] with maximumBurst attribute.
+   * @see [[throttle]]
    */
   @Deprecated
   @deprecated("Use throttle without `maximumBurst` parameter instead.", "2.5.12")
@@ -3292,8 +3370,8 @@ trait FlowOpsMat[+Out, +Mat] extends FlowOps[Out, Mat] {
   /**
    * Materializes to `Future[Done]` that completes on getting termination message.
    * The Future completes with success when received complete message from upstream or cancel
-   * from downstream. It fails with the same error when received error message from
-   * downstream.
+   * from downstream. It fails with the propagated error when received error message from
+   * upstream or downstream.
    *
    * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
    * where appropriate instead of manually writing functions that pass through one of the values.

@@ -439,10 +439,12 @@ object ShardRegion {
     def receive: Receive = {
       case ReceiveTimeout =>
         log.warning(
-          "HandOffStopMessage[{}] is not handled by some of the entities of the `{}` shard, " +
-          "stopping the remaining entities.",
+          "HandOffStopMessage[{}] is not handled by some of the entities of the [{}] shard after [{}], " +
+          "stopping the remaining [{}] entities.",
           stopMessage.getClass.getName,
-          shard)
+          shard,
+          handoffTimeout.toCoarsest,
+          remaining.size)
 
         remaining.foreach { ref =>
           context.stop(ref)
@@ -535,17 +537,24 @@ private[akka] class ShardRegion(
     cluster.subscribe(self, classOf[MemberEvent])
     timers.startTimerWithFixedDelay(Retry, Retry, retryInterval)
     startRegistration()
-    if (settings.passivateIdleEntityAfter > Duration.Zero && !settings.rememberEntities)
-      log.info(
-        "{}: Idle entities will be passivated after [{}]",
-        typeName,
-        PrettyDuration.format(settings.passivateIdleEntityAfter))
+    logPassivateIdleEntities()
   }
 
   override def postStop(): Unit = {
     super.postStop()
     cluster.unsubscribe(self)
     gracefulShutdownProgress.trySuccess(Done)
+  }
+
+  private def logPassivateIdleEntities(): Unit = {
+    if (settings.shouldPassivateIdleEntities)
+      log.info(
+        "{}: Idle entities will be passivated after [{}]",
+        typeName,
+        PrettyDuration.format(settings.passivateIdleEntityAfter))
+
+    if (settings.rememberEntities)
+      log.debug("Idle entities will not be passivated because 'rememberEntities' is enabled.")
   }
 
   // when using proxy the data center can be different from the own data center

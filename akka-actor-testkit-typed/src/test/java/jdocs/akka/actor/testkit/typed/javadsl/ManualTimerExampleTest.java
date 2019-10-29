@@ -6,10 +6,12 @@ package jdocs.akka.actor.testkit.typed.javadsl;
 
 // #manual-scheduling-simple
 
+import akka.actor.testkit.typed.javadsl.LogCapturing;
 import akka.actor.typed.Behavior;
 import akka.actor.testkit.typed.javadsl.ManualTime;
 import akka.actor.testkit.typed.javadsl.TestKitJunitResource;
 import org.junit.ClassRule;
+import org.junit.Rule;
 import org.scalatest.junit.JUnitSuite;
 import java.time.Duration;
 
@@ -24,6 +26,8 @@ public class ManualTimerExampleTest extends JUnitSuite {
   @ClassRule
   public static final TestKitJunitResource testKit = new TestKitJunitResource(ManualTime.config());
 
+  @Rule public final LogCapturing logCapturing = new LogCapturing();
+
   private final ManualTime manualTime = ManualTime.get(testKit.system());
 
   static final class Tick {}
@@ -37,8 +41,8 @@ public class ManualTimerExampleTest extends JUnitSuite {
         Behaviors.withTimers(
             timer -> {
               timer.startSingleTimer("T", new Tick(), Duration.ofMillis(10));
-              return Behaviors.receive(
-                  (context, tick) -> {
+              return Behaviors.receiveMessage(
+                  tick -> {
                     probe.ref().tell(new Tock());
                     return Behaviors.same();
                   });

@@ -1,13 +1,6 @@
 # Classic Persistent FSM
 
-@@@ note
-
-Akka Classic is the original Actor APIs, which have been improved by more type safe and guided Actor APIs, 
-known as Akka Typed. Akka Classic is still fully supported and existing applications can continue to use 
-the classic APIs. It is also possible to use Akka Typed together with classic actors within the same 
-ActorSystem, see @ref[coexistence](typed/coexisting.md). For new projects we recommend using the new Actor APIs.
-
-@@@
+@@include[includes.md](includes.md) { #actor-api }
 
 ## Dependency
 
@@ -132,7 +125,7 @@ Persistent FSMs can be represented using @ref[Persistence Typed](typed/persisten
 using a snapshot adapter and an event adapter. The adapters are required as Persistent FSM doesn't store snapshots and user data directly, it wraps them in 
 internal types that include state transition information.
 
-Before reading the migration guide it is advised to understand [Persistence Typed](typed/persistence.md). 
+Before reading the migration guide it is advised to understand @ref:[Persistence Typed](typed/persistence.md). 
 
 ### Migration steps
 
@@ -206,7 +199,11 @@ Java
 :  @@snip [PersistentFsmToTypedMigrationCompileOnlyTest.java](/akka-persistence-typed/src/test/java/jdocs/akka/persistence/typed/PersistentFsmToTypedMigrationCompileOnlyTest.java) { #snapshot-adapter }
 
 That concludes all the steps to allow an @apidoc[EventSourcedBehavior] to read a `PersistentFSM`'s data. Once the new code has been running
-you can not roll back as the PersistentFSM will not be able to read data written by Persistence Typed. This means that if using persistence
-with Cluster Sharding a full shutdown is required as shards can move between new and old nodes.
+you can not roll back as the PersistentFSM will not be able to read data written by Persistence Typed. 
 
+@@@ note 
+
+There is one case where @ref:[a full shutdown and startup is required](additional/rolling-updates.md#migrating-from-persistentfsm-to-eventsourcedbehavior).
+
+@@@
 

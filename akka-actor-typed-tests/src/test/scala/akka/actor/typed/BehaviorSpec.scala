@@ -12,6 +12,7 @@ import java.util.function.{ Function => F1 }
 
 import akka.Done
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
+import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.actor.testkit.typed.scaladsl.{ BehaviorTestKit, TestInbox }
 import org.scalactic.TypeCheckedTripleEquals
 import org.scalatest.Matchers
@@ -68,7 +69,7 @@ object BehaviorSpec {
     override def next = StateA
   }
 
-  trait Common extends WordSpecLike with Matchers with TypeCheckedTripleEquals {
+  trait Common extends WordSpecLike with Matchers with TypeCheckedTripleEquals with LogCapturing {
     type Aux >: Null <: AnyRef
     def behavior(monitor: ActorRef[Event]): (Behavior[Command], Aux)
     @silent("never used")
@@ -440,7 +441,7 @@ class MutableScalaBehaviorSpec extends Messages with Become with Stoppable {
 
   def behv(monitor: ActorRef[Event]): Behavior[Command] =
     SBehaviors.setup[Command] { context =>
-      new SAbstractBehavior[Command] {
+      new SAbstractBehavior[Command](context) {
         private var state: State = StateA
 
         override def onMessage(message: Command): Behavior[Command] = {

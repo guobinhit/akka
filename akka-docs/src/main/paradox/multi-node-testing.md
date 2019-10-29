@@ -1,4 +1,9 @@
+---
+project.description: Multi node testing of distributed systems built with Akka.
+---
 # Multi Node Testing
+
+@@project-info{ projectId="akka-multi-node-testkit" }
 
 ## Dependency
 
@@ -21,10 +26,10 @@ to see what this looks like in practice.
 When we talk about multi node testing in Akka we mean the process of running coordinated tests on multiple actor
 systems in different JVMs. The multi node testing kit consist of three main parts.
 
- * [The Test Conductor](#the-test-conductor). that coordinates and controls the nodes under test.
- * [The Multi Node Spec](#the-multi-node-spec). that is a convenience wrapper for starting the `TestConductor` and letting all
+ * @ref:[The Test Conductor](#the-test-conductor). that coordinates and controls the nodes under test.
+ * @ref:[The Multi Node Spec](#the-multi-node-spec). that is a convenience wrapper for starting the `TestConductor` and letting all
 nodes connect to it.
- * [The SbtMultiJvm Plugin](#the-sbtmultijvm-plugin). that starts tests in multiple JVMs possibly on multiple machines.
+ * @ref:[The SbtMultiJvm Plugin](#the-sbtmultijvm-plugin). that starts tests in multiple JVMs possibly on multiple machines.
 
 ## The Test Conductor
 
@@ -202,4 +207,4 @@ thread. This also means that you shouldn't use them from inside an actor, a futu
 ## Configuration
 
 There are several configuration properties for the Multi-Node Testing module, please refer
-to the @ref:[reference configuration](general/configuration.md#config-akka-multi-node-testkit).
+to the @ref:[reference configuration](general/configuration-reference.md#config-akka-multi-node-testkit).

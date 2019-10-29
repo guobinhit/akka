@@ -14,8 +14,9 @@ import DispatchersDocSpec._
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import com.typesafe.config.ConfigFactory
 import org.scalatest.WordSpecLike
-
 import scala.concurrent.Future
+
+import akka.actor.testkit.typed.scaladsl.LogCapturing
 
 object DispatchersDocSpec {
 
@@ -48,8 +49,8 @@ object DispatchersDocSpec {
     context.spawn(yourBehavior, "DefaultDispatcher")
     context.spawn(yourBehavior, "ExplicitDefaultDispatcher", DispatcherSelector.default())
     context.spawn(yourBehavior, "BlockingDispatcher", DispatcherSelector.blocking())
-    context.spawn(yourBehavior, "DispatcherFromConfig", DispatcherSelector.fromConfig("your-dispatcher"))
     context.spawn(yourBehavior, "ParentDispatcher", DispatcherSelector.sameAsParent())
+    context.spawn(yourBehavior, "DispatcherFromConfig", DispatcherSelector.fromConfig("your-dispatcher"))
     //#spawn-dispatcher
 
     Behaviors.same
@@ -57,7 +58,10 @@ object DispatchersDocSpec {
 
 }
 
-class DispatchersDocSpec extends ScalaTestWithActorTestKit(DispatchersDocSpec.config) with WordSpecLike {
+class DispatchersDocSpec
+    extends ScalaTestWithActorTestKit(DispatchersDocSpec.config)
+    with WordSpecLike
+    with LogCapturing {
 
   "Actor Dispatchers" should {
     "support default and blocking dispatcher" in {

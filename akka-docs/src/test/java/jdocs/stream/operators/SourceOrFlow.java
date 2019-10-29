@@ -4,6 +4,7 @@
 
 package jdocs.stream.operators;
 
+import akka.japi.pf.PFBuilder;
 import akka.stream.Materializer;
 import akka.stream.javadsl.Flow;
 
@@ -35,7 +36,7 @@ import java.util.Arrays;
 
 // #log
 import akka.stream.Attributes;
-import akka.stream.javadsl.Source;
+
 // #log
 
 import java.time.Duration;
@@ -52,8 +53,8 @@ class SourceOrFlow {
         .addAttributes(
             Attributes.createLogLevels(
                 Attributes.logLevelOff(), // onElement
-                Attributes.logLevelError(), // onFailure
-                Attributes.logLevelInfo())) // onFinish
+                Attributes.logLevelInfo(), // onFinish
+                Attributes.logLevelError())) // onFailure
     // #log
     ;
   }
@@ -209,5 +210,65 @@ class SourceOrFlow {
         .conflateWithSeed(Summed::new, (Summed acc, Integer el) -> acc.sum(new Summed(el)))
         .throttle(1, Duration.ofSeconds(1)); // slow downstream
     // #conflateWithSeed
+  }
+
+  // #collect-elements
+  static interface Message {}
+
+  static class Ping implements Message {
+    final int id;
+
+    Ping(int id) {
+      this.id = id;
+    }
+  }
+
+  static class Pong {
+    final int id;
+
+    Pong(int id) {
+      this.id = id;
+    }
+  }
+  // #collect-elements
+
+  void collectExample() {
+    // #collect
+    Flow<Message, Pong, NotUsed> flow =
+        Flow.of(Message.class)
+            .collect(
+                new PFBuilder<Message, Pong>()
+                    .match(Ping.class, p -> p.id != 0, p -> new Pong(p.id))
+                    .build());
+    // #collect
+  }
+
+  void collectTypeExample() {
+    // #collectType
+    Flow<Message, Pong, NotUsed> flow =
+        Flow.of(Message.class)
+            .collectType(Ping.class)
+            .filter(p -> p.id != 0)
+            .map(p -> new Pong(p.id));
+    // #collectType
+  }
+
+  void groupedExample() {
+    // #grouped
+    Source.from(Arrays.asList(1, 2, 3, 4, 5, 6, 7))
+        .grouped(3)
+        .runForeach(System.out::println, materializer);
+    // [1, 2, 3]
+    // [4, 5, 6]
+    // [7]
+
+    Source.from(Arrays.asList(1, 2, 3, 4, 5, 6, 7))
+        .grouped(3)
+        .map(g -> g.stream().reduce(0, Integer::sum))
+        .runForeach(System.out::println, materializer);
+    // 6   (= 1 + 2 + 3)
+    // 15  (= 4 + 5 + 6)
+    // 7   (= 7)
+    // #grouped
   }
 }

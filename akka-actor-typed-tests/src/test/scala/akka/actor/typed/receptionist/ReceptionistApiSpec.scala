@@ -20,8 +20,7 @@ object ReceptionistApiSpec {
     implicit val timeout: Timeout = 3.seconds
     val service: ActorRef[String] = ???
     val key: ServiceKey[String] = ServiceKey[String]("id")
-    val system: ActorSystem[Void] = ???
-    implicit val scheduler = system.scheduler
+    implicit val system: ActorSystem[Void] = ???
     import system.executionContext
 
     // registration from outside, without ack, should be rare
@@ -50,7 +49,7 @@ object ReceptionistApiSpec {
 
     Behaviors.setup[Any] { context =>
       // oneoff ask inside of actor, this should be a rare use case
-      context.ask(system.receptionist)(Receptionist.Find(key)) {
+      context.ask(system.receptionist, Receptionist.Find(key)) {
         case Success(key.Listing(services)) => services // Set[ActorRef[String]] !!
         case _                              => "unexpected"
       }

@@ -5,11 +5,12 @@
 package akka.persistence.typed.javadsl;
 
 import akka.Done;
+import akka.actor.testkit.typed.javadsl.LogCapturing;
+import akka.actor.testkit.typed.javadsl.LoggingTestKit;
 import akka.actor.typed.*;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Adapter;
 import akka.actor.typed.javadsl.Behaviors;
-import akka.event.Logging;
 import akka.japi.Pair;
 import akka.persistence.query.EventEnvelope;
 import akka.persistence.query.NoOffset;
@@ -19,11 +20,9 @@ import akka.persistence.query.journal.leveldb.javadsl.LeveldbReadJournal;
 import akka.persistence.typed.*;
 import akka.persistence.typed.scaladsl.EventSourcedBehaviorSpec;
 import akka.serialization.jackson.CborSerializable;
-import akka.stream.ActorMaterializer;
 import akka.stream.javadsl.Sink;
 import akka.actor.testkit.typed.javadsl.TestKitJunitResource;
 import akka.actor.testkit.typed.javadsl.TestProbe;
-import akka.testkit.javadsl.EventFilter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
@@ -32,8 +31,10 @@ import com.google.common.collect.Sets;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.scalatest.junit.JUnitSuite;
+import org.slf4j.event.Level;
 
 import java.time.Duration;
 import java.util.*;
@@ -45,17 +46,15 @@ import static org.junit.Assert.assertEquals;
 public class PersistentActorJavaDslTest extends JUnitSuite {
 
   public static final Config config =
-      ConfigFactory.parseString("akka.loggers = [akka.testkit.TestEventListener]")
-          .withFallback(EventSourcedBehaviorSpec.conf().withFallback(ConfigFactory.load()));
+      EventSourcedBehaviorSpec.conf().withFallback(ConfigFactory.load());
 
   @ClassRule public static final TestKitJunitResource testKit = new TestKitJunitResource(config);
 
-  private LeveldbReadJournal queries =
-      PersistenceQuery.get(Adapter.toUntyped(testKit.system()))
-          .getReadJournalFor(LeveldbReadJournal.class, LeveldbReadJournal.Identifier());
+  @Rule public final LogCapturing logCapturing = new LogCapturing();
 
-  private ActorMaterializer materializer =
-      ActorMaterializer.create(Adapter.toUntyped(testKit.system()));
+  private LeveldbReadJournal queries =
+      PersistenceQuery.get(Adapter.toClassic(testKit.system()))
+          .getReadJournalFor(LeveldbReadJournal.class, LeveldbReadJournal.Identifier());
 
   interface Command extends CborSerializable {}
 
@@ -83,17 +82,12 @@ public class PersistentActorJavaDslTest extends JUnitSuite {
     INSTANCE
   }
 
-  public static class IncrementWithConfirmation implements Command, ExpectingReply<Done> {
-    private final ActorRef<Done> replyTo;
+  public static class IncrementWithConfirmation implements Command {
+    public final ActorRef<Done> replyTo;
 
     @JsonCreator
     public IncrementWithConfirmation(ActorRef<Done> replyTo) {
       this.replyTo = replyTo;
-    }
-
-    @Override
-    public ActorRef<Done> replyTo() {
-      return replyTo;
     }
   }
 
@@ -105,17 +99,12 @@ public class PersistentActorJavaDslTest extends JUnitSuite {
     INSTANCE
   }
 
-  public static class GetValue implements Command, ExpectingReply<State> {
-    private final ActorRef<State> replyTo;
+  public static class GetValue implements Command {
+    public final ActorRef<State> replyTo;
 
     @JsonCreator
     public GetValue(ActorRef<State> replyTo) {
       this.replyTo = replyTo;
-    }
-
-    @Override
-    public ActorRef<State> replyTo() {
-      return replyTo;
     }
   }
 
@@ -231,11 +220,11 @@ public class PersistentActorJavaDslTest extends JUnitSuite {
 
     private ReplyEffect<Event, State> incrementWithConfirmation(
         State state, IncrementWithConfirmation command) {
-      return Effect().persist(new Incremented(1)).thenReply(command, newState -> done());
+      return Effect().persist(new Incremented(1)).thenReply(command.replyTo, newState -> done());
     }
 
     private ReplyEffect<Event, State> getValue(State state, GetValue command) {
-      return Effect().reply(command, state);
+      return Effect().reply(command.replyTo, state);
     }
 
     private Effect<Event, State> incrementLater(State state, IncrementLater command) {
@@ -547,7 +536,7 @@ public class PersistentActorJavaDslTest extends JUnitSuite {
     List<EventEnvelope> events =
         queries
             .currentEventsByTag("tag1", NoOffset.getInstance())
-            .runWith(Sink.seq(), materializer)
+            .runWith(Sink.seq(), testKit.system())
             .toCompletableFuture()
             .get();
     assertEquals(
@@ -578,7 +567,7 @@ public class PersistentActorJavaDslTest extends JUnitSuite {
     List<EventEnvelope> events =
         queries
             .currentEventsByPersistenceId("transform", 0, Long.MAX_VALUE)
-            .runWith(Sink.seq(), materializer)
+            .runWith(Sink.seq(), testKit.system())
             .toCompletableFuture()
             .get();
     assertEquals(
@@ -701,13 +690,15 @@ public class PersistentActorJavaDslTest extends JUnitSuite {
         testKit.spawn(
             new IncorrectExpectedStateForThenRun(probe.getRef(), new PersistenceId("foiesftr")));
 
-    probe.expectMessage("started!"); // workaround for #26256
+    probe.expectMessage("started!");
 
-    new EventFilter(Logging.Error.class, Adapter.toUntyped(testKit.system()))
-        .occurrences(1)
+    LoggingTestKit.empty()
+        .withLogLevel(Level.ERROR)
         // the error messages slightly changed in later JDKs
-        .matches("(class )?java.lang.Integer cannot be cast to (class )?java.lang.String.*")
-        .intercept(
+        .withMessageRegex(
+            "(class )?java.lang.Integer cannot be cast to (class )?java.lang.String.*")
+        .expect(
+            testKit.system(),
             () -> {
               c.tell("expect wrong type");
               return null;

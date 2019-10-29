@@ -227,7 +227,11 @@ an error like this:
 [error]    filter with: ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.stream.scaladsl.FlowOps.foldAsync")
 ```
 
-In such situations it's good to consult with a core team member if the violation can be safely ignored (by adding the above snippet to `<module>/src/main/mima-filters/<last-version>.backwards.excludes`), or if it would indeed break binary compatibility.
+In such situations it's good to consult with a core team member whether the violation can be safely ignored or if it would indeed
+break binary compatibility. If the violation can be ignored add exclude statements from the mima output to
+a new file named `<module>/src/main/mima-filters/<last-version>.backwards.excludes/<pr-or-issue>-<issue-number>-<description>.excludes`,
+e.g. `akka-actor/src/main/mima-filters/2.5.x.backwards.excludes/pr-12345-rename-internal-classes.excludes`. Make sure to add a comment
+in the file that describes briefly why the incompatibility can be ignored.
 
 Situations when it may be fine to ignore a MiMa issued warning include:
 
@@ -255,13 +259,13 @@ All wire protocol changes that may concern rolling upgrades should be documented
 
 ## Protobuf
 
-Akka includes a shaded version of protobuf `2.5.0` that is used for internal communication. To generate files
+Akka includes a shaded version of protobuf `3.9.0` that is used for internal communication. To generate files
 run `protobufGenerate`. The generated files are put in the `src/main/java` of each project and need to be commited. 
 The generated files are automatically transformed to use the shaded version of protobuf.
 
-Generation depends on protoc `2.5.0` being on the path. Old versions of
+Generation depends on protoc `3.9.0` being on the path. Old versions of
 protoc can be downloaded from the [protobuf release page](https://github.com/protocolbuffers/protobuf/releases) and built from
-source or downloaded from [maven central](http://repo1.maven.org/maven2/com/google/protobuf/protoc/2.5.0/). See
+source or downloaded from [maven central](http://repo1.maven.org/maven2/com/google/protobuf/protoc/3.9.0/). See
 [Protobuf.scala](https://github.com/akka/akka/blob/master/project/Protobuf.scala) for details of how to override 
 the settings for generation.
 

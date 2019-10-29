@@ -45,7 +45,7 @@ import scala.concurrent.{ Future, Promise }
       var terminating = false
 
       override def preStart(): Unit = {
-        if (maxBuffer > 0) buffer = Buffer(maxBuffer, materializer)
+        if (maxBuffer > 0) buffer = Buffer(maxBuffer, inheritedAttributes)
       }
       override def postStop(): Unit = {
         val exception = new StreamDetachedException()
@@ -152,7 +152,7 @@ import scala.concurrent.{ Future, Promise }
 
       setHandler(out, this)
 
-      override def onDownstreamFinish(): Unit = {
+      override def onDownstreamFinish(cause: Throwable): Unit = {
         pendingOffer match {
           case Some(Offer(_, promise)) =>
             promise.success(QueueOfferResult.QueueClosed)

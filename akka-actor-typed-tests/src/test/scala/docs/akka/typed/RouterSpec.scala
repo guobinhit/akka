@@ -6,6 +6,7 @@ package docs.akka.typed
 
 // #pool
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
+import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.actor.typed.Behavior
 import akka.actor.typed.SupervisorStrategy
 import akka.actor.typed.receptionist.Receptionist
@@ -23,23 +24,25 @@ object RouterSpec {
     sealed trait Command
     case class DoLog(text: String) extends Command
 
-    def apply(): Behavior[Command] = Behaviors.setup { ctx =>
-      ctx.log.info("Starting worker")
+    def apply(): Behavior[Command] = Behaviors.setup { context =>
+      context.log.info("Starting worker")
 
       Behaviors.receiveMessage {
         case DoLog(text) =>
-          ctx.log.info("Got message {}", text)
+          context.log.info("Got message {}", text)
           Behaviors.same
       }
     }
   }
 
   // #pool
-
+  // #group
   val serviceKey = ServiceKey[Worker.Command]("log-worker")
+
+  // #group
 }
 
-class RouterSpec extends ScalaTestWithActorTestKit("akka.loglevel=warning") with WordSpecLike {
+class RouterSpec extends ScalaTestWithActorTestKit("akka.loglevel=warning") with WordSpecLike with LogCapturing {
   import RouterSpec._
 
   "The routing sample" must {
@@ -56,7 +59,7 @@ class RouterSpec extends ScalaTestWithActorTestKit("akka.loglevel=warning") with
 
       spawn(Behaviors.setup[Unit] { ctx =>
         // #pool
-        val pool = Routers.pool(poolSize = 4)(() =>
+        val pool = Routers.pool(poolSize = 4)(
           // make sure the workers are restarted if they fail
           Behaviors.supervise(Worker()).onFailure[Exception](SupervisorStrategy.restart))
         val router = ctx.spawn(pool, "worker-pool")
@@ -96,13 +99,11 @@ class RouterSpec extends ScalaTestWithActorTestKit("akka.loglevel=warning") with
         val worker = ctx.spawn(Worker(), "worker")
         ctx.system.receptionist ! Receptionist.Register(serviceKey, worker)
 
-        val group = Routers.group(serviceKey);
-        val router = ctx.spawn(group, "worker-group");
+        val group = Routers.group(serviceKey)
+        val router = ctx.spawn(group, "worker-group")
 
-        // note that since registration of workers goes through the receptionist there is no
-        // guarantee the router has seen any workers yet if we hit it directly like this and
-        // these messages may end up in dead letters - in a real application you would not use
-        // a group router like this - it is to keep the sample simple
+        // the group router will stash messages until it sees the first listing of registered
+        // services from the receptionist, so it is safe to send messages right away
         (0 to 10).foreach { n =>
           router ! Worker.DoLog(s"msg $n")
         }

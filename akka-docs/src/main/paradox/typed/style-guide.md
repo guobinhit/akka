@@ -1,6 +1,7 @@
 # Style guide
 
-This is a style guide with recommendations of idioms and pattern for writing Akka Typed actors.
+This is a style guide with recommendations of idioms and pattern for writing Akka actors.
+Note that this guide does not cover the classic actor API.
 
 As with all style guides, treat this as a list of rules to be broken. There are certainly times
 when alternative styles should be preferred over the ones given here.
@@ -90,7 +91,7 @@ Some reasons why you may want to use the object-oriented style:
 * You are more familiar with an object-oriented style of structuring the code with methods
   in a class rather than functions.
 * Some state is not immutable.
-* It could be more familiar and easier to migrate existing classic actors to this style.
+* It could be more familiar and easier to upgrade existing classic actors to this style.
 * Mutable state can sometimes have better performance, e.g. mutable collections and
   avoiding allocating new instance for next behavior (be sure to benchmark if this is your
   motivation).
@@ -110,7 +111,7 @@ Some reasons why you may want to use the object-oriented style:
 * Some state is not immutable, e.g. immutable collections are not widely used in Java.
   It is OK to use mutable state also with the functional style but you must make sure
   that it's not shared between different actor instances.
-* It could be more familiar and easier to migrate existing classic actors to this style.
+* It could be more familiar and easier to upgrade existing classic actors to this style.
 * Mutable state can sometimes have better performance, e.g. mutable collections and
   avoiding allocating new instance for next behavior (be sure to benchmark if this is your
   motivation).
@@ -300,6 +301,9 @@ Scala
 Java
 :  @@snip [StyleGuideDocExamples.java](/akka-actor-typed-tests/src/test/java/jdocs/akka/typed/StyleGuideDocExamples.java) { #public-private-messages-2 }
 
+`private` visibility can be defined for the `PrivateCommand` messages but it's not strictly needed since they can't be
+sent to an @scala[ActorRef[Command]]@java[ActorRef<Command>], which is the public message type of the actor.
+
 @@@ div {.group-java}
 
 ### Singleton messages
@@ -429,6 +433,27 @@ Scala
 
 Note that `AskPattern` is only intended for request-response interaction from outside an actor. If the requester is
 inside an actor, prefer `ActorContext.ask` as it provides better thread-safety by not requiring the use of a @scala[`Future`]@java[`CompletionStage`] inside the actor.
+
+@@@
+
+@@@ div {.group-java}
+
+## ReceiveBuilder
+
+Using the `ReceiveBuilder` is the typical, and recommended, way of defining message handlers, but it can
+be good to know that it's optional in case you would prefer a different approach. Alternatives could be like:
+
+* direct processing because there is only one message type
+* if or switch statements
+* annotation processor
+* [Vavr Pattern Matching DSL](http://www.vavr.io/vavr-docs/#_pattern_matching)
+* future pattern matching in Java ([JEP 305](http://openjdk.java.net/jeps/305))
+
+In `Behaviors` there are `receive`, `receiveMessage` and `receiveSignal` factory methods that takes functions
+instead of using the `ReceiveBuilder`, which is the `receive` with the class parameter.
+
+In `AbstractBehavior` you can return your own `akka.actor.typed.javadsl.Receive` from `createReceive` instead
+of using `newReceiveBuilder`. Implement the `receiveMessage` and `receiveSignal` in the `Receive` subclass.
 
 @@@
 

@@ -273,8 +273,8 @@ private[stream] object Collect {
         }
       }
 
-      override def onUpstreamFailure(ex: Throwable): Unit = {
-        pf.applyOrElse(ex, NotApplied) match {
+      override def onUpstreamFailure(ex: Throwable): Unit =
+        try pf.applyOrElse(ex, NotApplied) match {
           case NotApplied => failStage(ex)
           case result: T @unchecked => {
             if (isAvailable(out)) {
@@ -284,8 +284,9 @@ private[stream] object Collect {
               recovered = Some(result)
             }
           }
+        } catch {
+          case NonFatal(ex) => failStage(ex)
         }
-      }
 
       setHandlers(in, out, this)
     }
@@ -906,7 +907,7 @@ private[stream] object Collect {
     new GraphStageLogic(shape) with InHandler with OutHandler with StageLogging {
       override protected def logSource: Class[_] = classOf[Buffer[_]]
 
-      private var buffer: BufferImpl[T] = _
+      private val buffer: BufferImpl[T] = BufferImpl(size, inheritedAttributes)
 
       val enqueueAction: T => Unit =
         overflowStrategy match {
@@ -965,7 +966,6 @@ private[stream] object Collect {
         }
 
       override def preStart(): Unit = {
-        buffer = BufferImpl(size, materializer)
         pull(in)
       }
 
@@ -1252,7 +1252,7 @@ private[stream] object Collect {
             }
         })
 
-      override def preStart(): Unit = buffer = BufferImpl(parallelism, materializer)
+      override def preStart(): Unit = buffer = BufferImpl(parallelism, inheritedAttributes)
 
       override def onPull(): Unit = pushNextIfPossible()
 
@@ -1347,7 +1347,7 @@ private[stream] object Collect {
 
       private[this] def todo = inFlight + buffer.used
 
-      override def preStart(): Unit = buffer = BufferImpl(parallelism, materializer)
+      override def preStart(): Unit = buffer = BufferImpl(parallelism, inheritedAttributes)
 
       def futureCompleted(result: Try[Out]): Unit = {
         inFlight -= 1
@@ -1405,6 +1405,7 @@ private[stream] object Collect {
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
     new GraphStageLogic(shape) with InHandler with OutHandler with StageLogging {
+      override protected def logSource: Class[_] = classOf[Watch[_]]
 
       private lazy val self = getStageActor {
         case (_, Terminated(`targetRef`)) =>
@@ -1451,16 +1452,7 @@ private[stream] object Collect {
         log = logAdapter match {
           case Some(l) => l
           case _ =>
-            val mat = try ActorMaterializerHelper.downcast(materializer)
-            catch {
-              case ex: Exception =>
-                throw new RuntimeException(
-                  "Log stage can only provide LoggingAdapter when used with ActorMaterializer! " +
-                  "Provide a LoggingAdapter explicitly or use the actor based flow materializer.",
-                  ex)
-            }
-
-            Logging(mat.system, mat)(fromMaterializer)
+            Logging(materializer.system, materializer)(fromMaterializer)
         }
       }
 
@@ -1505,11 +1497,16 @@ private[stream] object Collect {
         super.onUpstreamFinish()
       }
 
-      override def onDownstreamFinish(): Unit = {
+      override def onDownstreamFinish(cause: Throwable): Unit = {
         if (isEnabled(logLevels.onFinish))
-          log.log(logLevels.onFinish, "[{}] Downstream finished.", name)
+          log.log(
+            logLevels.onFinish,
+            "[{}] Downstream finished, cause: {}: {}",
+            name,
+            Logging.simpleName(cause.getClass),
+            cause.getMessage)
 
-        super.onDownstreamFinish()
+        super.onDownstreamFinish(cause: Throwable)
       }
 
       private def isEnabled(l: LogLevel): Boolean = l.asInt != OffInt
@@ -1533,7 +1530,7 @@ private[stream] object Collect {
     override def getClazz(t: Materializer): Class[_] = classOf[Materializer]
 
     override def genString(t: Materializer): String = {
-      try s"$DefaultLoggerName(${ActorMaterializerHelper.downcast(t).supervisor.path})"
+      try s"$DefaultLoggerName(${t.supervisor.path})"
       catch {
         case _: Exception => LogSource.fromString.genString(DefaultLoggerName)
       }
@@ -1721,7 +1718,7 @@ private[stream] object Collect {
 
       var buffer: BufferImpl[(Long, T)] = _ // buffer has pairs timestamp with upstream element
 
-      override def preStart(): Unit = buffer = BufferImpl(size, materializer)
+      override def preStart(): Unit = buffer = BufferImpl(size, inheritedAttributes)
 
       val onPushWhenBufferFull: () => Unit = strategy match {
         case EmitEarly =>
@@ -2000,7 +1997,7 @@ private[stream] object Collect {
       val outHandler = new OutHandler {
         override def onPull(): Unit = sinkIn.pull()
 
-        override def onDownstreamFinish(): Unit = sinkIn.cancel()
+        override def onDownstreamFinish(cause: Throwable): Unit = sinkIn.cancel(cause)
       }
 
       Source.fromGraph(source).runWith(sinkIn.sink)(interpreter.subFusingMaterializer)
@@ -2083,10 +2080,13 @@ private[stream] object Collect {
 /**
  * INTERNAL API
  */
-@InternalApi final private[akka] class LazyFlow[I, O, M](flowFactory: I => Future[Flow[I, O, M]])
-    extends GraphStageWithMaterializedValue[FlowShape[I, O], Future[Option[M]]] {
-  val in = Inlet[I]("lazyFlow.in")
-  val out = Outlet[O]("lazyFlow.out")
+@InternalApi private[akka] final class LazyFlow[I, O, M](flowFactory: I => Future[Flow[I, O, M]])
+    extends GraphStageWithMaterializedValue[FlowShape[I, O], Future[M]] {
+
+  // FIXME: when removing the deprecated I => Flow factories we can remove that complication from this stage
+
+  val in = Inlet[I]("LazyFlow.in")
+  val out = Outlet[O]("LazyFlow.out")
 
   override def initialAttributes = DefaultAttributes.lazyFlow
 
@@ -2094,77 +2094,83 @@ private[stream] object Collect {
 
   override def toString: String = "LazyFlow"
 
-  override def createLogicAndMaterializedValue(inheritedAttributes: Attributes) = {
-
-    val matPromise = Promise[Option[M]]()
+  override def createLogicAndMaterializedValue(inheritedAttributes: Attributes): (GraphStageLogic, Future[M]) = {
+    val matPromise = Promise[M]()
     val stageLogic = new GraphStageLogic(shape) with InHandler with OutHandler {
-
       var switching = false
 
       //
       // implementation of handler methods in initial state
       //
-
-      override def onPush(): Unit = {
-        val element = grab(in)
-        switching = true
-        val cb = getAsyncCallback[Try[Flow[I, O, M]]] {
-          case Success(flow) =>
-            // check if the stage is still in need for the lazy flow
-            // (there could have been an onUpstreamFailure or onDownstreamFinish in the meantime that has completed the promise)
-            if (!matPromise.isCompleted) {
-              try {
-                val mat = switchTo(flow, element)
-                matPromise.success(Some(mat))
-              } catch {
-                case NonFatal(e) =>
-                  matPromise.failure(e)
-                  failStage(e)
-              }
+      private def onFlowFutureComplete(firstElement: I)(result: Try[Flow[I, O, M]]) = result match {
+        case Success(flow) =>
+          // check if the stage is still in need for the lazy flow
+          // (there could have been an onUpstreamFailure or onDownstreamFinish in the meantime that has completed the promise)
+          if (!matPromise.isCompleted) {
+            try {
+              val mat = switchTo(flow, firstElement)
+              matPromise.success(mat)
+            } catch {
+              case NonFatal(e) =>
+                matPromise.failure(e)
+                failStage(e)
             }
-          case Failure(e) =>
-            matPromise.failure(e)
-            failStage(e)
-        }
+          }
+        case Failure(e) =>
+          matPromise.failure(e)
+          failStage(e)
+      }
+
+      override def onPush(): Unit =
         try {
-          flowFactory(element).onComplete(cb.invoke)(ExecutionContexts.sameThreadExecutionContext)
+          val element = grab(in)
+          switching = true
+          val futureFlow = flowFactory(element)
+
+          // optimization avoid extra scheduling if already completed
+          futureFlow.value match {
+            case Some(completed) =>
+              onFlowFutureComplete(element)(completed)
+            case None =>
+              val cb = getAsyncCallback[Try[Flow[I, O, M]]](onFlowFutureComplete(element))
+              futureFlow.onComplete(cb.invoke)(ExecutionContexts.sameThreadExecutionContext)
+          }
         } catch {
           case NonFatal(e) =>
             matPromise.failure(e)
             failStage(e)
         }
-      }
 
       override def onUpstreamFinish(): Unit = {
+        if (!matPromise.isCompleted)
+          matPromise.tryFailure(new NeverMaterializedException)
         // ignore onUpstreamFinish while the stage is switching but setKeepGoing
         if (switching) {
           setKeepGoing(true)
         } else {
-          matPromise.success(None)
           super.onUpstreamFinish()
         }
       }
 
       override def onUpstreamFailure(ex: Throwable): Unit = {
-        matPromise.failure(ex)
         super.onUpstreamFailure(ex)
-      }
-
-      override def onDownstreamFinish(): Unit = {
-        matPromise.success(None)
-        super.onDownstreamFinish()
+        if (!matPromise.isCompleted)
+          matPromise.tryFailure(new NeverMaterializedException(ex))
       }
 
       override def onPull(): Unit = {
         pull(in)
       }
 
+      override def postStop(): Unit = {
+        if (!matPromise.isCompleted)
+          matPromise.tryFailure(new AbruptStageTerminationException(this))
+      }
+
       setHandler(in, this)
       setHandler(out, this)
 
       private def switchTo(flow: Flow[I, O, M], firstElement: I): M = {
-
-        var firstElementPushed = false
 
         //
         // ports are wired in the following way:
@@ -2177,6 +2183,7 @@ private[stream] object Collect {
 
         val matVal = Source
           .fromGraph(subOutlet.source)
+          .prepend(Source.single(firstElement))
           .viaMat(flow)(Keep.right)
           .toMat(subInlet.sink)(Keep.left)
           .run()(interpreter.subFusingMaterializer)
@@ -2206,10 +2213,8 @@ private[stream] object Collect {
               subOutlet.push(grab(in))
             }
             override def onUpstreamFinish(): Unit = {
-              if (firstElementPushed) {
-                subOutlet.complete()
-                maybeCompleteStage()
-              }
+              subOutlet.complete()
+              maybeCompleteStage()
             }
             override def onUpstreamFailure(ex: Throwable): Unit = {
               // propagate exception irrespective if the cached element has been pushed or not
@@ -2222,31 +2227,19 @@ private[stream] object Collect {
           override def onPull(): Unit = {
             subInlet.pull()
           }
-          override def onDownstreamFinish(): Unit = {
-            subInlet.cancel()
+          override def onDownstreamFinish(cause: Throwable): Unit = {
+            subInlet.cancel(cause)
             maybeCompleteStage()
           }
         })
 
         subOutlet.setHandler(new OutHandler {
           override def onPull(): Unit = {
-            if (firstElementPushed) {
-              pull(in)
-            } else {
-              // the demand can be satisfied right away by the cached element
-              firstElementPushed = true
-              subOutlet.push(firstElement)
-              // in.onUpstreamFinished was not propagated if it arrived before the cached element was pushed
-              // -> check if the completion must be propagated now
-              if (isClosed(in)) {
-                subOutlet.complete()
-                maybeCompleteStage()
-              }
-            }
+            pull(in)
           }
-          override def onDownstreamFinish(): Unit = {
+          override def onDownstreamFinish(cause: Throwable): Unit = {
             if (!isClosed(in)) {
-              cancel(in)
+              cancel(in, cause)
             }
             maybeCompleteStage()
           }

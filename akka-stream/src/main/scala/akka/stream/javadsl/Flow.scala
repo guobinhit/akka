@@ -4,27 +4,35 @@
 
 package akka.stream.javadsl
 
-import akka.util.{ ConstantFun, Timeout }
-import akka.{ Done, NotUsed }
-import akka.event.LoggingAdapter
-import akka.japi.{ function, Pair, Util }
-import akka.stream._
-import org.reactivestreams.Processor
-
-import scala.concurrent.duration.FiniteDuration
-import java.util.{ Comparator, Optional }
 import java.util.concurrent.CompletionStage
-import java.util.function.{ BiFunction, Supplier }
+import java.util.function.BiFunction
+import java.util.function.Supplier
+import java.util.Comparator
+import java.util.Optional
+import java.util.concurrent.CompletableFuture
 
-import akka.util.JavaDurationConverters._
 import akka.actor.ActorRef
+import akka.actor.ClassicActorSystemProvider
 import akka.dispatch.ExecutionContexts
+import akka.event.LoggingAdapter
+import akka.japi.Pair
+import akka.japi.Util
+import akka.japi.function
+import akka.stream._
 import akka.stream.impl.fusing.LazyFlow
+import akka.util.JavaDurationConverters._
 import akka.util.unused
+import akka.util.ConstantFun
+import akka.util.Timeout
+import akka.Done
+import akka.NotUsed
+import akka.japi.function.Creator
 import com.github.ghik.silencer.silent
+import org.reactivestreams.Processor
 
 import scala.annotation.unchecked.uncheckedVariance
 import scala.compat.java8.FutureConverters._
+import scala.concurrent.duration.FiniteDuration
 import scala.reflect.ClassTag
 
 object Flow {
@@ -63,9 +71,19 @@ object Flow {
 
   /**
    * Defers the creation of a [[Flow]] until materialization. The `factory` function
+   * exposes [[Materializer]] which is going to be used during materialization and
+   * [[Attributes]] of the [[Flow]] returned by this method.
+   */
+  def fromMaterializer[I, O, M](
+      factory: BiFunction[Materializer, Attributes, Flow[I, O, M]]): Flow[I, O, CompletionStage[M]] =
+    scaladsl.Flow.fromMaterializer((mat, attr) => factory(mat, attr).asScala).mapMaterializedValue(_.toJava).asJava
+
+  /**
+   * Defers the creation of a [[Flow]] until materialization. The `factory` function
    * exposes [[ActorMaterializer]] which is going to be used during materialization and
    * [[Attributes]] of the [[Flow]] returned by this method.
    */
+  @deprecated("Use 'fromMaterializer' instead", "2.6.0")
   def setup[I, O, M](
       factory: BiFunction[ActorMaterializer, Attributes, Flow[I, O, M]]): Flow[I, O, CompletionStage[M]] =
     scaladsl.Flow.setup((mat, attr) => factory(mat, attr).asScala).mapMaterializedValue(_.toJava).asJava
@@ -237,10 +255,9 @@ object Flow {
    *
    * '''Cancels when''' downstream cancels
    */
-  @Deprecated
   @deprecated(
-    "Use lazyInitAsync instead. (lazyInitAsync returns a flow with a more useful materialized value.)",
-    "2.5.12")
+    "Use 'Flow.completionStageFlow' in combination with prefixAndTail(1) instead, see `completionStageFlow` operator docs for details",
+    "2.6.0")
   def lazyInit[I, O, M](
       flowFactory: function.Function[I, CompletionStage[Flow[I, O, M]]],
       fallback: function.Creator[M]): Flow[I, O, M] = {
@@ -268,6 +285,7 @@ object Flow {
    *
    * '''Cancels when''' downstream cancels
    */
+  @deprecated("Use 'Flow.lazyCompletionStageFlow' instead", "2.6.0")
   def lazyInitAsync[I, O, M](
       flowFactory: function.Creator[CompletionStage[Flow[I, O, M]]]): Flow[I, O, CompletionStage[Optional[M]]] = {
     import scala.compat.java8.FutureConverters._
@@ -282,6 +300,63 @@ object Flow {
             .toJava)
     new Flow(sflow)
   }
+
+  /**
+   * Turn a `CompletionStage<Flow>` into a flow that will consume the values of the source when the future completes successfully.
+   * If the `Future` is completed with a failure the stream is failed.
+   *
+   * The materialized completion stage value is completed with the materialized value of the future flow or failed with a
+   * [[NeverMaterializedException]] if upstream fails or downstream cancels before the completion stage has completed.
+   */
+  def completionStageFlow[I, O, M](flow: CompletionStage[Flow[I, O, M]]): Flow[I, O, CompletionStage[M]] =
+    lazyCompletionStageFlow(() => flow)
+
+  /**
+   * Defers invoking the `create` function to create a future flow until there is downstream demand and passing
+   * that downstream demand upstream triggers the first element.
+   *
+   * Note that asynchronous boundaries (and other operators) in the stream may do pre-fetching which counter acts
+   * the laziness and can trigger the factory earlier than expected.
+   *
+   * '''Emits when''' the internal flow is successfully created and it emits
+   *
+   * '''Backpressures when''' the internal flow is successfully created and it backpressures or downstream backpressures
+   *
+   * '''Completes when''' upstream completes and all elements have been emitted from the internal flow
+   *
+   * '''Cancels when''' downstream cancels
+   */
+  def lazyFlow[I, O, M](create: Creator[Flow[I, O, M]]): Flow[I, O, CompletionStage[M]] =
+    lazyCompletionStageFlow(() => CompletableFuture.completedFuture(create.create()))
+
+  /**
+   * Defers invoking the `create` function to create a future flow until there downstream demand has caused upstream
+   * to send a first element.
+   *
+   * The materialized future value is completed with the materialized value of the created flow when that has successfully
+   * been materialized.
+   *
+   * If the `create` function throws or returns a future that fails the stream is failed, in this case the materialized
+   * future value is failed with a [[NeverMaterializedException]].
+   *
+   * Note that asynchronous boundaries (and other operators) in the stream may do pre-fetching which counter acts
+   * the laziness and can trigger the factory earlier than expected.
+   *
+   * '''Emits when''' the internal flow is successfully created and it emits
+   *
+   * '''Backpressures when''' the internal flow is successfully created and it backpressures or downstream backpressures
+   *
+   * '''Completes when''' upstream completes and all elements have been emitted from the internal flow
+   *
+   * '''Cancels when''' downstream cancels
+   */
+  def lazyCompletionStageFlow[I, O, M](
+      create: Creator[CompletionStage[Flow[I, O, M]]]): Flow[I, O, CompletionStage[M]] =
+    scaladsl.Flow
+      .lazyFutureFlow[I, O, M](() =>
+        create.create().toScala.map(_.asScala)(ExecutionContexts.sameThreadExecutionContext))
+      .mapMaterializedValue(_.toJava)
+      .asJava
 
   /**
    * Upcast a stream of elements to a stream of supertypes of that element. Useful in combination with
@@ -448,7 +523,7 @@ final class Flow[In, Out, Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends Gr
    * | Resulting Flow            |
    * |                           |
    * | +------+        +------+  |
-   * | |      | ~Out~> |      | ~~> O2
+   * | |      | ~Out~> |      | ~~> O1
    * | | flow |        | bidi |  |
    * | |      | <~In~  |      | <~~ I2
    * | +------+        +------+  |
@@ -458,7 +533,7 @@ final class Flow[In, Out, Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends Gr
    * value of the current flow (ignoring the [[BidiFlow]]’s value), use
    * [[Flow#joinMat[I2* joinMat]] if a different strategy is needed.
    */
-  def join[I2, O2, Mat2](bidi: Graph[BidiShape[Out, O2, I2, In], Mat2]): Flow[I2, O2, Mat] =
+  def join[I2, O1, Mat2](bidi: Graph[BidiShape[Out, O1, I2, In], Mat2]): Flow[I2, O1, Mat] =
     new Flow(delegate.join(bidi))
 
   /**
@@ -468,7 +543,7 @@ final class Flow[In, Out, Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends Gr
    * | Resulting Flow            |
    * |                           |
    * | +------+        +------+  |
-   * | |      | ~Out~> |      | ~~> O2
+   * | |      | ~Out~> |      | ~~> O1
    * | | flow |        | bidi |  |
    * | |      | <~In~  |      | <~~ I2
    * | +------+        +------+  |
@@ -482,9 +557,9 @@ final class Flow[In, Out, Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends Gr
    *
    * See also [[viaMat]] when access to materialized values of the parameter is needed.
    */
-  def joinMat[I2, O2, Mat2, M](
-      bidi: Graph[BidiShape[Out, O2, I2, In], Mat2],
-      combine: function.Function2[Mat, Mat2, M]): Flow[I2, O2, M] =
+  def joinMat[I2, O1, Mat2, M](
+      bidi: Graph[BidiShape[Out, O1, I2, In], Mat2],
+      combine: function.Function2[Mat, Mat2, M]): Flow[I2, O1, M] =
     new Flow(delegate.joinMat(bidi)(combinerToScala(combine)))
 
   /**
@@ -492,6 +567,25 @@ final class Flow[In, Out, Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends Gr
    *
    * The returned tuple contains the materialized values of the `Source` and `Sink`,
    * e.g. the `Subscriber` of a `Source.asSubscriber` and `Publisher` of a `Sink.asPublisher`.
+   *
+   * @tparam T materialized type of given Source
+   * @tparam U materialized type of given Sink
+   */
+  def runWith[T, U](
+      source: Graph[SourceShape[In], T],
+      sink: Graph[SinkShape[Out], U],
+      systemProvider: ClassicActorSystemProvider): akka.japi.Pair[T, U] = {
+    val (som, sim) = delegate.runWith(source, sink)(SystemMaterializer(systemProvider.classicSystem).materializer)
+    akka.japi.Pair(som, sim)
+  }
+
+  /**
+   * Connect the `Source` to this `Flow` and then connect it to the `Sink` and run it.
+   *
+   * The returned tuple contains the materialized values of the `Source` and `Sink`,
+   * e.g. the `Subscriber` of a `Source.asSubscriber` and `Publisher` of a `Sink.asPublisher`.
+   *
+   * Prefer the method taking an ActorSystem unless you have special requirements.
    *
    * @tparam T materialized type of given Source
    * @tparam U materialized type of given Sink
@@ -3229,7 +3323,7 @@ final class Flow[In, Out, Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends Gr
    * of time between events.
    *
    * If you want to be sure that no time interval has no more than specified number of events you need to use
-   * [[throttle()]] with maximumBurst attribute.
+   * [[throttle]] with maximumBurst attribute.
    * @see [[#throttle]]
    */
   @Deprecated
@@ -3244,7 +3338,7 @@ final class Flow[In, Out, Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends Gr
    * of time between events.
    *
    * If you want to be sure that no time interval has no more than specified number of events you need to use
-   * [[throttle()]] with maximumBurst attribute.
+   * [[throttle]] with maximumBurst attribute.
    * @see [[#throttle]]
    */
   @Deprecated
@@ -3259,7 +3353,7 @@ final class Flow[In, Out, Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends Gr
    * of time between events.
    *
    * If you want to be sure that no time interval has no more than specified number of events you need to use
-   * [[throttle()]] with maximumBurst attribute.
+   * [[throttle]] with maximumBurst attribute.
    * @see [[#throttle]]
    */
   @Deprecated
@@ -3278,7 +3372,7 @@ final class Flow[In, Out, Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends Gr
    * of time between events.
    *
    * If you want to be sure that no time interval has no more than specified number of events you need to use
-   * [[throttle()]] with maximumBurst attribute.
+   * [[throttle]] with maximumBurst attribute.
    * @see [[#throttle]]
    */
   @Deprecated
@@ -3580,6 +3674,17 @@ abstract class RunnableGraph[+Mat] extends Graph[ClosedShape, Mat] {
 
   /**
    * Run this flow and return the materialized values of the flow.
+   *
+   * Uses the system materializer.
+   */
+  def run(systemProvider: ClassicActorSystemProvider): Mat = {
+    run(SystemMaterializer(systemProvider.classicSystem).materializer)
+  }
+
+  /**
+   * Run this flow using a special materializer and return the materialized values of the flow.
+   *
+   * Prefer the method taking an ActorSystem unless you have special requirements.
    */
   def run(materializer: Materializer): Mat
 

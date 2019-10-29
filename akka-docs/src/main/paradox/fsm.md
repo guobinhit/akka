@@ -1,15 +1,7 @@
 # Classic FSM
 
-@@@ note
-
-Akka Classic is the original Actor APIs, which have been improved by more type safe and guided Actor APIs, 
-known as Akka Typed. Akka Classic is still fully supported and existing applications can continue to use 
-the classic APIs. It is also possible to use Akka Typed together with classic actors within the same 
-ActorSystem, see @ref[coexistence](typed/coexisting.md). For new projects we recommend using the new Actor APIs.
-
-For the new API see @ref[fsm](typed/fsm.md).
-
-@@@
+@@include[includes.md](includes.md) { #actor-api }
+For the full documentation of this feature and for new projects see @ref:[fsm](typed/fsm.md).
 
 ## Dependency
 
@@ -296,7 +288,7 @@ Within this handler the state of the FSM may be queried using the
 ### Initiating Transitions
 
 The result of any `stateFunction` must be a definition of the next state
-unless terminating the FSM, which is described in [Termination from Inside](#termination-from-inside).
+unless terminating the FSM, which is described in @ref:[Termination from Inside](#termination-from-inside).
 The state definition can either be the current state, as described by the
 `stay` directive, or it is a different state as given by
 `goto(state)`. The resulting object allows further qualification by way
@@ -315,7 +307,7 @@ use `Duration.Inf`.
  * 
    `using(data)`
    This modifier replaces the old state data with the new data given. If you
-follow the advice [above](#fsm-philosophy), this is the only place where
+follow the advice @ref:[above](#defining-states), this is the only place where
 internal state data are ever modified.
  * 
    `replying(msg)`

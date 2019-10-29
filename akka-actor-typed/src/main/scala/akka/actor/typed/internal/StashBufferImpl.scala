@@ -4,7 +4,6 @@
 
 package akka.actor.typed.internal
 
-import java.util.function.Consumer
 import java.util.function.{ Function => JFunction }
 
 import akka.actor.DeadLetter
@@ -18,6 +17,7 @@ import akka.actor.typed.javadsl
 import akka.actor.typed.scaladsl
 import akka.actor.typed.scaladsl.ActorContext
 import akka.annotation.{ InternalApi, InternalStableApi }
+import akka.japi.function.Procedure
 import akka.util.{ unused, ConstantFun }
 
 /**
@@ -107,7 +107,7 @@ import akka.util.{ unused, ConstantFun }
     }
   }
 
-  override def forEach(f: Consumer[T]): Unit = foreach(f.accept)
+  override def forEach(f: Procedure[T]): Unit = foreach(f.apply)
 
   override def unstashAll(behavior: Behavior[T]): Behavior[T] = {
     val behav = unstash(behavior, size, ConstantFun.scalaIdentityFunction[T])
@@ -186,9 +186,9 @@ import akka.util.{ unused, ConstantFun }
   private def unstashRestToDeadLetters(ctx: TypedActorContext[T], messages: Iterator[T]): Unit = {
     val scalaCtx = ctx.asScala
     import akka.actor.typed.scaladsl.adapter._
-    val untypedDeadLetters = scalaCtx.system.deadLetters.toUntyped
+    val classicDeadLetters = scalaCtx.system.deadLetters.toClassic
     messages.foreach(msg =>
-      scalaCtx.system.deadLetters ! DeadLetter(msg, untypedDeadLetters, ctx.asScala.self.toUntyped))
+      scalaCtx.system.deadLetters ! DeadLetter(msg, classicDeadLetters, ctx.asScala.self.toClassic))
   }
 
   override def unstash(behavior: Behavior[T], numberOfMessages: Int, wrap: JFunction[T, T]): Behavior[T] =

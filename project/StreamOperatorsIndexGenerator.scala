@@ -72,7 +72,8 @@ object StreamOperatorsIndexGenerator extends AutoPlugin {
     "alsoToGraph",
     "orElseGraph",
     "divertToGraph",
-    "zipWithGraph"
+    "zipWithGraph",
+    "actorRefWithAck" // deprecated
   )
 
   // FIXME document these methods as well
@@ -104,13 +105,14 @@ object StreamOperatorsIndexGenerator extends AutoPlugin {
       "fromGraph",
       "actorSubscriber",
       "foldAsync",
-      "newOnCompleteStage"
+      "newOnCompleteStage",
+      "actorRefWithAck" // deprecated
     ),
     "ActorSink" -> Seq(
-      "actorRefWithAck"
+      "actorRefWithAck" // deprecated
     ),
     "ActorSource" -> Seq(
-      "actorRef"
+      "actorRefWithAck" // deprecated
     )
   )
 
@@ -119,7 +121,7 @@ object StreamOperatorsIndexGenerator extends AutoPlugin {
     Set("productArity", "canEqual", "productPrefix", "copy", "productIterator", "productElement") ++
     Set("create", "apply", "ops", "appendJava", "andThen", "andThenMat", "isIdentity", "withAttributes", "transformMaterializing") ++
     Set("asScala", "asJava", "deprecatedAndThen", "deprecatedAndThenMat") ++
-    Set("++", "onPush", "onPull")
+    Set("++", "onPush", "onPull", "actorRefWithAck")
 
   def isPending(element: String, opName: String) =
     pendingTestCases.get(element).exists(_.contains(opName))
@@ -153,6 +155,8 @@ object StreamOperatorsIndexGenerator extends AutoPlugin {
         "akka-stream/src/main/scala/akka/stream/javadsl/RestartFlow.scala",
         "akka-stream/src/main/scala/akka/stream/scaladsl/RestartSink.scala",
         "akka-stream/src/main/scala/akka/stream/javadsl/RestartSink.scala",
+        "akka-stream/src/main/scala/akka/stream/scaladsl/RetryFlow.scala",
+        "akka-stream/src/main/scala/akka/stream/javadsl/RetryFlow.scala",
 
         // akka-stream-typed
         "akka-stream-typed/src/main/scala/akka/stream/typed/javadsl/ActorSource.scala",
@@ -160,7 +164,7 @@ object StreamOperatorsIndexGenerator extends AutoPlugin {
         "akka-stream-typed/src/main/scala/akka/stream/typed/javadsl/ActorFlow.scala",
         "akka-stream-typed/src/main/scala/akka/stream/typed/scaladsl/ActorFlow.scala",
         "akka-stream-typed/src/main/scala/akka/stream/typed/scaladsl/ActorSink.scala",
-        "akka-stream-typed/src/main/scala/akka/stream/typed/javadsl/ActorSink.scala",
+        "akka-stream-typed/src/main/scala/akka/stream/typed/javadsl/ActorSink.scala"
       ).flatMap{ f =>
         val slashesNr = f.count(_ == '/')
         val element = f.split("/")(slashesNr).split("\\.")(0)

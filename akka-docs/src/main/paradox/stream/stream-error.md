@@ -99,8 +99,7 @@ Java
 
 ## Delayed restarts with a backoff operator
 
-Just as Akka provides the @ref:[backoff supervision pattern for actors](../general/supervision.md#backoff-supervisor), Akka streams
-also provides a `RestartSource`, `RestartSink` and `RestartFlow` for implementing the so-called *exponential backoff 
+Akka streams provides a `RestartSource`, `RestartSink` and `RestartFlow` for implementing the so-called *exponential backoff 
 supervision strategy*, starting an operator again when it fails or completes, each time with a growing time delay between restarts.
 
 This pattern is useful when the operator fails or completes because some external resource is not available
@@ -198,7 +197,7 @@ Scala
 Java
 :   @@snip [FlowErrorDocTest.java](/akka-docs/src/test/java/jdocs/stream/FlowErrorDocTest.java) { #stop }
 
-The default supervision strategy for a stream can be defined on the settings of the materializer.
+The default supervision strategy for a stream can be defined on the complete `RunnableGraph`.
 
 Scala
 :   @@snip [FlowErrorDocSpec.scala](/akka-docs/src/test/scala/docs/stream/FlowErrorDocSpec.scala) { #resume }
