@@ -1,17 +1,13 @@
 # Distributed Publish Subscribe in Cluster
 
-@@@ note
-For the Akka Classic documentation of this feature see [Classic Distributed Publish Subscribe](../distributed-pub-sub.md).
+For the Akka Classic documentation of this feature see @ref:[Classic Distributed Publish Subscribe](../distributed-pub-sub.md).
 Classic Pub Sub can be used by leveraging the `.toClassic` adapters until @github[#26338](#26338).
-@@@
 
-@@project-info{ projectId="akka-cluster-typed" }
-
-## Dependency
+## Module info
 
 Until the new Distributed Publish Subscribe API, see @github[#26338](#26338), 
 you can use Classic Distributed Publish Subscribe 
-[coexisting](coexisting.md) with new Cluster and actors. To do this, add following dependency in your project:
+@ref:[coexisting](coexisting.md) with new Cluster and actors. To do this, add following dependency in your project:
 
 @@dependency[sbt,Maven,Gradle] {
   group="com.typesafe.akka"
@@ -27,6 +23,8 @@ Add the new Cluster API if you don't already have it in an existing Cluster appl
   version=$akka.version$
 }
 
+@@project-info{ projectId="akka-cluster-typed" }
+
 ## Sample project
 
 Until @github[#26338](#26338), [this simple example]($github.base_url$/akka-cluster-typed/src/test/scala/docs/akka/cluster/typed/DistributedPubSubExample.scala) shows how to use 
@@ -35,7 +33,7 @@ Until @github[#26338](#26338), [this simple example]($github.base_url$/akka-clus
 ### The DistributedPubSub extension
 
 The mediator can either be started and accessed with the `akka.cluster.pubsub.DistributedPubSub` extension as shown below,
-or started as an ordinary actor, see the full Akka Classic documentation @ref:[Clasic Distributed PubSub Extension](../distributed-pub-sub.md#distributedpubsub-extension).
+or started as an ordinary actor, see the full Akka Classic documentation @ref:[Classic Distributed PubSub Extension](../distributed-pub-sub.md#distributedpubsub-extension).
 
 Scala
 :  @@snip [DistributedPubSubExample.scala](/akka-cluster-typed/src/test/scala/docs/akka/cluster/typed/DistributedPubSubExample.scala) { #mediator }
@@ -44,7 +42,7 @@ Actors register to a topic for Pub-Sub mode, or register to a path for point-to-
 
 ## Publish
 
-Pub-Sub mode. For the full Akka Classic documentation of this feature see @ref:[Clasic Distributed PubSub Publish](../distributed-pub-sub.md#publish).
+Pub-Sub mode. For the full Akka Classic documentation of this feature see @ref:[Classic Distributed PubSub Publish](../distributed-pub-sub.md#publish).
 
 ### Subscribers
 
@@ -73,7 +71,7 @@ Scala
 
 ## Send
 
-Messages can be sent in point-to-point or broadcast mode. For the full Akka Classic documentation of this feature see @ref:[Clasic Distributed PubSub Send](../distributed-pub-sub.md#send). 
+Messages can be sent in point-to-point or broadcast mode. For the full Akka Classic documentation of this feature see @ref:[Classic Distributed PubSub Send](../distributed-pub-sub.md#send). 
 
 First, an actor must register a destination to send to:
 
@@ -90,4 +88,4 @@ can explicitly remove entries with `DistributedPubSubMediator.Remove`.
  
 ## Delivery Guarantee
 
-For the full Akka Classic documentation of this see @ref:[Clasic Distributed PubSub Delivery Guarantee](../distributed-pub-sub.md#delivery-guarantee).
+For the full Akka Classic documentation of this see @ref:[Classic Distributed PubSub Delivery Guarantee](../distributed-pub-sub.md#delivery-guarantee).

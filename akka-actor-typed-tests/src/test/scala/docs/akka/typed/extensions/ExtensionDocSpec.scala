@@ -9,7 +9,6 @@ import akka.actor.typed.Behavior
 import akka.actor.typed.Extension
 import akka.actor.typed.ExtensionId
 import akka.actor.typed.scaladsl.Behaviors
-import akka.protobufv3.internal.Any
 import com.github.ghik.silencer.silent
 import com.typesafe.config.ConfigFactory
 
@@ -34,7 +33,7 @@ object DatabasePool extends ExtensionId[DatabasePool] {
 @silent
 //#extension
 class DatabasePool(system: ActorSystem[_]) extends Extension {
-  // database configuration can be laoded from config
+  // database configuration can be loaded from config
   // from the actor system
   private val _connection = new ExpensiveDatabaseConnection()
 

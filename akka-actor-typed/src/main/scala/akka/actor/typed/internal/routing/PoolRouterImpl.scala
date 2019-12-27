@@ -4,10 +4,11 @@
 
 package akka.actor.typed.internal.routing
 
+import java.util.function
+
 import akka.actor.typed._
-import akka.actor.typed.scaladsl.AbstractBehavior
-import akka.actor.typed.scaladsl.ActorContext
-import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.javadsl.PoolRouter
+import akka.actor.typed.scaladsl.{ AbstractBehavior, ActorContext, Behaviors }
 import akka.annotation.InternalApi
 
 /**
@@ -17,20 +18,31 @@ import akka.annotation.InternalApi
 private[akka] final case class PoolRouterBuilder[T](
     poolSize: Int,
     behavior: Behavior[T],
-    logicFactory: () => RoutingLogic[T] = () => new RoutingLogics.RoundRobinLogic[T])
+    logicFactory: ActorSystem[_] => RoutingLogic[T] = (_: ActorSystem[_]) => new RoutingLogics.RoundRobinLogic[T],
+    routeeProps: Props = Props.empty)
     extends javadsl.PoolRouter[T]
     with scaladsl.PoolRouter[T] {
   if (poolSize < 1) throw new IllegalArgumentException(s"pool size must be positive, was $poolSize")
 
   // deferred creation of the actual router
   def apply(ctx: TypedActorContext[T]): Behavior[T] =
-    new PoolRouterImpl[T](ctx.asScala, poolSize, behavior, logicFactory())
+    new PoolRouterImpl[T](ctx.asScala, poolSize, behavior, logicFactory(ctx.asScala.system), routeeProps)
 
-  def withRandomRouting(): PoolRouterBuilder[T] = copy(logicFactory = () => new RoutingLogics.RandomLogic[T]())
+  def withRandomRouting(): PoolRouterBuilder[T] = copy(logicFactory = _ => new RoutingLogics.RandomLogic[T]())
 
-  def withRoundRobinRouting(): PoolRouterBuilder[T] = copy(logicFactory = () => new RoutingLogics.RoundRobinLogic[T])
+  def withRoundRobinRouting(): PoolRouterBuilder[T] = copy(logicFactory = _ => new RoutingLogics.RoundRobinLogic[T])
+
+  def withConsistentHashingRouting(virtualNodesFactor: Int, mapping: function.Function[T, String]): PoolRouter[T] =
+    withConsistentHashingRouting(virtualNodesFactor, mapping.apply(_))
+
+  def withConsistentHashingRouting(virtualNodesFactor: Int, mapping: T => String): PoolRouterBuilder[T] = {
+    copy(
+      logicFactory = system => new RoutingLogics.ConsistentHashingLogic[T](virtualNodesFactor, mapping, system.address))
+  }
 
   def withPoolSize(poolSize: Int): PoolRouterBuilder[T] = copy(poolSize = poolSize)
+
+  def withRouteeProps(routeeProps: Props): PoolRouterBuilder[T] = copy(routeeProps = routeeProps)
 }
 
 /**
@@ -41,11 +53,12 @@ private final class PoolRouterImpl[T](
     ctx: ActorContext[T],
     poolSize: Int,
     behavior: Behavior[T],
-    logic: RoutingLogic[T])
+    logic: RoutingLogic[T],
+    routeeProps: Props)
     extends AbstractBehavior[T](ctx) {
 
   (1 to poolSize).foreach { _ =>
-    val child = context.spawnAnonymous(behavior)
+    val child = context.spawnAnonymous(behavior, routeeProps)
     context.watch(child)
     child
   }
@@ -57,7 +70,7 @@ private final class PoolRouterImpl[T](
   }
 
   def onMessage(msg: T): Behavior[T] = {
-    logic.selectRoutee() ! msg
+    logic.selectRoutee(msg) ! msg
     this
   }
 

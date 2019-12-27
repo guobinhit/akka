@@ -10,7 +10,6 @@ import sbt.plugins.JvmPlugin
 
 object AkkaDisciplinePlugin extends AutoPlugin with ScalafixSupport {
 
-  import scoverage.ScoverageKeys._
   import scalafix.sbt.ScalafixPlugin
 
   override def trigger: PluginTrigger = allRequirements
@@ -24,21 +23,17 @@ object AkkaDisciplinePlugin extends AutoPlugin with ScalafixSupport {
 
   lazy val scalaFixSettings = Seq(Compile / scalacOptions += "-Yrangepos")
 
-  lazy val scoverageSettings =
-    Seq(coverageMinimum := 70, coverageFailOnMinimum := false, coverageOutputHTML := true, coverageHighlighting := true)
-
   lazy val silencerSettings = {
-    val silencerVersion = "1.4.2"
+    val silencerVersion = "1.4.4"
     Seq(
       libraryDependencies ++= Seq(
-          compilerPlugin("com.github.ghik" %% "silencer-plugin" % silencerVersion),
-          "com.github.ghik" %% "silencer-lib" % silencerVersion % Provided))
+          compilerPlugin("com.github.ghik" %% "silencer-plugin" % silencerVersion cross CrossVersion.patch),
+          "com.github.ghik" %% "silencer-lib" % silencerVersion % Provided cross CrossVersion.patch))
   }
 
   lazy val disciplineSettings =
     scalaFixSettings ++
-    silencerSettings ++
-    scoverageSettings ++ Seq(
+    silencerSettings ++ Seq(
       Compile / scalacOptions ++= (
           if (!nonFatalWarningsFor(name.value)) Seq("-Xfatal-warnings")
           else Seq.empty
@@ -76,7 +71,7 @@ object AkkaDisciplinePlugin extends AutoPlugin with ScalafixSupport {
   /**
    * Remain visibly filtered for future code quality work and removing.
    */
-  val undisciplineScalacOptions = Set("-Ywarn-value-discard", "-Ywarn-numeric-widen", "-Yno-adapted-args")
+  val undisciplineScalacOptions = Set("-Ywarn-value-discard", "-Ywarn-numeric-widen")
 
   /** These options are desired, but some are excluded for the time being*/
   val disciplineScalacOptions = Set(

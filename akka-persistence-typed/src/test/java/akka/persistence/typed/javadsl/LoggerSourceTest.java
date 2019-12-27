@@ -39,7 +39,7 @@ public class LoggerSourceTest extends JUnitSuite {
   private static final AtomicInteger idCounter = new AtomicInteger(0);
 
   public static PersistenceId nextId() {
-    return new PersistenceId("" + idCounter.incrementAndGet());
+    return PersistenceId.ofUniqueId("" + idCounter.incrementAndGet());
   }
 
   static class LoggingBehavior extends EventSourcedBehavior<String, String, String> {
@@ -80,7 +80,7 @@ public class LoggerSourceTest extends JUnitSuite {
     }
 
     @Override
-    public SignalHandler signalHandler() {
+    public SignalHandler<String> signalHandler() {
       return newSignalHandlerBuilder()
           .onSignal(
               RecoveryCompleted.instance(),
@@ -114,7 +114,7 @@ public class LoggerSourceTest extends JUnitSuite {
                   return testKit.spawn(behavior);
                 });
 
-    // MDC persistenceId ajd persistencePhase for the "command-received" not included in the
+    // MDC persistenceId and persistencePhase for the "command-received" not included in the
     // "command-received" logging, because that is via ActorContext.log directly and
     // EventSourcedBehaviorImpl
     // isn't involved.

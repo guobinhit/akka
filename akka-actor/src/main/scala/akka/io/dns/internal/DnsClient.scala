@@ -78,24 +78,25 @@ import scala.concurrent.duration._
     case DropRequest(id) =>
       log.debug("Dropping request [{}]", id)
       inflightRequests -= id
+
     case Question4(id, name) =>
       log.debug("Resolving [{}] (A)", name)
       val msg = message(name, id, RecordType.A)
-      inflightRequests += (id -> (sender(), msg))
+      inflightRequests += (id -> (sender() -> msg))
       log.debug("Message [{}] to [{}]: [{}]", id, ns, msg)
       socket ! Udp.Send(msg.write(), ns)
 
     case Question6(id, name) =>
       log.debug("Resolving [{}] (AAAA)", name)
       val msg = message(name, id, RecordType.AAAA)
-      inflightRequests += (id -> (sender(), msg))
+      inflightRequests += (id -> (sender() -> msg))
       log.debug("Message to [{}]: [{}]", ns, msg)
       socket ! Udp.Send(msg.write(), ns)
 
     case SrvQuestion(id, name) =>
       log.debug("Resolving [{}] (SRV)", name)
       val msg = message(name, id, RecordType.SRV)
-      inflightRequests += (id -> (sender(), msg))
+      inflightRequests += (id -> (sender() -> msg))
       log.debug("Message to [{}]: [{}]", ns, msg)
       socket ! Udp.Send(msg.write(), ns)
 

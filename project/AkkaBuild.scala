@@ -29,8 +29,12 @@ object AkkaBuild {
     organization := "com.typesafe.akka",
     Dependencies.Versions,
     // use the same value as in the build scope
+    // TODO #26675 this can be removed once we use sbt-dynver instead of timestamps
+    // everywhere
     version := (version in ThisBuild).value)
 
+  // TODO #26675 this can be removed once we use sbt-dynver instead of timestamps
+  // everywhere
   lazy val currentDateTime = {
     // storing the first accessed timestamp in system property so that it will be the
     // same when build is reloaded or when using `+`.
@@ -41,6 +45,8 @@ object AkkaBuild {
         .format(ZonedDateTime.now(ZoneOffset.UTC)))
   }
 
+  // TODO #26675 this can be removed once we use sbt-dynver instead of timestamps
+  // everywhere
   def akkaVersion: String = {
     val default = "2.6-SNAPSHOT"
     sys.props.getOrElse("akka.build.version", default) match {
@@ -50,6 +56,8 @@ object AkkaBuild {
     }
   }
 
+  // TODO #26675 this can be removed once we use sbt-dynver instead of timestamps
+  // everywhere
   def akkaVersionFromFile(default: String): String = {
     val versionFile = "akka-actor/target/classes/version.conf"
     if (new File(versionFile).exists()) {
@@ -66,7 +74,6 @@ object AkkaBuild {
     UnidocRoot.akkaSettings,
     Protobuf.settings,
     parallelExecution in GlobalScope := System.getProperty("akka.parallelExecution", parallelExecutionByDefault.toString).toBoolean,
-    version in ThisBuild := akkaVersion,
     // used for linking to API docs (overwrites `project-info.version`)
     ThisBuild / projectInfoVersion := { if (isSnapshot.value) "snapshot" else version.value }
   )
@@ -121,7 +128,13 @@ object AkkaBuild {
 
   private def allWarnings: Boolean = System.getProperty("akka.allwarnings", "false").toBoolean
 
-  final val DefaultScalacOptions = Seq("-encoding", "UTF-8", "-feature", "-unchecked", "-Xlog-reflective-calls")
+  final val DefaultScalacOptions = Seq(
+    "-encoding", "UTF-8",
+    "-feature",
+    "-unchecked",
+    "-Xlog-reflective-calls",
+    // 'blessed' since 2.13.1
+    "-language:higherKinds")
 
   // -XDignore.symbol.file suppresses sun.misc.Unsafe warnings
   final val DefaultJavacOptions = Seq("-encoding", "UTF-8", "-Xlint:unchecked", "-XDignore.symbol.file")
@@ -129,19 +142,17 @@ object AkkaBuild {
   lazy val defaultSettings: Seq[Setting[_]] = Def.settings(
     resolverSettings,
     TestExtras.Filter.settings,
-    Protobuf.settings,
-
     // compile options
     scalacOptions in Compile ++= DefaultScalacOptions,
     scalacOptions in Compile ++=
-      JdkOptions.targetJdkScalacOptions(targetSystemJdk.value, fullJavaHomes.value),
+      JdkOptions.targetJdkScalacOptions(targetSystemJdk.value, optionalDir(jdk8home.value), fullJavaHomes.value),
     scalacOptions in Compile ++= (if (allWarnings) Seq("-deprecation") else Nil),
     scalacOptions in Test := (scalacOptions in Test).value.filterNot(opt =>
       opt == "-Xlog-reflective-calls" || opt.contains("genjavadoc")),
     javacOptions in compile ++= DefaultJavacOptions ++
-      JdkOptions.targetJdkJavacOptions(targetSystemJdk.value, fullJavaHomes.value),
+      JdkOptions.targetJdkJavacOptions(targetSystemJdk.value, optionalDir(jdk8home.value), fullJavaHomes.value),
     javacOptions in test ++= DefaultJavacOptions ++
-      JdkOptions.targetJdkJavacOptions(targetSystemJdk.value, fullJavaHomes.value),
+      JdkOptions.targetJdkJavacOptions(targetSystemJdk.value, optionalDir(jdk8home.value), fullJavaHomes.value),
     javacOptions in compile ++= (if (allWarnings) Seq("-Xlint:deprecation") else Nil),
     javacOptions in doc ++= Seq(),
 
@@ -262,6 +273,14 @@ object AkkaBuild {
       files map { x => Attributed.blank(x) }
     },
   )
+
+  private def optionalDir(path: String): Option[File] =
+    Option(path).filter(_.nonEmpty).map { path =>
+      val dir = new File(path)
+      if (!dir.exists)
+        throw new IllegalArgumentException(s"Path [$path] not found")
+      dir
+    }
 
   lazy val docLintingSettings = Seq(
     javacOptions in compile ++= Seq("-Xdoclint:none"),

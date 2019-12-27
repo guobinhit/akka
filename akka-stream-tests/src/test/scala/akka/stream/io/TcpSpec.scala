@@ -30,7 +30,7 @@ import akka.stream.scaladsl._
 import akka.stream.testkit._
 import akka.stream.testkit.scaladsl.StreamTestKit._
 import akka.testkit.EventFilter
-import akka.testkit.SocketUtil.temporaryServerAddress
+import akka.testkit.SocketUtil.{ temporaryServerAddress, temporaryServerHostnameAndPort }
 import akka.testkit.TestKit
 import akka.testkit.TestLatch
 import akka.testkit.TestProbe
@@ -839,6 +839,25 @@ class TcpSpec extends StreamSpec("""
       } finally sys2.terminate()
     }
 
+    "show host and port in bind exception message" in EventFilter[BindException](occurrences = 1).intercept {
+      val (host, port) = temporaryServerHostnameAndPort()
+      val bind = Tcp(system).bind(host, port)
+
+      val probe1 = TestSubscriber.manualProbe[Tcp.IncomingConnection]()
+      val binding1 = bind.to(Sink.fromSubscriber(probe1)).run().futureValue
+
+      probe1.expectSubscription()
+
+      val probe2 = TestSubscriber.manualProbe[Tcp.IncomingConnection]()
+      val binding2 = bind.to(Sink.fromSubscriber(probe2)).run()
+
+      val thrown = the[BindFailedException] thrownBy Await.result(binding2, 3.seconds)
+      thrown.getMessage should include(host)
+      thrown.getMessage should include(port.toString)
+
+      // clean up
+      binding1.unbind().futureValue
+    }
   }
 
   "TLS client and server convenience methods with SSLEngine setup" should {
@@ -849,7 +868,7 @@ class TcpSpec extends StreamSpec("""
 
       Tcp()
         .bindAndHandleWithTls(
-          // just echo charactes until we reach '\n', then complete stream
+          // just echo characters until we reach '\n', then complete stream
           // also - byte is our framing
           Flow[ByteString].mapConcat(_.utf8String.toList).takeWhile(_ != '\n').map(c => ByteString(c)),
           address.getHostName,
@@ -934,7 +953,7 @@ class TcpSpec extends StreamSpec("""
 
       Tcp()
         .bindAndHandleTls(
-          // just echo charactes until we reach '\n', then complete stream
+          // just echo characters until we reach '\n', then complete stream
           // also - byte is our framing
           Flow[ByteString].mapConcat(_.utf8String.toList).takeWhile(_ != '\n').map(c => ByteString(c)),
           address.getHostName,

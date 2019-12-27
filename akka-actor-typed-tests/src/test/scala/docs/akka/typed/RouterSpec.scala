@@ -4,15 +4,12 @@
 
 package docs.akka.typed
 
+import akka.actor.typed.DispatcherSelector
 // #pool
-import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
-import akka.actor.testkit.typed.scaladsl.LogCapturing
-import akka.actor.typed.Behavior
-import akka.actor.typed.SupervisorStrategy
-import akka.actor.typed.receptionist.Receptionist
-import akka.actor.typed.receptionist.ServiceKey
-import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.scaladsl.Routers
+import akka.actor.testkit.typed.scaladsl.{ LogCapturing, ScalaTestWithActorTestKit }
+import akka.actor.typed.{ Behavior, SupervisorStrategy }
+import akka.actor.typed.receptionist.{ Receptionist, ServiceKey }
+import akka.actor.typed.scaladsl.{ Behaviors, Routers }
 import org.scalatest.WordSpecLike
 
 // #pool
@@ -69,6 +66,15 @@ class RouterSpec extends ScalaTestWithActorTestKit("akka.loglevel=warning") with
         }
         // #pool
 
+        // #pool-dispatcher
+        // make sure workers use the default blocking IO dispatcher
+        val blockingPool = pool.withRouteeProps(routeeProps = DispatcherSelector.blocking())
+        // spawn head router using the same executor as the parent
+        val blockingRouter = ctx.spawn(blockingPool, "blocking-pool", DispatcherSelector.sameAsParent())
+        // #pool-dispatcher
+
+        blockingRouter ! Worker.DoLog("msg")
+
         // #strategy
         val alternativePool = pool.withPoolSize(2).withRoundRobinRouting()
         // #strategy
@@ -79,7 +85,7 @@ class RouterSpec extends ScalaTestWithActorTestKit("akka.loglevel=warning") with
         Behaviors.empty
       })
 
-      probe.receiveMessages(10)
+      probe.receiveMessages(11)
     }
 
     "show group routing" in {
