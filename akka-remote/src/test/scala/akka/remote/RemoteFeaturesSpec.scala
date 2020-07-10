@@ -1,10 +1,14 @@
 /*
- * Copyright (C) 2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote
 
 import scala.concurrent.duration._
+
+import com.github.ghik.silencer.silent
+import com.typesafe.config.Config
+import com.typesafe.config.ConfigFactory
 
 import akka.actor.Actor
 import akka.actor.ActorIdentity
@@ -22,9 +26,6 @@ import akka.remote.artery.RemoteDeploymentSpec
 import akka.testkit.EventFilter
 import akka.testkit.ImplicitSender
 import akka.testkit.TestProbe
-import com.github.ghik.silencer.silent
-import com.typesafe.config.Config
-import com.typesafe.config.ConfigFactory
 
 object RemoteFeaturesSpec {
 
@@ -35,7 +36,6 @@ object RemoteFeaturesSpec {
        akka.remote.use-unsafe-remote-features-outside-cluster = $useUnsafe
        akka.remote.artery.enabled = on
        akka.remote.artery.canonical.port = 0
-       akka.remote.artery.advanced.flight-recorder.enabled = off
        akka.log-dead-letters-during-shutdown = off
        """
 
@@ -145,7 +145,7 @@ class RemoteFeaturesDisabledSpec extends RemoteFeaturesSpec(RemoteFeaturesSpec.d
       }
     """))
 
-      val masterRef = masterSystem.actorOf(Props[RemoteDeploymentSpec.Echo1], actorName)
+      val masterRef = masterSystem.actorOf(Props[RemoteDeploymentSpec.Echo1](), actorName)
       masterRef.path shouldEqual RootActorPath(AddressFromURIString(s"akka://${masterSystem.name}")) / "user" / actorName
       masterRef.path.address.hasLocalScope shouldBe true
 

@@ -1,12 +1,12 @@
 /*
- * Copyright (C) 2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.testkit
 
 import org.scalatest.BeforeAndAfterEach
-import org.scalatest.Matchers
-import org.scalatest.WordSpecLike
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
 
 // we could migrate AkkaSpec to extend this
-abstract class AbstractSpec extends WordSpecLike with Matchers with BeforeAndAfterEach
+abstract class AbstractSpec extends AnyWordSpecLike with Matchers with BeforeAndAfterEach

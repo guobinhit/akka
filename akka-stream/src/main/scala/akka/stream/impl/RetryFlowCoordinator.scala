@@ -1,17 +1,17 @@
 /*
- * Copyright (C) 2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl
 
+import scala.concurrent.duration._
+
 import akka.annotation.InternalApi
 import akka.pattern.BackoffSupervisor
+import akka.stream.{ Attributes, BidiShape, Inlet, Outlet }
 import akka.stream.SubscriptionWithCancelException.NonFailureCancellation
 import akka.stream.stage._
-import akka.stream.{ Attributes, BidiShape, Inlet, Outlet }
 import akka.util.OptionVal
-
-import scala.concurrent.duration._
 
 /**
  * INTERNAL API.
@@ -102,7 +102,7 @@ import scala.concurrent.duration._
               failStage(
                 new IllegalStateException(
                   s"inner flow emitted unexpected element $result; the flow must be one-in one-out"))
-            case OptionVal.Some((_, _)) if retryNo == maxRetries => pushExternal(result)
+            case OptionVal.Some(_) if retryNo == maxRetries => pushExternal(result)
             case OptionVal.Some(in) =>
               decideRetry(in, result) match {
                 case None          => pushExternal(result)

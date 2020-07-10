@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.journal
@@ -7,15 +7,16 @@ package akka.persistence.journal
 import java.util
 import java.util.concurrent.ConcurrentHashMap
 
-import akka.actor.ExtendedActorSystem
-import akka.event.{ Logging, LoggingAdapter }
-import akka.util.ccompat._
-import com.typesafe.config.Config
-
 import scala.collection.immutable
 import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
 import scala.util.Try
+
+import com.typesafe.config.Config
+
+import akka.actor.ExtendedActorSystem
+import akka.event.{ Logging, LoggingAdapter }
+import akka.util.ccompat._
 
 /**
  * `EventAdapters` serves as a per-journal collection of bound event adapters.

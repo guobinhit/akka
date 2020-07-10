@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl.fusing
@@ -15,7 +15,7 @@ class GraphInterpreterSpec extends StreamSpec with GraphInterpreterSpecKit {
     // Reusable components
     val identity = GraphStages.identity[Int]
     val detach = detacher[Int]
-    val zip = Zip[Int, String]
+    val zip = Zip[Int, String]()
     val bcast = Broadcast[Int](2)
     val merge = Merge[Int](2)
     val balance = Balance[Int](2)

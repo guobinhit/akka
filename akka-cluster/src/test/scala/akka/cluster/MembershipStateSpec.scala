@@ -1,16 +1,18 @@
 /*
- * Copyright (C) 2017-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
 
-import akka.actor.Address
-import akka.cluster.MemberStatus.Up
-import org.scalatest.{ Matchers, WordSpec }
-
 import scala.collection.immutable.SortedSet
 
-class MembershipStateSpec extends WordSpec with Matchers {
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+
+import akka.actor.Address
+import akka.cluster.MemberStatus.Up
+
+class MembershipStateSpec extends AnyWordSpec with Matchers {
   // DC-a is in reverse age order
   val a1 = TestMember(Address("akka", "sys", "a4", 2552), Up, 1, "dc-a")
   val a2 = TestMember(Address("akka", "sys", "a3", 2552), Up, 2, "dc-a")

@@ -1,20 +1,20 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor
 
-import akka.annotation.DoNotInherit
-import akka.japi.pf.ReceiveBuilder
-
-import scala.runtime.BoxedUnit
 import java.util.Optional
-
-import akka.util.JavaDurationConverters
-import com.github.ghik.silencer.silent
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.Duration
+import scala.runtime.BoxedUnit
+
+import com.github.ghik.silencer.silent
+
+import akka.annotation.DoNotInherit
+import akka.japi.pf.ReceiveBuilder
+import akka.util.JavaDurationConverters
 
 /**
  * Java API: compatible with lambda expressions

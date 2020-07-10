@@ -1,16 +1,17 @@
 /*
- * Copyright (C) 2014-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed
 
 import java.util.concurrent.TimeUnit
 
+import scala.concurrent.Await
+import scala.concurrent.duration._
+
 import com.typesafe.config.ConfigFactory
 import org.openjdk.jmh.annotations._
 
-import scala.concurrent.Await
-import scala.concurrent.duration._
 import akka.actor.typed.scaladsl.AskPattern._
 
 object TypedActorBenchmark {
@@ -47,7 +48,7 @@ class TypedActorBenchmark {
 
   implicit var system: ActorSystem[Start] = _
 
-  implicit val askTimeout = akka.util.Timeout(timeout)
+  implicit val askTimeout: akka.util.Timeout = akka.util.Timeout(timeout)
 
   @Setup(Level.Trial)
   def setup(): Unit = {

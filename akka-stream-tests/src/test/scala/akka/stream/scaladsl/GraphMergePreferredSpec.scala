@@ -1,15 +1,16 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
-import akka.stream.testkit.TwoStreamsSetup
-import akka.stream._
-import com.github.ghik.silencer.silent
-
 import scala.concurrent.Await
 import scala.concurrent.duration._
+
+import com.github.ghik.silencer.silent
+
+import akka.stream._
+import akka.stream.testkit.TwoStreamsSetup
 
 @silent // stream usage
 class GraphMergePreferredSpec extends TwoStreamsSetup {

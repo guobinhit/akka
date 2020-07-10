@@ -1,18 +1,18 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote
 
-import akka.remote.WireFormats._
-import akka.protobufv3.internal.ByteString
+import scala.util.control.NonFatal
+
 import akka.actor.ExtendedActorSystem
 import akka.annotation.InternalApi
+import akka.protobufv3.internal.ByteString
+import akka.remote.WireFormats._
 import akka.remote.artery.{ EnvelopeBuffer, HeaderBuilder, OutboundEnvelope }
 import akka.serialization._
 import akka.util.unused
-
-import scala.util.control.NonFatal
 
 /**
  * INTERNAL API

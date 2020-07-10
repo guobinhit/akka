@@ -1,30 +1,31 @@
 /*
- * Copyright (C) 2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed
 
 import java.util.concurrent.CyclicBarrier
 
+import scala.concurrent.Future
+import scala.concurrent.Promise
+import scala.util.Success
+
+import com.typesafe.config.ConfigFactory
+import org.scalatest.wordspec.AnyWordSpecLike
+
+import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import akka.actor.testkit.typed.scaladsl.TestProbe
 import akka.actor.typed.ActorSystem
 import akka.actor.typed.Extension
 import akka.actor.typed.ExtensionId
+import akka.actor.typed.scaladsl.adapter._
 import akka.persistence
 import akka.persistence.SelectedSnapshot
 import akka.persistence.snapshot.SnapshotStore
-import com.typesafe.config.ConfigFactory
-import akka.actor.typed.scaladsl.adapter._
 import akka.persistence.typed.StashingWhenSnapshottingSpec.ControllableSnapshotStoreExt
 import akka.persistence.typed.scaladsl.Effect
 import akka.persistence.typed.scaladsl.EventSourcedBehavior
-import org.scalatest.WordSpecLike
-import scala.concurrent.Future
-import scala.concurrent.Promise
-import scala.util.Success
-
-import akka.actor.testkit.typed.scaladsl.LogCapturing
 
 object StashingWhenSnapshottingSpec {
   object ControllableSnapshotStoreExt extends ExtensionId[ControllableSnapshotStoreExt] {
@@ -86,7 +87,7 @@ object StashingWhenSnapshottingSpec {
 
 class StashingWhenSnapshottingSpec
     extends ScalaTestWithActorTestKit(StashingWhenSnapshottingSpec.config)
-    with WordSpecLike
+    with AnyWordSpecLike
     with LogCapturing {
   "A persistent actor" should {
     "stash messages and automatically replay when snapshot is in progress" in {

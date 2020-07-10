@@ -1,12 +1,12 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl
 
 import akka.NotUsed
-import akka.stream.impl.StreamLayout.AtomicModule
 import akka.stream._
+import akka.stream.impl.StreamLayout.AtomicModule
 
 object TraversalTestUtils {
 

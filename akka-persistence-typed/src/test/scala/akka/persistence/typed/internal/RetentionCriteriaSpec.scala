@@ -1,16 +1,17 @@
 /*
- * Copyright (C) 2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.internal
 
+import org.scalatest.TestSuite
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
+
 import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.persistence.typed.scaladsl.RetentionCriteria
-import org.scalatest.Matchers
-import org.scalatest.TestSuite
-import org.scalatest.WordSpecLike
 
-class RetentionCriteriaSpec extends TestSuite with Matchers with WordSpecLike with LogCapturing {
+class RetentionCriteriaSpec extends TestSuite with Matchers with AnyWordSpecLike with LogCapturing {
 
   "RetentionCriteria" must {
 

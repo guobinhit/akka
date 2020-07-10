@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed
 
 import scala.annotation.tailrec
+
 import akka.actor.typed.scaladsl.Behaviors
 import akka.annotation.DoNotInherit
 

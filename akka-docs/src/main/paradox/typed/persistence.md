@@ -3,16 +3,18 @@ project.description: Event Sourcing with Akka Persistence enables actors to pers
 ---
 # Event Sourcing
 
-For the Akka Classic documentation of this feature see @ref:[Classic Akka Persistence](../persistence.md).
+You are viewing the documentation for the new actor APIs, to view the Akka Classic documentation, see @ref:[Classic Akka Persistence](../persistence.md).
 
 ## Module info
 
 To use Akka Persistence, add the module to your project:
 
 @@dependency[sbt,Maven,Gradle] {
+  symbol1=AkkaVersion
+  value1="$akka.version$"
   group=com.typesafe.akka
-  artifact=akka-persistence-typed_$scala.binary_version$
-  version=$akka.version$
+  artifact=akka-persistence-typed_$scala.binary.version$
+  version=AkkaVersion
 }
 
 You also have to select journal plugin and optionally snapshot store plugin, see 
@@ -30,6 +32,10 @@ allows for very high transaction rates and efficient replication. A stateful act
 events to the actor, allowing it to rebuild its state. This can be either the full history of changes
 or starting from a checkpoint in a snapshot which can dramatically reduce recovery times.
 
+The [Event Sourcing with Akka 2.6 video](https://akka.io/blog/news/2020/01/07/akka-event-sourcing-video)
+is a good starting point for learning Event Sourcing, and then followed by the
+[CQRS with Akka 2.6 video](https://akka.io/blog/news/2020/02/05/akka-cqrs-video).
+
 @@@ note
 
 The General Data Protection Regulation (GDPR) requires that personal information must be deleted at the request of users.
@@ -43,7 +49,7 @@ provides tools to facilitate in building GDPR capable systems.
 
 ### Event sourcing concepts
 
-See an [introduction to EventSourcing](https://msdn.microsoft.com/en-us/library/jj591559.aspx) at MSDN.
+See an [introduction to EventSourcing](https://docs.microsoft.com/en-us/previous-versions/msp-n-p/jj591559(v=pandp.10)?redirectedfrom=MSDN) at MSDN.
 
 Another excellent article about "thinking in Events" is [Events As First-Class Citizens](https://hackernoon.com/events-as-first-class-citizens-8633e8479493)
 by Randy Shoup. It is a short and recommended read if you're starting developing Events based applications.
@@ -380,8 +386,13 @@ The @ref:[Request-Response interaction pattern](interaction-patterns.md#request-
 persistent actors, because you typically want to know if the command was rejected due to validation errors and
 when accepted you want a confirmation when the events have been successfully stored.
 
-Therefore you typically include a @scala[`ActorRef[ReplyMessageType]`]@java[`ActorRef<ReplyMessageType>`] in the
-commands. After validation errors or after persisting events, using a `thenRun` side effect, the reply message can
+Therefore you typically include a @scala[`ActorRef[ReplyMessageType]`]@java[`ActorRef<ReplyMessageType>`]. If the 
+command can either have a successful response or a validation error returned, the generic response type @scala[`StatusReply[ReplyType]]`]
+@java[`StatusReply<ReplyType>`] can be used. If the successful reply does not contain a value but is more of an acknowledgement
+a pre defined @scala[`StatusReply.Ack`]@java[`StatusReply.ack()`] of type @scala[`StatusReply[Done]`]@java[`StatusReply<Done>`]
+can be used.
+
+After validation errors or after persisting events, using a `thenRun` side effect, the reply message can
 be sent to the `ActorRef`.
 
 Scala
@@ -511,6 +522,20 @@ akka.persistence.journal.leveldb.replay-filter {
   mode = repair-by-discard-old
 }
 ```
+
+### Disable recovery
+
+You can also completely disable the recovery of events and snapshots:
+
+Scala
+:  @@snip [BasicPersistentBehaviorCompileOnly.scala](/akka-persistence-typed/src/test/scala/docs/akka/persistence/typed/BasicPersistentBehaviorCompileOnly.scala) { #recovery-disabled }
+
+Java
+:  @@snip [BasicPersistentBehaviorTest.java](/akka-persistence-typed/src/test/java/jdocs/akka/persistence/typed/BasicPersistentBehaviorTest.java) { #recovery-disabled }
+
+Please refer to @ref[snapshots](persistence-snapshot.md#snapshots) if you need to disable only the snapshot recovery, or you need to select specific snapshots.
+
+In any case, the highest sequence number will always be recovered so you can keep persisting new events without corrupting your event log.
 
 ## Tagging
 

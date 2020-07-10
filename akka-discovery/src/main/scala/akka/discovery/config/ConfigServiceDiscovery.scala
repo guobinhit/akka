@@ -1,19 +1,20 @@
 /*
- * Copyright (C) 2017-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.discovery.config
+
+import scala.concurrent.Future
+import scala.concurrent.duration.FiniteDuration
+
+import com.typesafe.config.Config
 
 import akka.actor.ExtendedActorSystem
 import akka.annotation.InternalApi
 import akka.discovery.{ Lookup, ServiceDiscovery }
 import akka.discovery.ServiceDiscovery.{ Resolved, ResolvedTarget }
 import akka.event.Logging
-import com.typesafe.config.Config
-
 import akka.util.ccompat.JavaConverters._
-import scala.concurrent.Future
-import scala.concurrent.duration.FiniteDuration
 
 /**
  * INTERNAL API

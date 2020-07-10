@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.stream
@@ -85,7 +85,7 @@ object IntegrationDocSpec {
   }
 
   final case class Save(tweet: Tweet)
-  final case object SaveDone
+  case object SaveDone
 
   class DatabaseService(probe: ActorRef) extends Actor {
     override def receive = {

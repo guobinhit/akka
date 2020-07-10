@@ -1,14 +1,15 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence
+
+import com.typesafe.config.ConfigFactory
 
 import akka.actor.{ Actor, Props }
 import akka.event.Logging
 import akka.event.Logging.Warning
 import akka.testkit.{ EventFilter, ImplicitSender, TestEvent }
-import com.typesafe.config.ConfigFactory
 
 object OptionalSnapshotStoreSpec {
 

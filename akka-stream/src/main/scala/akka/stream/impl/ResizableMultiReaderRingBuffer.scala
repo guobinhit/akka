@@ -1,12 +1,14 @@
 /*
- * Copyright (C) 2014-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl
 
 import scala.annotation.tailrec
 import scala.util.control.NoStackTrace
+
 import ResizableMultiReaderRingBuffer._
+
 import akka.annotation.InternalApi
 
 /**

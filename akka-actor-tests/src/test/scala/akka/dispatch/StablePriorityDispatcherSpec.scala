@@ -1,16 +1,17 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.dispatch
 
-import language.postfixOps
+import scala.concurrent.duration._
+
 import com.typesafe.config.Config
+import language.postfixOps
+
 import akka.actor.{ Actor, ActorSystem, Props }
 import akka.testkit.{ AkkaSpec, DefaultTimeout }
 import akka.util.unused
-
-import scala.concurrent.duration._
 
 object StablePriorityDispatcherSpec {
   case object Result

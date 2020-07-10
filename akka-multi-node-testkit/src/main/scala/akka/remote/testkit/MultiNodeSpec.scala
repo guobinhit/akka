@@ -1,30 +1,30 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.testkit
 
-import language.implicitConversions
 import java.net.{ InetAddress, InetSocketAddress }
 
-import com.typesafe.config.{ Config, ConfigFactory, ConfigObject }
-
-import scala.concurrent.{ Await, Awaitable }
-import scala.util.control.NonFatal
 import scala.collection.immutable
-import akka.actor._
-import akka.util.Timeout
-import akka.remote.testconductor.{ TestConductor, TestConductorExt }
-import akka.testkit._
-import akka.testkit.TestKit
-import akka.testkit.TestEvent._
-
+import scala.concurrent.{ Await, Awaitable }
 import scala.concurrent.duration._
-import akka.remote.testconductor.RoleName
+import scala.util.control.NonFatal
+
+import com.typesafe.config.{ Config, ConfigFactory, ConfigObject }
+import language.implicitConversions
+import org.jboss.netty.channel.ChannelException
+
+import akka.actor._
 import akka.actor.RootActorPath
 import akka.event.{ Logging, LoggingAdapter }
 import akka.remote.RemoteTransportException
-import org.jboss.netty.channel.ChannelException
+import akka.remote.testconductor.{ TestConductor, TestConductorExt }
+import akka.remote.testconductor.RoleName
+import akka.testkit._
+import akka.testkit.TestEvent._
+import akka.testkit.TestKit
+import akka.util.Timeout
 import akka.util.ccompat._
 
 /**
@@ -245,15 +245,6 @@ object MultiNodeSpec {
     ConfigFactory.parseMap(map.asJava)
   }
 
-  private def getCallerName(clazz: Class[_]): String = {
-    val pattern = s"(akka\\.remote\\.testkit\\.MultiNodeSpec.*|akka\\.remote\\.RemotingMultiNodeSpec)"
-    val s = Thread.currentThread.getStackTrace.map(_.getClassName).drop(1).dropWhile(_.matches(pattern))
-    val reduced = s.lastIndexWhere(_ == clazz.getName) match {
-      case -1 => s
-      case z  => s.drop(z + 1)
-    }
-    reduced.head.replaceFirst(""".*\.""", "").replaceAll("[^a-zA-Z_0-9]", "_")
-  }
 }
 
 /**
@@ -284,7 +275,7 @@ abstract class MultiNodeSpec(
 
   def this(config: MultiNodeConfig) =
     this(config, {
-      val name = MultiNodeSpec.getCallerName(classOf[MultiNodeSpec])
+      val name = TestKitUtils.testNameFromCallStack(classOf[MultiNodeSpec], "".r)
       config =>
         try {
           ActorSystem(name, config)
@@ -523,7 +514,7 @@ abstract class MultiNodeSpec(
  * Example trait for MultiNodeSpec with ScalaTest
  *
  * {{{
- * trait STMultiNodeSpec extends MultiNodeSpecCallbacks with WordSpecLike with MustMatchers with BeforeAndAfterAll {
+ * trait STMultiNodeSpec extends MultiNodeSpecCallbacks with AnyWordSpecLike with Matchers with BeforeAndAfterAll {
  *   override def beforeAll() = multiNodeSpecBeforeAll()
  *   override def afterAll() = multiNodeSpecAfterAll()
  * }

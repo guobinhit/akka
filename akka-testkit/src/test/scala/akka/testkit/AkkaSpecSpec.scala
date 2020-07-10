@@ -1,23 +1,24 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.testkit
 
-import language.postfixOps
-import org.scalatest.WordSpec
-import org.scalatest.Matchers
-import akka.actor._
-import com.typesafe.config.ConfigFactory
-
 import scala.concurrent.Await
 import scala.concurrent.duration._
+
+import com.github.ghik.silencer.silent
+import com.typesafe.config.ConfigFactory
+import language.postfixOps
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+
+import akka.actor._
 import akka.actor.DeadLetter
 import akka.pattern.ask
-import com.github.ghik.silencer.silent
 
 @silent
-class AkkaSpecSpec extends WordSpec with Matchers {
+class AkkaSpecSpec extends AnyWordSpec with Matchers {
 
   "An AkkaSpec" must {
 

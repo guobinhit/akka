@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence
@@ -8,11 +8,11 @@ import scala.collection.immutable
 import scala.concurrent.duration.FiniteDuration
 
 import akka.actor.{ ActorPath, ActorSelection, NotInfluenceReceiveTimeout }
-import akka.persistence.serialization.Message
 import akka.actor.Cancellable
 import akka.actor.DeadLetterSuppression
 import akka.annotation.InternalApi
 import akka.persistence.AtLeastOnceDelivery.Internal.Delivery
+import akka.persistence.serialization.Message
 import akka.util.ccompat._
 
 @ccompatUsedUntil213

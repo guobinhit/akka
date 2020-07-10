@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.serialization
@@ -7,10 +7,12 @@ package akka.serialization
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 
+import scala.concurrent.Future
+
+import com.typesafe.config.ConfigFactory
+
 import akka.actor.ExtendedActorSystem
 import akka.testkit.{ AkkaSpec, EventFilter }
-import com.typesafe.config.ConfigFactory
-import scala.concurrent.Future
 
 object AsyncSerializeSpec {
 

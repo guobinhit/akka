@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.akka.typed
@@ -7,12 +7,12 @@ package docs.akka.typed
 import akka.actor.testkit.typed.scaladsl.TestProbe
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ ActorRef, Behavior }
+
 import scala.collection.immutable
 import scala.concurrent.duration._
-
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import akka.actor.testkit.typed.scaladsl.LogCapturing
-import org.scalatest.WordSpecLike
+import org.scalatest.wordspec.AnyWordSpecLike
 
 object FSMDocSpec {
 
@@ -43,7 +43,7 @@ object FSMDocSpec {
     // initial state
     def apply(): Behavior[Event] = idle(Uninitialized)
 
-    private def idle(data: Data): Behavior[Event] = Behaviors.receiveMessage[Event] { message: Event =>
+    private def idle(data: Data): Behavior[Event] = Behaviors.receiveMessage[Event] { message =>
       (message, data) match {
         case (SetTarget(ref), Uninitialized) =>
           idle(Todo(ref, Vector.empty))
@@ -73,7 +73,7 @@ object FSMDocSpec {
   //#simple-state
 }
 
-class FSMDocSpec extends ScalaTestWithActorTestKit with WordSpecLike with LogCapturing {
+class FSMDocSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike with LogCapturing {
 
   import FSMDocSpec._
 

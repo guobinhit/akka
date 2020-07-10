@@ -1,16 +1,17 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
 
+import scala.concurrent.duration.{ FiniteDuration, _ }
+import scala.util.Random
+
+import com.typesafe.config.{ Config, ConfigFactory }
+
 import akka.actor.ActorSystem
 import akka.cluster.MemberStatus.Removed
 import akka.testkit.{ AkkaSpec, TestKitBase }
-import com.typesafe.config.{ Config, ConfigFactory }
-
-import scala.concurrent.duration.{ FiniteDuration, _ }
-import scala.util.Random
 
 /**
  * Builds on TestKitBase to provide some extra utilities to run cluster test.

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.testkit.typed.internal
@@ -10,6 +10,8 @@ import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag
 import scala.util.matching.Regex
 
+import org.slf4j.event.Level
+
 import akka.actor.testkit.typed.LoggingEvent
 import akka.actor.testkit.typed.TestKitSettings
 import akka.actor.testkit.typed.javadsl
@@ -17,7 +19,6 @@ import akka.actor.testkit.typed.scaladsl
 import akka.actor.typed.ActorSystem
 import akka.annotation.InternalApi
 import akka.testkit.TestKit
-import org.slf4j.event.Level
 
 /**
  * INTERNAL API

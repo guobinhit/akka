@@ -1,17 +1,18 @@
 /*
- * Copyright (C) 2017-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.testkit.typed
 
-import com.typesafe.config.Config
 import scala.concurrent.duration.{ Duration, FiniteDuration }
 
-import akka.util.JavaDurationConverters._
-import akka.util.Timeout
+import com.typesafe.config.Config
+
 import akka.actor.typed.ActorSystem
 import akka.actor.typed.Extension
 import akka.actor.typed.ExtensionId
+import akka.util.JavaDurationConverters._
+import akka.util.Timeout
 
 object TestKitSettings {
 

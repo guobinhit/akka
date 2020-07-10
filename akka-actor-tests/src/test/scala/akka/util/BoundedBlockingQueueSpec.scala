@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.util
@@ -8,22 +8,24 @@ import java.util
 import java.util.concurrent._
 import java.util.concurrent.locks.{ Condition, LockSupport, ReentrantLock }
 
-import akka.util.DefaultExecutionContext._
-import org.scalactic.source.Position
-import org.scalatest.concurrent.{ Signaler, ThreadSignaler }
-import org.scalatest.exceptions.TestFailedDueToTimeoutException
-import org.scalatest.matchers.{ MatchResult, Matcher }
-import org.scalatest.time.Span
-import org.scalatest.time.SpanSugar._
-import org.scalatest.{ Matchers, WordSpec }
-
-import akka.util.ccompat.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.{ Await, ExecutionContext, ExecutionContextExecutor, Future }
 import scala.util.control.Exception
 
+import org.scalactic.source.Position
+import org.scalatest.concurrent.{ Signaler, ThreadSignaler }
+import org.scalatest.exceptions.TestFailedDueToTimeoutException
+import org.scalatest.matchers.{ MatchResult, Matcher }
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.time.Span
+import org.scalatest.time.SpanSugar._
+import org.scalatest.wordspec.AnyWordSpec
+
+import akka.util.DefaultExecutionContext._
+import akka.util.ccompat.JavaConverters._
+
 class BoundedBlockingQueueSpec
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with QueueSetupHelper
     with CustomContainsMatcher

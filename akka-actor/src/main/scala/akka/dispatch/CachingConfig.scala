@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.dispatch
@@ -7,9 +7,10 @@ package akka.dispatch
 import java.util
 import java.util.concurrent.{ ConcurrentHashMap, TimeUnit }
 
-import com.typesafe.config._
-
 import scala.util.{ Failure, Success, Try }
+import java.lang.Enum
+
+import com.typesafe.config._
 
 /**
  * INTERNAL API

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -7,7 +7,9 @@ package akka.remote.artery
 import java.util.concurrent.atomic.AtomicReference
 
 import scala.annotation.tailrec
+
 import akka.actor.Address
+import akka.event.Logging
 import akka.remote.transport.ThrottlerTransportAdapter.Direction
 import akka.stream.Attributes
 import akka.stream.FlowShape
@@ -15,7 +17,6 @@ import akka.stream.Inlet
 import akka.stream.Outlet
 import akka.stream.stage._
 import akka.util.OptionVal
-import akka.event.Logging
 
 object TestManagementCommands {
 

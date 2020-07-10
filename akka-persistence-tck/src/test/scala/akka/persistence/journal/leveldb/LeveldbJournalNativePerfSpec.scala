@@ -1,12 +1,12 @@
 /*
- * Copyright (C) 2014-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.journal.leveldb
 
-import akka.persistence.journal.JournalPerfSpec
 import akka.persistence.PersistenceSpec
 import akka.persistence.PluginCleanup
+import akka.persistence.journal.JournalPerfSpec
 
 class LeveldbJournalNativePerfSpec
     extends JournalPerfSpec(

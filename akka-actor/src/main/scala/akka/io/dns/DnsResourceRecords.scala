@@ -1,20 +1,21 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.io.dns
 
 import java.net.{ Inet4Address, Inet6Address, InetAddress }
 
-import akka.actor.NoSerializationVerificationNeeded
-import akka.annotation.InternalApi
-import CachePolicy._
-import akka.annotation.DoNotInherit
-import akka.io.dns.internal.{ DomainName, _ }
-import akka.util.{ unused, ByteIterator, ByteString }
-
 import scala.annotation.switch
 import scala.concurrent.duration._
+
+import CachePolicy._
+
+import akka.actor.NoSerializationVerificationNeeded
+import akka.annotation.DoNotInherit
+import akka.annotation.InternalApi
+import akka.io.dns.internal.{ DomainName, _ }
+import akka.util.{ unused, ByteIterator, ByteString }
 
 /**
  * Not for user extension

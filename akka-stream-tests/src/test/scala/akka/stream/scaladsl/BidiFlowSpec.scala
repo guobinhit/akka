@@ -1,19 +1,20 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
+import scala.collection.immutable
+import scala.concurrent.Await
+import scala.concurrent.duration._
+
+import com.github.ghik.silencer.silent
+
 import akka.NotUsed
+import akka.stream._
 import akka.stream.testkit.StreamSpec
 import akka.stream.testkit.scaladsl.StreamTestKit._
 import akka.util.ByteString
-import akka.stream._
-import com.github.ghik.silencer.silent
-
-import scala.concurrent.Await
-import scala.concurrent.duration._
-import scala.collection.immutable
 
 @silent // tests deprecated APIs
 class BidiFlowSpec extends StreamSpec {

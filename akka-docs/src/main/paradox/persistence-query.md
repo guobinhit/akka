@@ -8,9 +8,11 @@ project.description: Query side to Akka Persistence allowing for building CQRS a
 To use Persistence Query, you must add the following dependency in your project:
 
 @@dependency[sbt,Maven,Gradle] {
+  symbol1=AkkaVersion
+  value1="$akka.version$"
   group=com.typesafe.akka
-  artifact=akka-persistence-query_$scala.binary_version$
-  version=$akka.version$
+  artifact=akka-persistence-query_$scala.binary.version$
+  version=AkkaVersion
 }
 
 This will also add dependency on the @ref[Akka Persistence](persistence.md) module.
@@ -26,6 +28,11 @@ persistence) is completely separated from the "query side". Akka Persistence Que
 side of an application, however it can help to migrate data from the write side to the query side database. In very
 simple scenarios Persistence Query may be powerful enough to fulfill the query needs of your app, however we highly
 recommend (in the spirit of CQRS) of splitting up the write/read sides into separate datastores as the need arises.
+
+
+The [CQRS with Akka 2.6 video](https://akka.io/blog/news/2020/02/05/akka-cqrs-video) is a good starting point for
+learning how to use `eventsByTag` to implement CQRS with Akka. Also, watch the introduction to 
+[Event Sourcing with Akka 2.6 video](https://akka.io/blog/news/2020/01/07/akka-event-sourcing-video).
 
 ## Design overview
 
@@ -192,7 +199,7 @@ Java
 
 ## Performance and denormalization
 
-When building systems using @ref:[Event sourcing](typed/persistence.md#event-sourcing-concepts) and CQRS ([Command & Query Responsibility Segregation](https://msdn.microsoft.com/en-us/library/jj554200.aspx)) techniques
+When building systems using @ref:[Event sourcing](typed/persistence.md#event-sourcing-concepts) and CQRS ([Command & Query Responsibility Segregation](https://docs.microsoft.com/en-us/previous-versions/msp-n-p/jj554200(v=pandp.10)?redirectedfrom=MSDN)) techniques
 it is tremendously important to realise that the write-side has completely different needs from the read-side,
 and separating those concerns into datastores that are optimised for either side makes it possible to offer the best
 experience for the write and read sides independently.
@@ -216,7 +223,7 @@ it may be more efficient or interesting to query it (instead of the source event
 
 ### Materialize view to Reactive Streams compatible datastore
 
-If the read datastore exposes a [Reactive Streams](http://reactive-streams.org) interface then implementing a simple projection
+If the read datastore exposes a [Reactive Streams](https://www.reactive-streams.org) interface then implementing a simple projection
 is as simple as, using the read-journal and feeding it into the databases driver interface, for example like so:
 
 Scala

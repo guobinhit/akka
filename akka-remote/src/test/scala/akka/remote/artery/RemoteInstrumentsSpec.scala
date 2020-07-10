@@ -1,14 +1,15 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
 
 import org.scalacheck.{ Arbitrary, Gen }
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.Checkers
-import org.scalatest.{ Matchers, WordSpec }
 
-class RemoteInstrumentsSpec extends WordSpec with Matchers with Checkers {
+class RemoteInstrumentsSpec extends AnyWordSpec with Matchers with Checkers {
 
   case class KeyLen(k: Key, l: Len) {
     override def toString = s" key = ${k}, len = ${l}"

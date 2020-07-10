@@ -1,18 +1,18 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.io
 
+import java.net.DatagramSocket
 import java.net.InetSocketAddress
 
-import akka.testkit.{ AkkaSpec, ImplicitSender, TestProbe }
-import akka.util.ByteString
 import akka.actor.ActorRef
-import akka.io.Udp._
 import akka.io.Inet._
+import akka.io.Udp._
+import akka.testkit.{ AkkaSpec, ImplicitSender, TestProbe }
 import akka.testkit.SocketUtil.temporaryServerAddresses
-import java.net.DatagramSocket
+import akka.util.ByteString
 
 class UdpIntegrationSpec extends AkkaSpec("""
     akka.loglevel = INFO

@@ -1,20 +1,20 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl
+
+import scala.collection.immutable.Map.Map1
+import scala.language.existentials
 
 import akka.annotation.{ DoNotInherit, InternalApi }
 import akka.stream._
 import akka.stream.impl.StreamLayout.AtomicModule
 import akka.stream.impl.TraversalBuilder.{ AnyFunction1, AnyFunction2 }
-import akka.stream.scaladsl.Keep
-import akka.util.OptionVal
-
-import scala.language.existentials
-import scala.collection.immutable.Map.Map1
 import akka.stream.impl.fusing.GraphStageModule
 import akka.stream.impl.fusing.GraphStages.SingleSource
+import akka.stream.scaladsl.Keep
+import akka.util.OptionVal
 import akka.util.unused
 
 /**
@@ -180,7 +180,7 @@ import akka.util.unused
 /**
  * INTERNAL API
  */
-@InternalApi private[akka] final case object PopAttributes extends Traversal
+@InternalApi private[akka] case object PopAttributes extends Traversal
 
 /**
  * INTERNAL API
@@ -190,7 +190,7 @@ import akka.util.unused
 /**
  * INTERNAL API
  */
-@InternalApi private[akka] final case object ExitIsland extends Traversal
+@InternalApi private[akka] case object ExitIsland extends Traversal
 
 /**
  * INTERNAL API

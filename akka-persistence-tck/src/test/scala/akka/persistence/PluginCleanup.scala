@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence
 
 import java.io.File
+
 import org.apache.commons.io.FileUtils
 import org.scalatest.BeforeAndAfterAll
 

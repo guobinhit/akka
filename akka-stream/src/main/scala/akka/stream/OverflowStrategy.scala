@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream
 
 import OverflowStrategies._
+
 import akka.annotation.{ DoNotInherit, InternalApi }
 import akka.event.Logging
 import akka.event.Logging.LogLevel

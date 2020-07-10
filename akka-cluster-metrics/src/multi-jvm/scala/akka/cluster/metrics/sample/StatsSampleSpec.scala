@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.metrics.sample
@@ -69,11 +69,13 @@ class StatsSampleSpecMultiJvmNode3 extends StatsSampleSpec
 //#abstract-test
 import akka.remote.testkit.MultiNodeSpec
 import akka.testkit.ImplicitSender
-import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpecLike }
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
 
 abstract class StatsSampleSpec
     extends MultiNodeSpec(StatsSampleSpecConfig)
-    with WordSpecLike
+    with AnyWordSpecLike
     with Matchers
     with BeforeAndAfterAll
     with ImplicitSender {
@@ -105,8 +107,8 @@ abstract class StatsSampleSpec
       Cluster(system).join(firstAddress)
       //#join
 
-      system.actorOf(Props[StatsWorker], "statsWorker")
-      system.actorOf(Props[StatsService], "statsService")
+      system.actorOf(Props[StatsWorker](), "statsWorker")
+      system.actorOf(Props[StatsService](), "statsService")
 
       receiveN(3).collect { case MemberUp(m) => m.address }.toSet should be(
         Set(firstAddress, secondAddress, thirdAddress))

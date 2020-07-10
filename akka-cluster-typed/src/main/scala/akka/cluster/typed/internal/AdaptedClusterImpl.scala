@@ -1,20 +1,20 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.typed.internal
 
+import akka.actor.typed.{ ActorRef, ActorSystem, Terminated }
 import akka.actor.typed.Behavior
 import akka.actor.typed.Props
 import akka.actor.typed.SupervisorStrategy
-import akka.annotation.InternalApi
-import akka.cluster.ClusterEvent.MemberEvent
-import akka.cluster.{ ClusterEvent, Member, MemberStatus }
-import akka.actor.typed.{ ActorRef, ActorSystem, Terminated }
-import akka.cluster.typed._
 import akka.actor.typed.internal.adapter.ActorSystemAdapter
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.scaladsl.adapter._
+import akka.annotation.InternalApi
+import akka.cluster.{ ClusterEvent, Member, MemberStatus }
+import akka.cluster.ClusterEvent.MemberEvent
+import akka.cluster.typed._
 
 /**
  * INTERNAL API:

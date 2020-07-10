@@ -1,18 +1,18 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl
 
-import akka.annotation.InternalApi
-import akka.dispatch.ExecutionContexts
-import akka.stream.impl.Stages.DefaultAttributes
-import akka.stream.stage.{ GraphStageLogic, GraphStageWithMaterializedValue, OutHandler }
-import akka.stream._
-import akka.util.OptionVal
-
 import scala.concurrent.Promise
 import scala.util.Try
+
+import akka.annotation.InternalApi
+import akka.dispatch.ExecutionContexts
+import akka.stream._
+import akka.stream.impl.Stages.DefaultAttributes
+import akka.stream.stage.{ GraphStageLogic, GraphStageWithMaterializedValue, OutHandler }
+import akka.util.OptionVal
 
 /**
  * INTERNAL API
@@ -39,8 +39,7 @@ import scala.util.Try
             handleCompletion(value)
           case None =>
             // callback on future completion
-            promise.future.onComplete(getAsyncCallback(handleCompletion).invoke)(
-              ExecutionContexts.sameThreadExecutionContext)
+            promise.future.onComplete(getAsyncCallback(handleCompletion).invoke)(ExecutionContexts.parasitic)
         }
       }
 

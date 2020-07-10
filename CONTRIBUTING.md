@@ -46,8 +46,8 @@ Another group of tickets are those which start from a number. They're used to si
 
 The last group of special tags indicate specific states a ticket is in:
 
-- [bug](https://github.com/akka/akka/labels/failed) - bugs take priority in being fixed above features. The core team dedicates a number of days to working on bugs each sprint. Bugs which have reproducers are also great for community contributions as they're well isolated. Sometimes we're not as lucky to have reproducers though, then a bugfix should also include a test reproducing the original error along with the fix.
-- [failed](https://github.com/akka/akka/labels/failed) - tickets indicate a Jenkins failure (for example from a nightly build). These tickets usually start with the `FAILED: ...` message, and include a stacktrace + link to the Jenkins failure. The tickets are collected and worked on with priority to keep the build stable and healthy. Often times it may be simple timeout issues (Jenkins boxes are slow), though sometimes real bugs are discovered this way.
+- [bug](https://github.com/akka/akka/labels/bug) tickets indicate potential production issues. Bugs take priority in being fixed above features. The core team dedicates a number of days to working on bugs each sprint. Bugs which have reproducers are also great for community contributions as they're well-isolated. Sometimes we're not as lucky to have reproducers though, then a bugfix should also include a test reproducing the original error along with the fix.
+- [failed](https://github.com/akka/akka/labels/failed) tickets indicate a Jenkins failure (for example from a nightly build). These tickets usually include a stacktrace + link to the Jenkins failure, and we'll add a comment when we see the same problem again. Since these tickets can either indicate tests with incorrect assumptions or legitimate issues in the production code we look at them periodically. When the same problem isn't seen again over a period of 6 months we assume it to be a rare flaky test or a problem that might have since been fixed, so we close the issue until it pops up again.
 
 Pull request validation states:
 
@@ -205,8 +205,8 @@ target PR branch you can do so by setting the PR_TARGET_BRANCH environment varia
 PR_TARGET_BRANCH=origin/example sbt validatePullRequest
 ```
 
-If you have already run all tests and now just need to check that everything is formatted and or mima passes there
-are a set of `all*` commands aliases for running `test:compile` (also formats), `mimaReportBinaryIssues`, and `validateCompile` 
+If you already ran all tests and just need to check formatting and mima, there
+is a set of `all*` command aliases that run `test:compile` (also formats), `mimaReportBinaryIssues`, and `validateCompile` 
 (compiles `multi-jvm` if enabled for that project). See `build.sbt` or use completion to find the most appropriate one 
 e.g. `allCluster`, `allTyped`.
 
@@ -411,7 +411,7 @@ In order to force the `validatePullRequest` task to build the entire project, re
 changes one can use the special `PLS BUILD ALL` command (typed in a comment on GitHub, on the pull request), which will cause
 the validator to test all projects.
 
-Note, that `OK TO TEST` will only be picked up when the user asking for it is considered an admin. Public (!) members of the [akka organization](https://github.com/orgs/akka/people) are automatically considered admins and users manually declared admin in the Jenkins job (currently no one is explicitly listed). `PLS BUILD` and `PLS BUILD ALL` can be issued by everyone that is an admin or everyone who was whitelisted in the Jenkins Job (whitelisting != declaring someone an admin).
+Note, that `OK TO TEST` will only be picked up when the user asking for it is considered an admin. Public (!) members of the [akka organization](https://github.com/orgs/akka/people) are automatically considered admins and users manually declared admin in the Jenkins job (currently no one is explicitly listed). `PLS BUILD` and `PLS BUILD ALL` can be issued by everyone that is an admin or everyone who was given permission in the Jenkins Job.
 
 ## Source style
 
@@ -427,14 +427,21 @@ Preferences > Editor > Code Style > Scala, select Scalafmt as formatter and enab
 IntelliJ will then use the same settings and version as defined in `.scalafmt.conf` file. Then it's
 not needed to use `sbt scalafmtAll` when editing with IntelliJ.
 
+PR validation includes checking that the Scala sources are formatted and will fail if they are not.
+
 ### Java style
 
-Java code is currently not automatically reformatted by sbt (expecting to have a plugin to do this soon).
-Thus we ask Java contributions to follow these simple guidelines:
+Akka uses [the sbt Java Formatter plugin](https://github.com/sbt/sbt-java-formatter) to format Java sources.
 
-- 2 spaces
-- `{` on same line as method name
-- in all other aspects, follow the [Oracle Java Style Guide](http://www.oracle.com/technetwork/java/codeconvtoc-136057.html)
+PR validation includes checking that the Java sources are formatted and will fail if they are not.
+
+### Code discipline opt out
+
+In addition to formatting the Akka build enforces code discipline through a set of compiler flags. While exploring ideas
+the discipline may be more of a hindrance than a help so it is possible to disable it by setting the system property `akka.no.discipline`
+to any non-empty string value when starting up sbt: `sbt -Dakka.no.discipline=youbet`
+
+PR validation includes the discipline flags and therefore may fail if the flags were disabled during development. Make sure you compile your code at least once with discipline enabled before sending a PR.
 
 ### Preferred ways to use timeouts in tests
 

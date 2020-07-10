@@ -1,32 +1,32 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
 package aeron
 
+import java.io.File
 import java.util.concurrent.Executors
 
 import scala.collection.AbstractIterator
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
+import com.typesafe.config.ConfigFactory
+import io.aeron.Aeron
+import io.aeron.CncFileDescriptor
+import io.aeron.driver.MediaDriver
+import org.agrona.IoUtil
+
 import akka.actor._
 import akka.remote.testconductor.RoleName
 import akka.remote.testkit.MultiNodeConfig
 import akka.remote.testkit.MultiNodeSpec
 import akka.remote.testkit.STMultiNodeSpec
+import akka.stream.KillSwitches
 import akka.stream.scaladsl.Source
 import akka.testkit._
-import com.typesafe.config.ConfigFactory
-import io.aeron.Aeron
-import io.aeron.driver.MediaDriver
-import akka.stream.KillSwitches
-import java.io.File
-
 import akka.util.ByteString
-import io.aeron.CncFileDescriptor
-import org.agrona.IoUtil
 
 object AeronStreamMaxThroughputSpec extends MultiNodeConfig {
   val first = role("first")
@@ -226,7 +226,7 @@ abstract class AeronStreamMaxThroughputSpec
   "Max throughput of Aeron Streams" must {
 
     "start upd port" in {
-      system.actorOf(Props[UdpPortActor], "updPort")
+      system.actorOf(Props[UdpPortActor](), "updPort")
       enterBarrier("udp-port-started")
     }
 

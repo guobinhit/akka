@@ -1,15 +1,15 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
 
 import scala.concurrent.duration._
 
-import org.scalatest.Matchers
-import org.scalatest.WordSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class RestartCounterSpec extends WordSpec with Matchers {
+class RestartCounterSpec extends AnyWordSpec with Matchers {
 
   "RestartCounter" must {
 

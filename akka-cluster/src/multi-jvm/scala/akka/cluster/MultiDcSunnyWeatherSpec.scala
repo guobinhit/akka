@@ -1,18 +1,19 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
+
+import scala.collection.immutable
+import scala.collection.immutable.SortedSet
+import scala.concurrent.duration._
+
+import com.typesafe.config.ConfigFactory
 
 import akka.annotation.InternalApi
 import akka.remote.testconductor.RoleName
 import akka.remote.testkit.{ MultiNodeConfig, MultiNodeSpec }
 import akka.testkit._
-import com.typesafe.config.ConfigFactory
-
-import scala.collection.immutable
-import scala.collection.immutable.SortedSet
-import scala.concurrent.duration._
 
 object MultiDcSunnyWeatherMultiJvmSpec extends MultiNodeConfig {
   val first = role("first")

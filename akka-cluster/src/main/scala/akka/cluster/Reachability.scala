@@ -1,12 +1,12 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
 
-import akka.annotation.InternalApi
-
 import scala.collection.immutable
+
+import akka.annotation.InternalApi
 import akka.util.ccompat._
 
 /**

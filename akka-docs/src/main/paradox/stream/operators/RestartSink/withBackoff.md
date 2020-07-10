@@ -4,13 +4,10 @@ Wrap the given @apidoc[Sink] with a @apidoc[Sink] that will restart it when it f
 
 @ref[Error handling](../index.md#error-handling)
 
-@@@div { .group-scala }
-
 ## Signature
 
-@@signature [RestartSink.scala](/akka-stream/src/main/scala/akka/stream/scaladsl/RestartSink.scala) { #withBackoff }
+@apidoc[RestartSink.withBackoff](RestartSink$) { scala="#withBackoff[T](minBackoff:scala.concurrent.duration.FiniteDuration,maxBackoff:scala.concurrent.duration.FiniteDuration,randomFactor:Double,maxRestarts:Int)(sinkFactory:()=&gt;akka.stream.scaladsl.Sink[T,_]):akka.stream.scaladsl.Sink[T,akka.NotUsed]"  java="#withBackoff(java.time.Duration,java.time.Duration,double,int,akka.japi.function.Creator)" }
 
-@@@
 
 ## Description
 
@@ -24,4 +21,4 @@ The restart process is inherently lossy, since there is no coordination between 
 messages. When the wrapped @apidoc[Sink] does cancel, this @apidoc[Sink] will backpressure, however any elements already
 sent may have been lost.
 
-This uses the same exponential backoff algorithm as @apidoc[Backoff].
+This uses the same exponential backoff algorithm as @apidoc[Backoff$].

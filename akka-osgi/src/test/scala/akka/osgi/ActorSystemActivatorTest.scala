@@ -1,23 +1,24 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.osgi
 
-import language.postfixOps
-
-import org.scalatest.WordSpec
-import akka.actor.ActorSystem
-import akka.pattern.ask
+import scala.collection.immutable
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.collection.immutable
-import akka.util.Timeout
+
+import PojoSRTestSupport.bundle
 import de.kalpatec.pojosr.framework.launch.BundleDescriptor
+import language.postfixOps
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import test.{ PingPongActorSystemActivator, RuntimeNameActorSystemActivator, TestActivators }
 import test.PingPong._
-import PojoSRTestSupport.bundle
-import org.scalatest.Matchers
+
+import akka.actor.ActorSystem
+import akka.pattern.ask
+import akka.util.Timeout
 
 /**
  * Test cases for [[akka.osgi.ActorSystemActivator]] in 2 different scenarios:
@@ -30,7 +31,7 @@ object ActorSystemActivatorTest {
 
 }
 
-class PingPongActorSystemActivatorTest extends WordSpec with Matchers with PojoSRTestSupport {
+class PingPongActorSystemActivatorTest extends AnyWordSpec with Matchers with PojoSRTestSupport {
 
   import ActorSystemActivatorTest._
 
@@ -63,7 +64,7 @@ class PingPongActorSystemActivatorTest extends WordSpec with Matchers with PojoS
 
 }
 
-class RuntimeNameActorSystemActivatorTest extends WordSpec with Matchers with PojoSRTestSupport {
+class RuntimeNameActorSystemActivatorTest extends AnyWordSpec with Matchers with PojoSRTestSupport {
 
   import ActorSystemActivatorTest._
 

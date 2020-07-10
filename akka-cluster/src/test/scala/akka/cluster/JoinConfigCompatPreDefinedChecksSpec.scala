@@ -1,15 +1,16 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
 
-import com.typesafe.config.{ Config, ConfigFactory }
-import org.scalatest.{ Matchers, WordSpec }
-
 import scala.collection.{ immutable => im }
 
-class JoinConfigCompatPreDefinedChecksSpec extends WordSpec with Matchers {
+import com.typesafe.config.{ Config, ConfigFactory }
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+
+class JoinConfigCompatPreDefinedChecksSpec extends AnyWordSpec with Matchers {
 
   // Test for some of the pre-build helpers we offer
   "JoinConfigCompatChecker.exists" must {

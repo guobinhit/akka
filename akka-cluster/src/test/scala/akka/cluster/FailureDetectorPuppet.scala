@@ -1,14 +1,15 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
 
 import java.util.concurrent.atomic.AtomicReference
 
-import akka.remote.FailureDetector
 import com.typesafe.config.Config
+
 import akka.event.EventStream
+import akka.remote.FailureDetector
 import akka.util.unused
 
 /**

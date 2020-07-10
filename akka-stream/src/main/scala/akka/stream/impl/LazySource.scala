@@ -1,17 +1,17 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl
+
+import scala.concurrent.{ Future, Promise }
+import scala.util.control.NonFatal
 
 import akka.annotation.InternalApi
 import akka.stream._
 import akka.stream.impl.Stages.DefaultAttributes
 import akka.stream.scaladsl.{ Keep, Source }
 import akka.stream.stage._
-
-import scala.concurrent.{ Future, Promise }
-import scala.util.control.NonFatal
 
 /**
  * INTERNAL API

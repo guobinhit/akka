@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.io.dns.internal
@@ -9,8 +9,8 @@ import java.net.InetSocketAddress
 import akka.AkkaException
 import akka.actor.{ Actor, ActorLogging, ActorRef, Stash }
 import akka.annotation.InternalApi
-import akka.io.dns.internal.DnsClient.Answer
 import akka.io.Tcp
+import akka.io.dns.internal.DnsClient.Answer
 import akka.util.ByteString
 
 /**

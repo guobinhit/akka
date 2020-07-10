@@ -1,11 +1,16 @@
 /*
- * Copyright (C) 2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.scaladsl
 
 import java.io.File
 import java.util.UUID
+
+import com.typesafe.config.Config
+import com.typesafe.config.ConfigFactory
+import org.apache.commons.io.FileUtils
+import org.scalatest.wordspec.AnyWordSpecLike
 
 import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
@@ -16,10 +21,6 @@ import akka.persistence.serialization.Snapshot
 import akka.persistence.typed.PersistenceId
 import akka.serialization.Serialization
 import akka.serialization.SerializationExtension
-import com.typesafe.config.Config
-import com.typesafe.config.ConfigFactory
-import org.apache.commons.io.FileUtils
-import org.scalatest.WordSpecLike
 
 object SnapshotRecoveryWithEmptyJournalSpec {
   val survivingSnapshotPath = s"target/survivingSnapshotPath-${UUID.randomUUID().toString}"
@@ -57,7 +58,7 @@ object SnapshotRecoveryWithEmptyJournalSpec {
 
 class SnapshotRecoveryWithEmptyJournalSpec
     extends ScalaTestWithActorTestKit(SnapshotRecoveryWithEmptyJournalSpec.conf)
-    with WordSpecLike
+    with AnyWordSpecLike
     with LogCapturing {
   import SnapshotRecoveryWithEmptyJournalSpec._
 

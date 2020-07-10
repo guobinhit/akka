@@ -1,13 +1,13 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.event
 
-import akka.actor._
-import akka.event.Logging.simpleName
 import java.util.concurrent.atomic.AtomicInteger
 
+import akka.actor._
+import akka.event.Logging.simpleName
 import akka.util.unused
 
 /**

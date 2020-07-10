@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.dungeon
@@ -7,12 +7,13 @@ package akka.actor.dungeon
 import java.util.Optional
 
 import scala.annotation.tailrec
-import scala.util.control.NonFatal
 import scala.collection.immutable
+import scala.util.control.NonFatal
+import com.github.ghik.silencer.silent
 import akka.actor._
+import akka.annotation.InternalStableApi
 import akka.serialization.{ Serialization, SerializationExtension, Serializers }
 import akka.util.{ Helpers, Unsafe }
-import com.github.ghik.silencer.silent
 
 private[akka] object Children {
   val GetNobody = () => Nobody
@@ -180,6 +181,7 @@ private[akka] trait Children { this: ActorCell =>
     case _                                                         => null
   }
 
+  @InternalStableApi
   protected def suspendChildren(exceptFor: Set[ActorRef] = Set.empty): Unit =
     childrenRefs.stats.foreach {
       case ChildRestartStats(child, _, _) if !(exceptFor contains child) =>

@@ -1,19 +1,20 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.scaladsl
 
 import java.util.UUID
 
+import org.scalatest.wordspec.AnyWordSpecLike
+
+import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.actor.testkit.typed.scaladsl.LoggingTestKit
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import akka.actor.testkit.typed.scaladsl.TestProbe
-import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.scaladsl.EventSourcedBehavior.CommandHandler
 import akka.serialization.jackson.CborSerializable
-import org.scalatest.WordSpecLike
 
 object OptionalSnapshotStoreSpec {
 
@@ -48,7 +49,7 @@ class OptionalSnapshotStoreSpec extends ScalaTestWithActorTestKit(s"""
 
     # snapshot store plugin is NOT defined, things should still work
     akka.persistence.snapshot-store.local.dir = "target/snapshots-${classOf[OptionalSnapshotStoreSpec].getName}/"
-    """) with WordSpecLike with LogCapturing {
+    """) with AnyWordSpecLike with LogCapturing {
 
   import OptionalSnapshotStoreSpec._
 
@@ -73,7 +74,7 @@ class OptionalSnapshotStoreSpec extends ScalaTestWithActorTestKit(s"""
     }
 
     "successfully save a snapshot when no default snapshot-store configured, yet PersistentActor picked one explicitly" in {
-      val stateProbe = TestProbe[State]
+      val stateProbe = TestProbe[State]()
       val persistentActor = spawn(persistentBehaviorWithSnapshotPlugin(stateProbe))
       persistentActor ! AnyCommand
       stateProbe.expectMessageType[State]

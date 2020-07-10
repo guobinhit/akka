@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.akka.actor.testkit.typed.scaladsl
@@ -11,14 +11,14 @@ import docs.akka.actor.testkit.typed.scaladsl.AsyncTestingExampleSpec.Echo
 import akka.actor.testkit.typed.scaladsl.LogCapturing
 //#scalatest-integration
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
-import org.scalatest.WordSpecLike
+import org.scalatest.wordspec.AnyWordSpecLike
 
 //#scalatest-integration
 //#log-capturing
 
 @silent
 //#scalatest-integration
-class ScalaTestIntegrationExampleSpec extends ScalaTestWithActorTestKit with WordSpecLike {
+class ScalaTestIntegrationExampleSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
 
   "Something" must {
     "behave correctly" in {
@@ -32,7 +32,7 @@ class ScalaTestIntegrationExampleSpec extends ScalaTestWithActorTestKit with Wor
 //#scalatest-integration
 
 //#log-capturing
-class LogCapturingExampleSpec extends ScalaTestWithActorTestKit with WordSpecLike with LogCapturing {
+class LogCapturingExampleSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike with LogCapturing {
 
   "Something" must {
     "behave correctly" in {

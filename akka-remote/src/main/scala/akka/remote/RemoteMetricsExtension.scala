@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote
@@ -7,6 +7,9 @@ package akka.remote
 import java.util.concurrent.ConcurrentHashMap
 
 import scala.annotation.tailrec
+
+import com.github.ghik.silencer.silent
+
 import akka.actor.ActorSelectionMessage
 import akka.actor.ActorSystem
 import akka.actor.ClassicActorSystemProvider
@@ -16,7 +19,6 @@ import akka.actor.ExtensionId
 import akka.actor.ExtensionIdProvider
 import akka.event.Logging
 import akka.routing.RouterEnvelope
-import com.github.ghik.silencer.silent
 
 /**
  * INTERNAL API

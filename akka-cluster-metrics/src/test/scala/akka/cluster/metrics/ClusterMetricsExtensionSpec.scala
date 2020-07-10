@@ -1,15 +1,16 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.metrics
 
-import scala.language.postfixOps
 import scala.concurrent.duration._
+import scala.language.postfixOps
+
 import akka.actor._
-import akka.testkit._
-import akka.cluster.metrics.StandardMetrics._
 import akka.cluster.Cluster
+import akka.cluster.metrics.StandardMetrics._
+import akka.testkit._
 
 class ClusterMetricsExtensionSpec
     extends AkkaSpec(MetricsConfig.clusterSigarMock)

@@ -1,16 +1,17 @@
 /*
- * Copyright (C) 2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.testkit.typed.scaladsl
 
 import scala.reflect.ClassTag
 
+import org.slf4j.event.Level
+
 import akka.actor.testkit.typed.LoggingEvent
 import akka.actor.testkit.typed.internal.LoggingTestKitImpl
 import akka.actor.typed.ActorSystem
 import akka.annotation.DoNotInherit
-import org.slf4j.event.Level
 
 /**
  * Facilities for verifying logs.

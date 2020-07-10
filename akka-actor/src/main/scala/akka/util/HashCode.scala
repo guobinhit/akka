@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.util
 
-import java.lang.reflect.{ Array => JArray }
 import java.lang.{ Float => JFloat, Double => JDouble }
+import java.lang.reflect.{ Array => JArray }
 
 /**
  * Set of methods which allow easy implementation of <code>hashCode</code>.

@@ -1,8 +1,15 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
+
+import scala.concurrent.Future
+import scala.concurrent.duration._
+import scala.util.Failure
+import scala.util.Success
+
+import com.typesafe.config.ConfigFactory
 
 import akka.Done
 import akka.actor.{ Actor, ActorIdentity, ActorLogging, ActorRef, Identify, Props }
@@ -21,12 +28,6 @@ import akka.stream.scaladsl.StreamRefs
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit._
-import com.typesafe.config.ConfigFactory
-
-import scala.concurrent.Future
-import scala.concurrent.duration._
-import scala.util.Failure
-import scala.util.Success
 import akka.util.JavaDurationConverters._
 
 object StreamRefSpec extends MultiNodeConfig {
@@ -56,7 +57,7 @@ object StreamRefSpec extends MultiNodeConfig {
 
   class DataSource(streamLifecycleProbe: ActorRef) extends Actor with ActorLogging {
     import context.dispatcher
-    implicit val mat = Materializer(context)
+    implicit val mat: Materializer = Materializer(context)
 
     def receive = {
       case RequestLogs(streamId) =>
@@ -102,7 +103,7 @@ object StreamRefSpec extends MultiNodeConfig {
   class DataReceiver(streamLifecycleProbe: ActorRef) extends Actor with ActorLogging {
 
     import context.dispatcher
-    implicit val mat = Materializer(context)
+    implicit val mat: Materializer = Materializer(context)
 
     def receive = {
       case PrepareUpload(nodeId) =>

@@ -1,23 +1,24 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
 
-import com.typesafe.config.ConfigFactory
-import akka.actor.{ ActorSystem, Address }
-import akka.remote.classic.transport.netty.NettyTransportSpec._
-
-import scala.concurrent.Await
-import org.scalatest.WordSpec
-import org.scalatest.Matchers
-
-import scala.concurrent.duration.Duration
-import akka.testkit.SocketUtil
 import java.net.InetAddress
 
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+
+import com.typesafe.config.ConfigFactory
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+
+import akka.actor.{ ActorSystem, Address }
+import akka.remote.classic.transport.netty.NettyTransportSpec._
+import akka.testkit.SocketUtil
+
 trait BindCanonicalAddressBehaviors {
-  this: WordSpec with Matchers =>
+  this: AnyWordSpec with Matchers =>
   def arteryConnectionTest(transport: String, isUDP: Boolean): Unit = {
 
     val commonConfig = BindCanonicalAddressSpec.commonConfig(transport)
@@ -29,7 +30,7 @@ trait BindCanonicalAddressBehaviors {
 
       implicit val sys = ActorSystem("sys", config.withFallback(commonConfig))
 
-      getInternal should contain(getExternal)
+      getInternal should contain(getExternal())
       Await.result(sys.terminate(), Duration.Inf)
     }
 
@@ -46,13 +47,13 @@ trait BindCanonicalAddressBehaviors {
       getExternal should ===(address.toAkkaAddress("akka"))
       // May have selected the same random port - bind another in that case while the other still has the canonical port
       val internals =
-        if (getInternal.collect { case Address(_, _, _, Some(port)) => port }.toSeq.contains(address.getPort)) {
+        if (getInternal().collect { case Address(_, _, _, Some(port)) => port }.toSeq.contains(address.getPort)) {
           val sys2 = ActorSystem("sys", config.withFallback(commonConfig))
           val secondInternals = getInternal()(sys2)
           Await.result(sys2.terminate(), Duration.Inf)
           secondInternals
         } else {
-          getInternal
+          getInternal()
         }
       internals should not contain address.toAkkaAddress("akka")
       Await.result(sys.terminate(), Duration.Inf)
@@ -92,15 +93,15 @@ trait BindCanonicalAddressBehaviors {
 
       implicit val sys = ActorSystem("sys", config.withFallback(commonConfig))
 
-      getInternal.flatMap(_.port) should contain(getExternal.port.get)
-      getInternal.map(x => (x.host.get should include).regex("0.0.0.0".r)) // regexp dot is intentional to match IPv4 and 6 addresses
+      getInternal().flatMap(_.port) should contain(getExternal().port.get)
+      getInternal().map(x => (x.host.get should include).regex("0.0.0.0".r)) // regexp dot is intentional to match IPv4 and 6 addresses
 
       Await.result(sys.terminate(), Duration.Inf)
     }
   }
 }
 
-class BindCanonicalAddressSpec extends WordSpec with Matchers with BindCanonicalAddressBehaviors {
+class BindCanonicalAddressSpec extends AnyWordSpec with Matchers with BindCanonicalAddressBehaviors {
   s"artery with aeron-udp transport" should {
     behave.like(arteryConnectionTest("aeron-udp", isUDP = true))
   }

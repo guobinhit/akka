@@ -1,14 +1,16 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence
 
-import akka.actor._
-import akka.testkit._
 import scala.concurrent.duration._
+
 import com.typesafe.config.ConfigFactory
+
+import akka.actor._
 import akka.persistence.JournalProtocol._
+import akka.testkit._
 
 object PersistentActorJournalProtocolSpec {
 

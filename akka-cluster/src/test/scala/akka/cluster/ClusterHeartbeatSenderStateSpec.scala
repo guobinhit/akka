@@ -1,15 +1,17 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
 
-import org.scalatest.WordSpec
-import org.scalatest.Matchers
-import akka.actor.Address
-import akka.remote.FailureDetector
-import akka.remote.DefaultFailureDetectorRegistry
 import java.util.concurrent.ThreadLocalRandom
+
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+
+import akka.actor.Address
+import akka.remote.DefaultFailureDetectorRegistry
+import akka.remote.FailureDetector
 
 object ClusterHeartbeatSenderStateSpec {
   class FailureDetectorStub extends FailureDetector {
@@ -37,7 +39,7 @@ object ClusterHeartbeatSenderStateSpec {
   }
 }
 
-class ClusterHeartbeatSenderStateSpec extends WordSpec with Matchers {
+class ClusterHeartbeatSenderStateSpec extends AnyWordSpec with Matchers {
   import ClusterHeartbeatSenderStateSpec._
 
   val aa = UniqueAddress(Address("akka", "sys", "aa", 2552), 1L)

@@ -1,13 +1,14 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.ddata
 
+import java.math.BigInteger
+
+import akka.annotation.InternalApi
 import akka.cluster.Cluster
 import akka.cluster.UniqueAddress
-import java.math.BigInteger
-import akka.annotation.InternalApi
 
 object GCounter {
   val empty: GCounter = new GCounter

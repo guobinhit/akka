@@ -1,22 +1,23 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl
 
 import java.util.concurrent.atomic.AtomicReference
 
-import akka.annotation.InternalApi
-import akka.stream._
-import akka.stream.impl.Stages.DefaultAttributes
-import akka.util.OptionVal
+import scala.annotation.tailrec
+import scala.util.control.NonFatal
+
 import org.reactivestreams.Processor
 import org.reactivestreams.Publisher
 import org.reactivestreams.Subscriber
 import org.reactivestreams.Subscription
 
-import scala.annotation.tailrec
-import scala.util.control.NonFatal
+import akka.annotation.InternalApi
+import akka.stream._
+import akka.stream.impl.Stages.DefaultAttributes
+import akka.util.OptionVal
 
 /**
  * INTERNAL API

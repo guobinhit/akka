@@ -1,10 +1,17 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl
 
 import java.util.concurrent.TimeoutException
+
+import scala.concurrent.Await
+import scala.concurrent.Future
+import scala.concurrent.duration._
+
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
 
 import akka.Done
 import akka.stream._
@@ -14,12 +21,6 @@ import akka.stream.testkit.TestPublisher
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.Utils._
 import akka.stream.testkit.scaladsl.StreamTestKit._
-import org.scalatest.Matchers
-import org.scalatest.WordSpecLike
-
-import scala.concurrent.Await
-import scala.concurrent.Future
-import scala.concurrent.duration._
 
 class TimeoutsSpec extends StreamSpec {
 
@@ -386,7 +387,7 @@ class TimeoutsSpec extends StreamSpec {
 
 }
 
-class TimeoutChecksSpec extends WordSpecLike with Matchers {
+class TimeoutChecksSpec extends AnyWordSpecLike with Matchers {
 
   "Timeout check interval" must {
 

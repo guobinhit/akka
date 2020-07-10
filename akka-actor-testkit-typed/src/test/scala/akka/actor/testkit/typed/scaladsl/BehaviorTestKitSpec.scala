@@ -1,21 +1,24 @@
 /*
- * Copyright (C) 2014-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.testkit.typed.scaladsl
 
+import scala.reflect.ClassTag
+
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.slf4j.event.Level
+
 import akka.Done
 import akka.actor.Address
-import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ ActorRef, Behavior, Props }
 import akka.actor.testkit.typed.{ CapturedLogEvent, Effect }
 import akka.actor.testkit.typed.Effect._
 import akka.actor.testkit.typed.scaladsl.BehaviorTestKitSpec.{ Child, Parent }
 import akka.actor.testkit.typed.scaladsl.BehaviorTestKitSpec.Parent._
-import org.scalatest.{ Matchers, WordSpec }
-
-import scala.reflect.ClassTag
-import org.slf4j.event.Level
+import akka.actor.typed.{ ActorRef, Behavior, Props }
+import akka.actor.typed.receptionist.{ Receptionist, ServiceKey }
+import akka.actor.typed.scaladsl.Behaviors
 
 object BehaviorTestKitSpec {
   object Parent {
@@ -38,6 +41,7 @@ object BehaviorTestKitSpec {
     case class SpawnSession(replyTo: ActorRef[ActorRef[String]], sessionHandler: ActorRef[String]) extends Command
     case class KillSession(session: ActorRef[String], replyTo: ActorRef[Done]) extends Command
     case class Log(what: String) extends Command
+    case class RegisterWithReceptionist(name: String) extends Command
 
     val init: Behavior[Command] = Behaviors.receive[Command] { (context, message) =>
       message match {
@@ -68,12 +72,12 @@ object BehaviorTestKitSpec {
           context.stop(child)
           Behaviors.same
         case SpawnAdapter =>
-          context.spawnMessageAdapter { r: Reproduce =>
+          context.spawnMessageAdapter { (r: Reproduce) =>
             SpawnAnonymous(r.times)
           }
           Behaviors.same
         case SpawnAdapterWithName(name) =>
-          context.spawnMessageAdapter({ r: Reproduce =>
+          context.spawnMessageAdapter({ (r: Reproduce) =>
             SpawnAnonymous(r.times)
           }, name)
           Behaviors.same
@@ -103,6 +107,9 @@ object BehaviorTestKitSpec {
         case Log(what) =>
           context.log.info(what)
           Behaviors.same
+        case RegisterWithReceptionist(name: String) =>
+          context.system.receptionist ! Receptionist.Register(ServiceKey[Command](name), context.self)
+          Behaviors.same
       }
     }
   }
@@ -122,7 +129,7 @@ object BehaviorTestKitSpec {
 
 }
 
-class BehaviorTestKitSpec extends WordSpec with Matchers with LogCapturing {
+class BehaviorTestKitSpec extends AnyWordSpec with Matchers with LogCapturing {
 
   private val props = Props.empty.withDispatcherFromConfig("cat")
 
@@ -324,6 +331,20 @@ class BehaviorTestKitSpec extends WordSpec with Matchers with LogCapturing {
       testkit.run(SpawnChild)
       val newChild = testkit.expectEffectType[Spawned[_]]
       child.childName shouldBe newChild.childName
+    }
+  }
+  "BehaviorTestKit's receptionist support" must {
+    "register with receptionist without crash" in {
+      val testkit = BehaviorTestKit[Parent.Command](Parent.init)
+      testkit.run(RegisterWithReceptionist("aladin"))
+    }
+    "capture Register message in receptionist's inbox" in {
+      val testkit = BehaviorTestKit[Parent.Command](Parent.init)
+      testkit.receptionistInbox().hasMessages should equal(false)
+      testkit.run(RegisterWithReceptionist("aladin"))
+      testkit.receptionistInbox().hasMessages should equal(true)
+      testkit.receptionistInbox().expectMessage(Receptionist.Register(ServiceKey[Command]("aladin"), testkit.ref))
+      testkit.receptionistInbox().hasMessages should equal(false)
     }
   }
 }

@@ -1,31 +1,28 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.discovery.dns
 
 import java.net.InetAddress
 
+import scala.concurrent.duration._
+import com.typesafe.config.ConfigFactory
 import akka.actor.ActorSystem
 import akka.discovery.{ Discovery, Lookup }
+import akka.discovery.ServiceDiscovery
 import akka.discovery.ServiceDiscovery.ResolvedTarget
 import akka.io.dns.DockerBindDnsService
 import akka.testkit.{ AkkaSpec, SocketUtil, TestKit }
-import com.typesafe.config.ConfigFactory
-import scala.concurrent.duration._
-
-import akka.discovery.ServiceDiscovery
 
 object DnsDiscoverySpec {
 
   val config = ConfigFactory.parseString(s"""
-     //#configure-dns
      akka {
        discovery {
          method = akka-dns
        }
      }
-     //#configure-dns
      akka {
        loglevel = DEBUG
      }

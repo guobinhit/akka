@@ -1,15 +1,15 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.testkit
 
 import java.io.File
 
-import akka.remote.testconductor.RoleName
-
 import scala.concurrent.Future
 import scala.concurrent.duration._
+
+import akka.remote.testconductor.RoleName
 
 /**
  * INTERNAL API: Support trait allowing trivially recording perf metrics from [[MultiNodeSpec]]s

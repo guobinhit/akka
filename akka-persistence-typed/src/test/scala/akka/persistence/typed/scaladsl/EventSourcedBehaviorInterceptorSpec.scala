@@ -1,10 +1,14 @@
 /*
- * Copyright (C) 2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.scaladsl
 
 import java.util.concurrent.atomic.AtomicInteger
+
+import com.typesafe.config.Config
+import com.typesafe.config.ConfigFactory
+import org.scalatest.wordspec.AnyWordSpecLike
 
 import akka.actor.testkit.typed.scaladsl._
 import akka.actor.typed.ActorRef
@@ -13,9 +17,6 @@ import akka.actor.typed.BehaviorInterceptor
 import akka.actor.typed.TypedActorContext
 import akka.actor.typed.scaladsl.Behaviors
 import akka.persistence.typed.PersistenceId
-import com.typesafe.config.Config
-import com.typesafe.config.ConfigFactory
-import org.scalatest.WordSpecLike
 
 object EventSourcedBehaviorInterceptorSpec {
 
@@ -44,7 +45,7 @@ object EventSourcedBehaviorInterceptorSpec {
 
 class EventSourcedBehaviorInterceptorSpec
     extends ScalaTestWithActorTestKit(EventSourcedBehaviorTimersSpec.config)
-    with WordSpecLike
+    with AnyWordSpecLike
     with LogCapturing {
 
   import EventSourcedBehaviorInterceptorSpec._

@@ -1,16 +1,17 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl.fusing
 
+import com.github.ghik.silencer.silent
+
+import akka.stream._
+import akka.stream.impl.fusing.GraphStages.SimpleLinearGraphStage
 import akka.stream.stage._
 import akka.stream.testkit.StreamSpec
 import akka.testkit.EventFilter
-import akka.stream._
-import akka.stream.impl.fusing.GraphStages.SimpleLinearGraphStage
 import akka.util.ConstantFun
-import com.github.ghik.silencer.silent
 
 class InterpreterSpec extends StreamSpec with GraphInterpreterSpecKit {
 
@@ -84,10 +85,10 @@ class InterpreterSpec extends StreamSpec with GraphInterpreterSpecKit {
       Doubler(),
       Filter((x: Int) => x != 0)) {
 
-      lastEvents() should be(Set.empty)
+      lastEvents() should be(Set(RequestOne))
 
       downstream.requestOne()
-      lastEvents() should be(Set(RequestOne))
+      lastEvents() should be(Set.empty)
 
       upstream.onNext(0)
       lastEvents() should be(Set(RequestOne))
@@ -96,10 +97,10 @@ class InterpreterSpec extends StreamSpec with GraphInterpreterSpecKit {
       lastEvents() should be(Set(OnNext(1)))
 
       downstream.requestOne()
-      lastEvents() should be(Set(OnNext(1)))
+      lastEvents() should be(Set(OnNext(1), RequestOne))
 
       downstream.requestOne()
-      lastEvents() should be(Set(RequestOne))
+      lastEvents() should be(Set.empty)
 
       upstream.onComplete()
       lastEvents() should be(Set(OnComplete))
@@ -109,22 +110,22 @@ class InterpreterSpec extends StreamSpec with GraphInterpreterSpecKit {
       Filter((x: Int) => x != 0),
       Doubler()) {
 
-      lastEvents() should be(Set.empty)
+      lastEvents() should be(Set(RequestOne))
 
       downstream.requestOne()
-      lastEvents() should be(Set(RequestOne))
+      lastEvents() should be(Set.empty)
 
       upstream.onNext(0)
       lastEvents() should be(Set(RequestOne))
 
       upstream.onNext(1)
-      lastEvents() should be(Set(OnNext(1)))
+      lastEvents() should be(Set(OnNext(1), RequestOne))
 
       downstream.requestOne()
       lastEvents() should be(Set(OnNext(1)))
 
       downstream.requestOne()
-      lastEvents() should be(Set(RequestOne))
+      lastEvents() should be(Set.empty)
 
       downstream.cancel()
       lastEvents() should be(Set(Cancel(SubscriptionWithCancelException.NoMoreElementsNeeded)))
@@ -152,22 +153,23 @@ class InterpreterSpec extends StreamSpec with GraphInterpreterSpecKit {
       takeTwo,
       Map((x: Int) => x + 1)) {
 
-      lastEvents() should be(Set.empty)
+      lastEvents() should be(Set(RequestOne))
 
       downstream.requestOne()
-      lastEvents() should be(Set(RequestOne))
+      lastEvents() should be(Set.empty)
 
       upstream.onNext(0)
       lastEvents() should be(Set(RequestOne))
 
       upstream.onNext(1)
-      lastEvents() should be(Set(OnNext(2)))
+      lastEvents() should be(Set(OnNext(2), RequestOne))
 
       downstream.requestOne()
-      lastEvents() should be(Set(RequestOne))
+      lastEvents() should be(Set.empty)
 
       upstream.onNext(2)
-      lastEvents() should be(Set(Cancel(SubscriptionWithCancelException.StageWasCompleted), OnComplete, OnNext(3)))
+      lastEvents() should be(
+        Set(RequestOne, Cancel(SubscriptionWithCancelException.StageWasCompleted), OnComplete, OnNext(3)))
     }
 
     "implement fold" in new OneBoundedSetup[Int](Fold(0, (agg: Int, x: Int) => agg + x)) {

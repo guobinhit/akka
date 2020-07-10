@@ -1,14 +1,15 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.util
-import org.scalatest.Matchers
-import org.scalatest.WordSpec
 
 import scala.util.Random
 
-class ImmutableIntMapSpec extends WordSpec with Matchers {
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+
+class ImmutableIntMapSpec extends AnyWordSpec with Matchers {
 
   "ImmutableIntMap" must {
 

@@ -1,13 +1,14 @@
 /*
- * Copyright (C) 2017-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor
 
-import akka.util.JavaDurationConverters._
 import scala.concurrent.duration.FiniteDuration
+
 import akka.annotation.DoNotInherit
 import akka.dispatch.Envelope
+import akka.util.JavaDurationConverters._
 import akka.util.OptionVal
 
 /**

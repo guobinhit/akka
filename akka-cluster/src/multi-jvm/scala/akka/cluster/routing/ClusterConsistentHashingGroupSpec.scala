@@ -1,18 +1,18 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.routing
+
+import scala.concurrent.Await
 
 import akka.actor.{ Actor, ActorRef, Props }
 import akka.cluster.MultiNodeClusterSpec
 import akka.pattern.ask
 import akka.remote.testkit.{ MultiNodeConfig, MultiNodeSpec }
-import akka.routing.ConsistentHashingRouter.ConsistentHashMapping
 import akka.routing.{ Broadcast, ConsistentHashingGroup, GetRoutees, Routees }
+import akka.routing.ConsistentHashingRouter.ConsistentHashMapping
 import akka.testkit._
-
-import scala.concurrent.Await
 
 object ClusterConsistentHashingGroupMultiJvmSpec extends MultiNodeConfig {
 
@@ -52,7 +52,7 @@ abstract class ClusterConsistentHashingGroupSpec
 
   "A cluster router with a consistent hashing group" must {
     "start cluster with 3 nodes" taggedAs LongRunningTest in {
-      system.actorOf(Props[Destination], "dest")
+      system.actorOf(Props[Destination](), "dest")
       awaitClusterUp(first, second, third)
       enterBarrier("after-1")
     }
@@ -73,9 +73,9 @@ abstract class ClusterConsistentHashingGroupSpec
       for (_ <- 1 to 10; k <- keys) { router ! k }
       enterBarrier("messages-sent")
       router ! Broadcast(Get)
-      val a = expectMsgType[Collected].messages
-      val b = expectMsgType[Collected].messages
-      val c = expectMsgType[Collected].messages
+      val a = expectMsgType[ClusterConsistentHashingGroupMultiJvmSpec.Collected].messages
+      val b = expectMsgType[ClusterConsistentHashingGroupMultiJvmSpec.Collected].messages
+      val c = expectMsgType[ClusterConsistentHashingGroupMultiJvmSpec.Collected].messages
 
       a.intersect(b) should ===(Set.empty)
       a.intersect(c) should ===(Set.empty)

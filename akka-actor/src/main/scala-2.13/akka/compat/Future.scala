@@ -1,12 +1,13 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.compat
 
-import akka.annotation.InternalApi
-import scala.concurrent.{ ExecutionContext, Future => SFuture }
 import scala.collection.immutable
+import scala.concurrent.{ ExecutionContext, Future => SFuture }
+
+import akka.annotation.InternalApi
 
 /**
  * INTERNAL API

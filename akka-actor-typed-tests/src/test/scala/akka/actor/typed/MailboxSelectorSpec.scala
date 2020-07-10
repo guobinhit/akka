@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed
@@ -7,10 +7,12 @@ package akka.actor.typed
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
+import org.scalatest.wordspec.AnyWordSpecLike
+
 import akka.actor.ActorCell
+import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.actor.testkit.typed.scaladsl.LoggingTestKit
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
-import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.actor.typed.internal.adapter.ActorContextAdapter
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.scaladsl.Behaviors
@@ -18,14 +20,13 @@ import akka.dispatch.BoundedMessageQueueSemantics
 import akka.dispatch.BoundedNodeMessageQueue
 import akka.dispatch.MessageQueue
 import akka.dispatch.UnboundedMessageQueueSemantics
-import org.scalatest.WordSpecLike
 
 class MailboxSelectorSpec extends ScalaTestWithActorTestKit("""
     specific-mailbox {
       mailbox-type = "akka.dispatch.NonBlockingBoundedMailbox"
       mailbox-capacity = 4 
     }
-  """) with WordSpecLike with LogCapturing {
+  """) with AnyWordSpecLike with LogCapturing {
 
   case class WhatsYourMailbox(replyTo: ActorRef[MessageQueue])
   private def behavior: Behavior[WhatsYourMailbox] =

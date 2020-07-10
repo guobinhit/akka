@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.serialization
 
 import akka.actor.ExtendedActorSystem
 import akka.event.Logging
+import akka.protobufv3.internal.ByteString
 import akka.remote.ContainerFormats
 import akka.serialization.{ SerializationExtension, Serializers }
-import akka.protobufv3.internal.ByteString
 import akka.serialization.DisabledJavaSerializer
 
 /**

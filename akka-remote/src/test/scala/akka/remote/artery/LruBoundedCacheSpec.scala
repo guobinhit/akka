@@ -1,14 +1,15 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
 
-import akka.testkit.AkkaSpec
-import akka.util.Unsafe
+import scala.util.Random
+
 import com.github.ghik.silencer.silent
 
-import scala.util.Random
+import akka.testkit.AkkaSpec
+import akka.util.Unsafe
 
 @silent
 class LruBoundedCacheSpec extends AkkaSpec {

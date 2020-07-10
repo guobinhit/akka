@@ -1,11 +1,12 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor
 
-import akka.util.JavaDurationConverters._
 import scala.concurrent.duration.FiniteDuration
+
+import akka.util.JavaDurationConverters._
 
 /**
  * Java API: compatible with lambda expressions
@@ -34,8 +35,9 @@ abstract class AbstractFSM[S, D] extends FSM[S, D] {
   import java.util.{ List => JList }
 
   import FSM._
-  import akka.japi.pf.FI._
+
   import akka.japi.pf._
+  import akka.japi.pf.FI._
 
   /**
    * Returns this AbstractActor's ActorContext

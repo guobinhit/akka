@@ -1,13 +1,14 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence
 
+import java.io._
+
 import akka.actor.{ ActorRef, Props }
 import akka.serialization.Serializer
-import akka.testkit.{ ImplicitSender }
-import java.io._
+import akka.testkit.ImplicitSender
 
 object SnapshotSerializationSpec {
   trait SerializationMarker

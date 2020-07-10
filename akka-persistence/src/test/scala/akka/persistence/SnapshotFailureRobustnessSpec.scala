@@ -1,20 +1,21 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence
 
 import java.io.IOException
 
+import scala.concurrent.Future
+import scala.concurrent.duration._
+import scala.language.postfixOps
+
+import com.typesafe.config.Config
+
 import akka.actor.{ ActorRef, Props }
 import akka.event.Logging
 import akka.persistence.snapshot.local.LocalSnapshotStore
 import akka.testkit.{ EventFilter, ImplicitSender, TestEvent }
-import com.typesafe.config.Config
-
-import scala.concurrent.Future
-import scala.concurrent.duration._
-import scala.language.postfixOps
 
 object SnapshotFailureRobustnessSpec {
 

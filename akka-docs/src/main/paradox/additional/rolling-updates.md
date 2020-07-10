@@ -67,7 +67,7 @@ Environments such as Kubernetes send a SIGTERM, however if the JVM is wrapped wi
 
 In case of network failures it may still be necessary to set the node's status to Down in order to complete the removal. 
 @ref:[Cluster Downing](../typed/cluster.md#downing) details downing nodes and downing providers. 
-[Split Brain Resolver](https://doc.akka.io/docs/akka-enhancements/current/split-brain-resolver.html) can be used to ensure 
+@ref:[Split Brain Resolver](../split-brain-resolver.md) can be used to ensure 
 the cluster continues to function during network partitions and node failures. For example
 if there is an unreachability problem Split Brain Resolver would make a decision based on the configured downing strategy. 
   
@@ -105,14 +105,14 @@ The procedure for changing from Java serialization to Jackson would look like:
       described in @ref:[Serialization with Jackson](../serialization-jackson.md).
     * Test the system with the new serialization in a new test cluster (no rolling update).
     * Remove the binding for the marker interface in `akka.actor.serialization-bindings`, so that Jackson is not used for serialization (toBinary) yet.
-    * Configure `akka.serialization.jackson.whitelist-class-prefix=["com.myapp"]`
+    * Configure `akka.serialization.jackson.allowed-class-prefix=["com.myapp"]`
         * This is needed for Jackson deserialization when the `serialization-bindings` isn't defined.
         * Replace `com.myapp` with the name of the root package of your application to trust all classes.
     * Roll out the change.
     * Java serialization is still used, but this version is prepared for next roll out.
 1. Rolling update to enable serialization with Jackson.
     * Add the binding to the marker interface in `akka.actor.serialization-bindings` to the Jackson serializer.
-    * Remove `akka.serialization.jackson.whitelist-class-prefix`.
+    * Remove `akka.serialization.jackson.allowed-class-prefix`.
     * Roll out the change.
     * Old nodes will still send messages with Java serialization, and that can still be deserialized by new nodes.
     * New nodes will send messages with Jackson serialization, and old node can deserialize those because they were
@@ -153,6 +153,10 @@ If you've migrated from classic remoting to Artery
 which has a completely different protocol, a rolling update is not supported.
 For more details on this migration
 see @ref:[the migration guide](../project/migration-guide-2.5.x-2.6.x.md#migrating-from-classic-remoting-to-artery).
+
+### Changing remoting transport
+
+Rolling update is not supported when @ref:[changing the remoting transport](../remoting-artery.md#selecting-a-transport).
 
 ### Migrating from Classic Sharding to Typed Sharding
 

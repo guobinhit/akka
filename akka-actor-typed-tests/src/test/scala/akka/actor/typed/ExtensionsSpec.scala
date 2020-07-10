@@ -1,22 +1,23 @@
 /*
- * Copyright (C) 2017-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import com.typesafe.config.{ Config, ConfigFactory }
 import scala.concurrent.Future
+
+import com.typesafe.config.{ Config, ConfigFactory }
+import org.scalatest.wordspec.AnyWordSpecLike
 
 import akka.actor.BootstrapSetup
 import akka.actor.setup.ActorSystemSetup
-import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import akka.actor.testkit.typed.scaladsl.LogCapturing
+import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import akka.actor.typed.receptionist.Receptionist
 import akka.actor.typed.receptionist.ServiceKey
 import akka.actor.typed.scaladsl.Behaviors
-import org.scalatest.WordSpecLike
 
 class DummyExtension1 extends Extension
 object DummyExtension1 extends ExtensionId[DummyExtension1] {
@@ -73,7 +74,7 @@ akka.actor.typed {
    """).resolve()
 }
 
-class ExtensionsSpec extends ScalaTestWithActorTestKit with WordSpecLike with LogCapturing {
+class ExtensionsSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike with LogCapturing {
 
   "The extensions subsystem" must {
     "return the same instance for the same id" in

@@ -1,17 +1,16 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package typed.tutorial_5
 
 import scala.concurrent.duration._
-
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
-import org.scalatest.WordSpecLike
+import org.scalatest.wordspec.AnyWordSpecLike
 import typed.tutorial_5.Device._
 import typed.tutorial_5.DeviceManager._
 
-class DeviceGroupSpec extends ScalaTestWithActorTestKit with WordSpecLike {
+class DeviceGroupSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
 
   "DeviceGroup actor" must {
 

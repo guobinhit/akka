@@ -1,19 +1,21 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.routing
 
 import scala.collection.immutable
+
+import com.github.ghik.silencer.silent
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
+
 import akka.actor.ActorContext
 import akka.actor.ActorSystem
 import akka.actor.Props
 import akka.actor.SupervisorStrategy
 import akka.dispatch.BalancingDispatcherConfigurator
 import akka.dispatch.Dispatchers
-import com.github.ghik.silencer.silent
 
 /**
  * INTERNAL API

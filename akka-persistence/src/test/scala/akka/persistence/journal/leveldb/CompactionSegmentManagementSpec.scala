@@ -1,12 +1,12 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.journal.leveldb
 
-import org.scalatest.WordSpec
+import org.scalatest.wordspec.AnyWordSpec
 
-class CompactionSegmentManagementSpec extends WordSpec {
+class CompactionSegmentManagementSpec extends AnyWordSpec {
 
   "A CompactionSegmentManagement compatible object" must {
     "ignore persistence ids without declared compaction intervals" in {

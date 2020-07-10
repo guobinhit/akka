@@ -1,24 +1,8 @@
 /*
- * Copyright (C) 2014-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
-
-import akka.actor.ActorRef
-import akka.actor.Status
-import akka.annotation.InternalApi
-import akka.dispatch.ExecutionContexts
-import akka.stream.impl.Stages.DefaultAttributes
-import akka.stream.impl._
-import akka.stream.impl.fusing.GraphStages
-import akka.stream.stage._
-import akka.stream.javadsl
-import akka.stream._
-import akka.util.ccompat._
-import akka.Done
-import akka.NotUsed
-import org.reactivestreams.Publisher
-import org.reactivestreams.Subscriber
 
 import scala.annotation.tailrec
 import scala.annotation.unchecked.uncheckedVariance
@@ -28,6 +12,23 @@ import scala.concurrent.Future
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
+
+import org.reactivestreams.Publisher
+import org.reactivestreams.Subscriber
+
+import akka.Done
+import akka.NotUsed
+import akka.actor.ActorRef
+import akka.actor.Status
+import akka.annotation.InternalApi
+import akka.dispatch.ExecutionContexts
+import akka.stream._
+import akka.stream.impl._
+import akka.stream.impl.Stages.DefaultAttributes
+import akka.stream.impl.fusing.GraphStages
+import akka.stream.javadsl
+import akka.stream.stage._
+import akka.util.ccompat._
 
 /**
  * A `Sink` is a set of stream processing steps that has one open input.
@@ -194,8 +195,7 @@ object Sink {
       .fromGraph(new HeadOptionStage[T])
       .withAttributes(DefaultAttributes.headSink)
       .mapMaterializedValue(e =>
-        e.map(_.getOrElse(throw new NoSuchElementException("head of empty stream")))(
-          ExecutionContexts.sameThreadExecutionContext))
+        e.map(_.getOrElse(throw new NoSuchElementException("head of empty stream")))(ExecutionContexts.parasitic))
 
   /**
    * A `Sink` that materializes into a `Future` of the optional first value received.
@@ -217,7 +217,7 @@ object Sink {
   def last[T]: Sink[T, Future[T]] = {
     Sink.fromGraph(new TakeLastStage[T](1)).withAttributes(DefaultAttributes.lastSink).mapMaterializedValue { e =>
       e.map(_.headOption.getOrElse(throw new NoSuchElementException("last of empty stream")))(
-        ExecutionContexts.sameThreadExecutionContext)
+        ExecutionContexts.parasitic)
     }
   }
 
@@ -230,7 +230,7 @@ object Sink {
    */
   def lastOption[T]: Sink[T, Future[Option[T]]] = {
     Sink.fromGraph(new TakeLastStage[T](1)).withAttributes(DefaultAttributes.lastOptionSink).mapMaterializedValue { e =>
-      e.map(_.headOption)(ExecutionContexts.sameThreadExecutionContext)
+      e.map(_.headOption)(ExecutionContexts.parasitic)
     }
   }
 
@@ -556,6 +556,27 @@ object Sink {
 
   /**
    * Creates a `Sink` that is materialized as an [[akka.stream.scaladsl.SinkQueueWithCancel]].
+   * [[akka.stream.scaladsl.SinkQueueWithCancel.pull]] method is pulling element from the stream and returns ``Future[Option[T]``.
+   * `Future` completes when element is available.
+   *
+   * Before calling pull method second time you need to ensure that number of pending pulls is less then ``maxConcurrentPulls``
+   * or wait until some of the previous Futures completes.
+   * Pull returns Failed future with ''IllegalStateException'' if there will be more then ``maxConcurrentPulls`` number of pending pulls.
+   *
+   * `Sink` will request at most number of elements equal to size of `inputBuffer` from
+   * upstream and then stop back pressure.  You can configure size of input
+   * buffer by using [[Sink.withAttributes]] method.
+   *
+   * For stream completion you need to pull all elements from [[akka.stream.scaladsl.SinkQueueWithCancel]] including last None
+   * as completion marker
+   *
+   * See also [[akka.stream.scaladsl.SinkQueueWithCancel]]
+   */
+  def queue[T](maxConcurrentPulls: Int): Sink[T, SinkQueueWithCancel[T]] =
+    Sink.fromGraph(new QueueSink(maxConcurrentPulls))
+
+  /**
+   * Creates a `Sink` that is materialized as an [[akka.stream.scaladsl.SinkQueueWithCancel]].
    * [[akka.stream.scaladsl.SinkQueueWithCancel.pull]] method is pulling element from the stream and returns ``Future[Option[T]]``.
    * `Future` completes when element is available.
    *
@@ -571,8 +592,7 @@ object Sink {
    *
    * See also [[akka.stream.scaladsl.SinkQueueWithCancel]]
    */
-  def queue[T](): Sink[T, SinkQueueWithCancel[T]] =
-    Sink.fromGraph(new QueueSink())
+  def queue[T](): Sink[T, SinkQueueWithCancel[T]] = queue(1)
 
   /**
    * Creates a real `Sink` upon receiving the first element. Internal `Sink` will not be created if there are no elements,
@@ -587,8 +607,7 @@ object Sink {
   def lazyInit[T, M](sinkFactory: T => Future[Sink[T, M]], fallback: () => M): Sink[T, Future[M]] =
     Sink
       .fromGraph(new LazySink[T, M](sinkFactory))
-      .mapMaterializedValue(
-        _.recover { case _: NeverMaterializedException => fallback() }(ExecutionContexts.sameThreadExecutionContext))
+      .mapMaterializedValue(_.recover { case _: NeverMaterializedException => fallback() }(ExecutionContexts.parasitic))
 
   /**
    * Creates a real `Sink` upon receiving the first element. Internal `Sink` will not be created if there are no elements,
@@ -602,7 +621,7 @@ object Sink {
   @deprecated("Use 'Sink.lazyFutureSink' instead", "2.6.0")
   def lazyInitAsync[T, M](sinkFactory: () => Future[Sink[T, M]]): Sink[T, Future[Option[M]]] =
     Sink.fromGraph(new LazySink[T, M](_ => sinkFactory())).mapMaterializedValue { m =>
-      implicit val ec = ExecutionContexts.sameThreadExecutionContext
+      implicit val ec = ExecutionContexts.parasitic
       m.map(Option.apply _).recover { case _: NeverMaterializedException => None }
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding.typed
@@ -9,18 +9,19 @@ import java.time.Duration
 import java.util.Optional
 import java.util.concurrent.CompletionStage
 
+import com.github.ghik.silencer.silent
 import akka.actor.typed.ActorRef
 import akka.actor.typed.ActorSystem
 import akka.actor.typed.Behavior
-import akka.actor.typed.RecipientRef
 import akka.actor.typed.Props
+import akka.actor.typed.RecipientRef
 import akka.actor.typed.internal.InternalRecipientRef
 import akka.annotation.DoNotInherit
 import akka.annotation.InternalApi
 import akka.cluster.sharding.ShardCoordinator.ShardAllocationStrategy
 import akka.cluster.sharding.typed.internal.EntityTypeKeyImpl
 import akka.japi.function.{ Function => JFunction }
-import com.github.ghik.silencer.silent
+import akka.pattern.StatusReply
 
 @FunctionalInterface
 trait EntityFactory[M] {
@@ -437,6 +438,14 @@ object EntityTypeKey {
    * @tparam Res The response protocol, what the other actor sends back
    */
   def ask[Res](message: JFunction[ActorRef[Res], M], timeout: Duration): CompletionStage[Res]
+
+  /**
+   * The same as [[ask]] but only for requests that result in a response of type [[akka.pattern.StatusReply]].
+   * If the response is a [[akka.pattern.StatusReply#success]] the returned future is completed successfully with the wrapped response.
+   * If the status response is a [[akka.pattern.StatusReply#error]] the returned future will be failed with the
+   * exception in the error (normally a [[akka.pattern.StatusReply.ErrorMessage]]).
+   */
+  def askWithStatus[Res](f: ActorRef[StatusReply[Res]] => M, timeout: Duration): CompletionStage[Res]
 
   /**
    * INTERNAL API

@@ -1,13 +1,16 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.client
 
-import language.postfixOps
+import scala.concurrent.Await
 import scala.concurrent.duration._
 
+import com.github.ghik.silencer.silent
 import com.typesafe.config.ConfigFactory
+import language.postfixOps
+
 import akka.actor.{
   Actor,
   ActorPath,
@@ -21,18 +24,15 @@ import akka.actor.{
 import akka.cluster.Cluster
 import akka.cluster.client.ClusterClientSpec.TestClientListener.LatestContactPoints
 import akka.cluster.client.ClusterClientSpec.TestReceptionistListener.LatestClusterClients
+import akka.cluster.pubsub._
 import akka.remote.testconductor.RoleName
 import akka.remote.testkit.MultiNodeConfig
 import akka.remote.testkit.MultiNodeSpec
 import akka.remote.testkit.STMultiNodeSpec
-import akka.testkit._
-import akka.cluster.pubsub._
 import akka.remote.transport.ThrottlerTransportAdapter.Direction
+import akka.testkit._
 import akka.util.Timeout
 import akka.util.unused
-import scala.concurrent.Await
-
-import com.github.ghik.silencer.silent
 
 object ClusterClientSpec extends MultiNodeConfig {
   val client = role("client")
@@ -266,12 +266,12 @@ class ClusterClientSpec extends MultiNodeSpec(ClusterClientSpec) with STMultiNod
 
       //#server
       runOn(host1) {
-        val serviceA = system.actorOf(Props[Service], "serviceA")
+        val serviceA = system.actorOf(Props[Service](), "serviceA")
         ClusterClientReceptionist(system).registerService(serviceA)
       }
 
       runOn(host2, host3) {
-        val serviceB = system.actorOf(Props[Service], "serviceB")
+        val serviceB = system.actorOf(Props[Service](), "serviceB")
         ClusterClientReceptionist(system).registerService(serviceB)
       }
       //#server

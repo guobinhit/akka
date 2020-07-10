@@ -4,17 +4,20 @@ Combines elements from each of multiple sources into @scala[tuples] @java[*Pair*
 
 @ref[Fan-in operators](../index.md#fan-in-operators)
 
-@@@div { .group-scala }
-
 ## Signature
 
-@@signature [Flow.scala](/akka-stream/src/main/scala/akka/stream/scaladsl/Flow.scala) { #zip }
-
-@@@
+@apidoc[Source.zip](Source$) { scala="#zip[U](that:akka.stream.Graph[akka.stream.SourceShape[U],_]):FlowOps.this.Repr[(Out,U)]" java="#zip(akka.stream.Graph)" }
+@apidoc[Flow.zip](Flow) { scala="#zip[U](that:akka.stream.Graph[akka.stream.SourceShape[U],_]):FlowOps.this.Repr[(Out,U)]" java="#zip(akka.stream.Graph)" }
 
 ## Description
 
 Combines elements from each of multiple sources into @scala[tuples] @java[*Pair*] and passes the @scala[tuples] @java[pairs] downstream.
+
+See also:
+
+ * @ref:[zipAll](zipAll.md)
+ * @ref:[zipWith](zipWith.md)
+ * @ref:[zipWithIndex](zipWithIndex.md)  
 
 ## Examples
 
@@ -28,10 +31,10 @@ Java
 
 @@@div { .callout }
 
-**emits** when all of the inputs have an element available
+**emits** when both of the inputs have an element available
 
-**backpressures** when downstream backpressures
+**backpressures** both upstreams when downstream backpressures but also on an upstream that has emitted an element until the other upstream has emitted an element
 
-**completes** when any upstream completes
+**completes** when either upstream completes
 
 @@@

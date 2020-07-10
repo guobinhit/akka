@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.io.dns
@@ -10,11 +10,11 @@ import java.net.InetAddress
 import java.net.UnknownHostException
 import java.util
 
+import scala.collection.{ immutable => im }
+
 import akka.actor.NoSerializationVerificationNeeded
 import akka.io.IpVersionSelector
 import akka.routing.ConsistentHashingRouter.ConsistentHashable
-
-import scala.collection.{ immutable => im }
 import akka.util.ccompat.JavaConverters._
 
 /**
@@ -30,7 +30,7 @@ object DnsProtocol {
 
   sealed trait RequestType
   final case class Ip(ipv4: Boolean = true, ipv6: Boolean = true) extends RequestType
-  final case object Srv extends RequestType
+  case object Srv extends RequestType
 
   /**
    * Java API
@@ -47,6 +47,10 @@ object DnsProtocol {
    */
   def srvRequestType(): RequestType = Srv
 
+  /**
+   * Sending this to the [[AsyncDnsManager]] will either lead to a [[Resolved]] or a [[akka.actor.Status.Failure]] response.
+   * If request type are both, both resolutions must succeed or the response is a failure.
+   */
   final case class Resolve(name: String, requestType: RequestType) extends ConsistentHashable {
     override def consistentHashKey: Any = name
   }

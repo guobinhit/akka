@@ -1,12 +1,13 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.journal
 
+import com.typesafe.config.ConfigFactory
+
 import akka.actor.ExtendedActorSystem
 import akka.testkit.AkkaSpec
-import com.typesafe.config.ConfigFactory
 
 class InmemEventAdaptersSpec extends AkkaSpec {
 

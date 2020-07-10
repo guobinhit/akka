@@ -1,14 +1,15 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.internal
 
-import akka.actor.typed.{ Behavior, BehaviorInterceptor, Signal, TypedActorContext }
-import akka.annotation.InternalApi
+import scala.reflect.ClassTag
+
 import org.slf4j.MDC
 
-import scala.reflect.ClassTag
+import akka.actor.typed.{ Behavior, BehaviorInterceptor, Signal, TypedActorContext }
+import akka.annotation.InternalApi
 
 /**
  * INTERNAL API

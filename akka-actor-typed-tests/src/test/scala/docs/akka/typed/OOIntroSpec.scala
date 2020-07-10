@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.akka.typed
@@ -18,7 +18,7 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
-import org.scalatest.WordSpecLike
+import org.scalatest.wordspec.AnyWordSpecLike
 
 object OOIntroSpec {
 
@@ -145,7 +145,7 @@ object OOIntroSpec {
 
 }
 
-class OOIntroSpec extends ScalaTestWithActorTestKit with WordSpecLike with LogCapturing {
+class OOIntroSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike with LogCapturing {
 
   import OOIntroSpec._
 

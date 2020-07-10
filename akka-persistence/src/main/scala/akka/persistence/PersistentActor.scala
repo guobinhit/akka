@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence
@@ -9,11 +9,12 @@ import java.lang.{ Iterable => JIterable }
 import scala.collection.immutable
 import scala.util.control.NoStackTrace
 
+import com.typesafe.config.Config
+
 import akka.actor._
 import akka.annotation.InternalApi
 import akka.japi.Procedure
 import akka.japi.Util
-import com.typesafe.config.Config
 
 abstract class RecoveryCompleted
 

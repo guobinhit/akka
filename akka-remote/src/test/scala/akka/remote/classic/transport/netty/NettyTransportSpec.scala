@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.classic.transport.netty
@@ -7,14 +7,16 @@ package akka.remote.classic.transport.netty
 import java.net.{ InetAddress, InetSocketAddress }
 import java.nio.channels.ServerSocketChannel
 
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+
+import com.typesafe.config.ConfigFactory
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+
 import akka.actor.{ ActorSystem, Address, ExtendedActorSystem }
 import akka.remote.BoundAddressesExtension
 import akka.testkit.SocketUtil
-import com.typesafe.config.ConfigFactory
-import org.scalatest.{ Matchers, WordSpec }
-
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
 
 object NettyTransportSpec {
   val commonConfig = ConfigFactory.parseString("""
@@ -38,7 +40,7 @@ object NettyTransportSpec {
   }
 }
 
-class NettyTransportSpec extends WordSpec with Matchers with BindBehavior {
+class NettyTransportSpec extends AnyWordSpec with Matchers with BindBehavior {
   import NettyTransportSpec._
 
   "NettyTransport" should {
@@ -115,8 +117,8 @@ class NettyTransportSpec extends WordSpec with Matchers with BindBehavior {
         """)
       implicit val sys = ActorSystem("sys", bindConfig.withFallback(commonConfig))
 
-      getInternal.flatMap(_.port) should contain(getExternal.port.get)
-      getInternal.map(x => (x.host.get should include).regex("0.0.0.0".r)) // regexp dot is intentional to match IPv4 and 6 addresses
+      getInternal().flatMap(_.port) should contain(getExternal().port.get)
+      getInternal().map(x => (x.host.get should include).regex("0.0.0.0".r)) // regexp dot is intentional to match IPv4 and 6 addresses
 
       Await.result(sys.terminate(), Duration.Inf)
     }
@@ -124,7 +126,7 @@ class NettyTransportSpec extends WordSpec with Matchers with BindBehavior {
 }
 
 trait BindBehavior {
-  this: WordSpec with Matchers =>
+  this: AnyWordSpec with Matchers =>
 
   import NettyTransportSpec._
 

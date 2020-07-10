@@ -1,13 +1,13 @@
 /*
- * Copyright (C) 2014-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream
 
-import org.scalatest.Matchers
-import org.scalatest.WordSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class DslFactoriesConsistencySpec extends WordSpec with Matchers {
+class DslFactoriesConsistencySpec extends AnyWordSpec with Matchers {
 
   // configuration //
 

@@ -8,9 +8,11 @@ For the full documentation of this feature and for new projects see @ref:[Dispat
 Dispatchers are part of core Akka, which means that they are part of the akka-actor dependency:
 
 @@dependency[sbt,Maven,Gradle] {
+  symbol1=AkkaVersion
+  value1="$akka.version$"
   group="com.typesafe.akka"
-  artifact="akka-actor_$scala.binary_version$"
-  version="$akka.version$"
+  artifact="akka-actor_$scala.binary.version$"
+  version=AkkaVersion
 }
 
 <a id="dispatcher-lookup"></a>
@@ -48,7 +50,7 @@ Another example that uses the "thread-pool-executor":
 
 @@@ note
 
-The thread pool executor dispatcher is implemented using by a `java.util.concurrent.ThreadPoolExecutor`.
+The thread pool executor dispatcher is implemented using a `java.util.concurrent.ThreadPoolExecutor`.
 You can read more about it in the JDK's [ThreadPoolExecutor documentation](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ThreadPoolExecutor.html).
 
 @@@

@@ -1,14 +1,15 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed
 
-import akka.actor.testkit.typed.scaladsl.LogCapturing
-import org.scalatest.Matchers
-import org.scalatest.WordSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class PropsSpec extends WordSpec with Matchers with LogCapturing {
+import akka.actor.testkit.typed.scaladsl.LogCapturing
+
+class PropsSpec extends AnyWordSpec with Matchers with LogCapturing {
 
   val dispatcherFirst = Props.empty.withDispatcherFromConfig("pool").withDispatcherDefault
 

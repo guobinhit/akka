@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -9,18 +9,17 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.ThreadLocalRandom
 
 import scala.concurrent.Future
-import scala.concurrent.Promise
-import scala.util.Success
+
+import com.typesafe.config.ConfigFactory
 
 import akka.Done
 import akka.actor.ActorRef
 import akka.actor.Address
+import akka.dispatch.ExecutionContexts
 import akka.remote.UniqueAddress
 import akka.remote.artery.InboundControlJunction.ControlMessageObserver
 import akka.remote.artery.InboundControlJunction.ControlMessageSubject
 import akka.util.OptionVal
-import akka.dispatch.ExecutionContexts
-import com.typesafe.config.ConfigFactory
 
 private[remote] class TestInboundContext(
     override val localAddress: UniqueAddress,
@@ -56,7 +55,7 @@ private[remote] class TestInboundContext(
     val done = a.completeHandshake(peer)
     done.foreach { _ =>
       associationsByUid.put(peer.uid, a)
-    }(ExecutionContexts.sameThreadExecutionContext)
+    }(ExecutionContexts.parasitic)
     done
   }
 
@@ -84,11 +83,11 @@ private[remote] class TestOutboundContext(
   }
 
   def completeHandshake(peer: UniqueAddress): Future[Done] = synchronized {
-    _associationState.uniqueRemoteAddressPromise.trySuccess(peer)
-    _associationState.uniqueRemoteAddress.value match {
-      case Some(Success(`peer`)) => // our value
+    _associationState.completeUniqueRemoteAddress(peer)
+    _associationState.uniqueRemoteAddress() match {
+      case Some(`peer`) => // our value
       case _ =>
-        _associationState = _associationState.newIncarnation(Promise.successful(peer))
+        _associationState = _associationState.newIncarnation(peer)
     }
     Future.successful(Done)
   }

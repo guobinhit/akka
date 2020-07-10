@@ -1,18 +1,19 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.io
 
-import java.nio.channels.{ SelectionKey, ServerSocketChannel, SocketChannel }
 import java.net.InetSocketAddress
+import java.nio.channels.{ SelectionKey, ServerSocketChannel, SocketChannel }
 
 import scala.annotation.tailrec
 import scala.util.control.NonFatal
+
 import akka.actor._
+import akka.dispatch.{ RequiresMessageQueue, UnboundedMessageQueueSemantics }
 import akka.io.SelectionHandler._
 import akka.io.Tcp._
-import akka.dispatch.{ RequiresMessageQueue, UnboundedMessageQueueSemantics }
 
 /**
  * INTERNAL API

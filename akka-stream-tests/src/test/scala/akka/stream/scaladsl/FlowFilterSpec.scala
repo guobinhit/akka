@@ -1,10 +1,13 @@
 /*
- * Copyright (C) 2014-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
 import java.util.concurrent.ThreadLocalRandom.{ current => random }
+
+import scala.concurrent.duration._
+import scala.util.control.NoStackTrace
 
 import akka.stream.ActorAttributes._
 import akka.stream.Attributes
@@ -12,8 +15,7 @@ import akka.stream.Supervision._
 import akka.stream.testkit._
 import akka.stream.testkit.scaladsl.StreamTestKit._
 import akka.stream.testkit.scaladsl.TestSink
-
-import scala.util.control.NoStackTrace
+import akka.stream.testkit.scaladsl.TestSource
 
 class FlowFilterSpec extends StreamSpec("""
     akka.stream.materializer.initial-input-buffer-size = 2
@@ -60,6 +62,32 @@ class FlowFilterSpec extends StreamSpec("""
         .expectComplete()
     }
 
+    "filter out elements without demand" in assertAllStagesStopped {
+      val (inProbe, outProbe) =
+        TestSource
+          .probe[Int]
+          .filter(_ > 1000)
+          .toMat(TestSink.probe[Int])(Keep.both)
+          .addAttributes(Attributes.inputBuffer(1, 1))
+          .run()
+
+      outProbe.ensureSubscription()
+      // none of those should fail even without demand
+      inProbe.sendNext(1).sendNext(2).sendNext(3).sendNext(4).sendNext(5).sendNext(1001).sendNext(1002)
+
+      // now the buffer should be full (1 internal buffer, 1 async buffer at source probe)
+
+      inProbe.expectNoMessage(100.millis).pending shouldBe 0L
+
+      inProbe.sendComplete() // to test later that completion is buffered as well
+
+      outProbe.requestNext(1001)
+      outProbe.requestNext(1002)
+      outProbe.expectComplete()
+    }
+    "complete without demand if remaining elements are filtered out" in assertAllStagesStopped {
+      Source(1 to 1000).filter(_ > 1000).runWith(TestSink.probe[Int]).ensureSubscription().expectComplete()
+    }
   }
 
   "A FilterNot" must {

@@ -1,17 +1,18 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl
+
+import scala.concurrent.Promise
+
+import com.github.ghik.silencer.silent
 
 import akka.actor.Actor
 import akka.actor.Props
 import akka.annotation.InternalApi
 import akka.stream.ActorMaterializerSettings
 import akka.stream.Materializer
-import com.github.ghik.silencer.silent
-
-import scala.concurrent.Promise
 
 /**
  * INTERNAL API
@@ -22,7 +23,7 @@ import scala.concurrent.Promise
 @InternalApi
 private[akka] object MaterializerGuardian {
 
-  final case object StartMaterializer
+  case object StartMaterializer
   final case class MaterializerStarted(materializer: Materializer)
 
   // this is available to keep backwards compatibility with ActorMaterializer and should

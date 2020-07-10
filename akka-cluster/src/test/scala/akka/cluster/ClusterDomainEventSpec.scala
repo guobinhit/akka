@@ -1,19 +1,20 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
 
-import org.scalatest.WordSpec
-import org.scalatest.Matchers
-import akka.actor.Address
-
 import scala.collection.immutable.SortedSet
 
-class ClusterDomainEventSpec extends WordSpec with Matchers {
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-  import MemberStatus._
+import akka.actor.Address
+
+class ClusterDomainEventSpec extends AnyWordSpec with Matchers {
+
   import ClusterEvent._
+  import MemberStatus._
 
   val aRoles = Set("AA", "AB")
   val aJoining = TestMember(Address("akka", "sys", "a", 2552), Joining, aRoles)

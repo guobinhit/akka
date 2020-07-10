@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.io
@@ -7,13 +7,15 @@ package akka.io
 import java.net.{ ConnectException, InetSocketAddress }
 import java.nio.channels.{ SelectionKey, SocketChannel }
 
-import scala.util.control.{ NoStackTrace, NonFatal }
 import scala.concurrent.duration._
+import scala.util.control.{ NoStackTrace, NonFatal }
+
 import akka.actor.{ ActorRef, ReceiveTimeout }
+import akka.actor.Status.Failure
 import akka.annotation.InternalApi
-import akka.io.TcpConnection.CloseInformation
 import akka.io.SelectionHandler._
 import akka.io.Tcp._
+import akka.io.TcpConnection.CloseInformation
 import akka.io.dns.DnsProtocol
 
 /**
@@ -33,8 +35,8 @@ private[io] class TcpOutgoingConnection(
       connect.pullMode) {
 
   import TcpOutgoingConnection._
-  import context._
   import connect._
+  import context._
 
   signDeathPact(commander)
 
@@ -83,6 +85,11 @@ private[io] class TcpOutgoingConnection(
       }
     case ReceiveTimeout =>
       connectionTimeout()
+    case Failure(ex) =>
+      // async-dns responds with a Failure on DNS server lookup failure
+      reportConnectFailure {
+        throw new RuntimeException(ex)
+      }
   }
 
   def register(address: InetSocketAddress, registration: ChannelRegistration): Unit = {

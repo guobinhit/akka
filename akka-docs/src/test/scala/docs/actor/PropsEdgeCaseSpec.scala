@@ -1,19 +1,19 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.actor
 
 import akka.actor.{ Actor, Props }
 import docs.CompileOnlySpec
-import org.scalatest.WordSpec
+import org.scalatest.wordspec.AnyWordSpec
 
 //#props-edge-cases-value-class
 case class MyValueClass(v: Int) extends AnyVal
 
 //#props-edge-cases-value-class
 
-class PropsEdgeCaseSpec extends WordSpec with CompileOnlySpec {
+class PropsEdgeCaseSpec extends AnyWordSpec with CompileOnlySpec {
   "value-class-edge-case-example" in compileOnlySpec {
     //#props-edge-cases-value-class-example
     class ValueActor(value: MyValueClass) extends Actor {

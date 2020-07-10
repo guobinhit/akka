@@ -1,18 +1,20 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
 
+import scala.concurrent.duration._
+
 import com.typesafe.config.ConfigFactory
+
+import akka.actor.Actor
+import akka.actor.Deploy
+import akka.actor.Props
+import akka.cluster.MemberStatus._
 import akka.remote.testkit.MultiNodeConfig
 import akka.remote.testkit.MultiNodeSpec
 import akka.testkit._
-import scala.concurrent.duration._
-import akka.actor.Props
-import akka.actor.Actor
-import akka.cluster.MemberStatus._
-import akka.actor.Deploy
 
 object LeaderLeavingMultiJvmSpec extends MultiNodeConfig {
   val first = role("first")
@@ -33,8 +35,8 @@ class LeaderLeavingMultiJvmNode3 extends LeaderLeavingSpec
 
 abstract class LeaderLeavingSpec extends MultiNodeSpec(LeaderLeavingMultiJvmSpec) with MultiNodeClusterSpec {
 
-  import LeaderLeavingMultiJvmSpec._
   import ClusterEvent._
+  import LeaderLeavingMultiJvmSpec._
 
   "A LEADER that is LEAVING" must {
 

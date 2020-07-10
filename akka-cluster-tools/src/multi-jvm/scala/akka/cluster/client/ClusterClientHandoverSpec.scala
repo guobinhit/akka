@@ -1,18 +1,19 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.client
+
+import scala.concurrent.duration._
+
+import com.github.ghik.silencer.silent
+import com.typesafe.config.ConfigFactory
 
 import akka.actor.{ ActorPath, ActorRef }
 import akka.cluster.{ Cluster, MultiNodeClusterSpec }
 import akka.remote.testconductor.RoleName
 import akka.remote.testkit.{ MultiNodeConfig, MultiNodeSpec, STMultiNodeSpec }
 import akka.testkit.{ ImplicitSender, TestActors }
-import com.typesafe.config.ConfigFactory
-import scala.concurrent.duration._
-
-import com.github.ghik.silencer.silent
 
 object ClusterClientHandoverSpec extends MultiNodeConfig {
   val client = role("client")

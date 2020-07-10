@@ -1,16 +1,17 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
+import scala.concurrent.duration._
+import scala.language.postfixOps
+
+import org.reactivestreams.Publisher
+
 import akka.stream._
 import akka.stream.testkit._
 import akka.testkit.EventFilter
-import org.reactivestreams.Publisher
-
-import scala.concurrent.duration._
-import scala.language.postfixOps
 
 class GraphZipLatestWithSpec extends TwoStreamsSetup {
   import GraphDSL.Implicits._

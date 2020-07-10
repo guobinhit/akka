@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package doc.akka.serialization.jackson
@@ -16,8 +16,8 @@ import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.typesafe.config.ConfigFactory
 import org.scalatest.BeforeAndAfterAll
-import org.scalatest.Matchers
-import org.scalatest.WordSpecLike
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
 
 //#marker-interface
 /**
@@ -150,11 +150,11 @@ object SerializationDocSpec {
     #//#date-time
     """
 
-  val configWhitelist = """
-    #//#whitelist-class-prefix
-    akka.serialization.jackson.whitelist-class-prefix =
+  val configAllowList = """
+    #//#allowed-class-prefix
+    akka.serialization.jackson.allowed-class-prefix =
       ["com.myservice.event.OrderAdded", "com.myservice.command"]
-    #//#whitelist-class-prefix
+    #//#allowed-class-prefix
   """
 
 }
@@ -185,7 +185,7 @@ class SerializationDocSpec
       }
     }
     """)))
-    with WordSpecLike
+    with AnyWordSpecLike
     with Matchers
     with BeforeAndAfterAll {
 

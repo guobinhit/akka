@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.io
@@ -8,6 +8,7 @@ import java.security.KeyStore
 import java.security.SecureRandom
 import java.security.cert.CertificateException
 import java.util.concurrent.TimeoutException
+import javax.net.ssl._
 
 import scala.collection.immutable
 import scala.concurrent.Await
@@ -15,21 +16,22 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.Random
 
+import com.github.ghik.silencer.silent
+import com.typesafe.sslconfig.akka.AkkaSSLConfig
+
 import akka.NotUsed
 import akka.pattern.{ after => later }
-import akka.stream.TLSProtocol._
 import akka.stream._
+import akka.stream.TLSProtocol._
 import akka.stream.impl.fusing.GraphStages.SimpleLinearGraphStage
 import akka.stream.scaladsl._
 import akka.stream.stage._
 import akka.stream.testkit._
 import akka.stream.testkit.scaladsl.StreamTestKit._
+import akka.testkit.TestDuration
 import akka.testkit.WithLogCapturing
 import akka.util.ByteString
 import akka.util.JavaVersion
-import com.github.ghik.silencer.silent
-import com.typesafe.sslconfig.akka.AkkaSSLConfig
-import javax.net.ssl._
 
 object DeprecatedTlsSpec {
 
@@ -58,7 +60,7 @@ object DeprecatedTlsSpec {
   def initSslContext(): SSLContext = initWithTrust("/truststore")
 
   /**
-   * This is an operator that fires a TimeoutException failure 2 seconds after it was started,
+   * This is an operator that fires a TimeoutException failure after it was started,
    * independent of the traffic going through. The purpose is to include the last seen
    * element in the exception message to help in figuring out what went wrong.
    */
@@ -97,8 +99,8 @@ object DeprecatedTlsSpec {
 
 @silent("deprecated")
 class DeprecatedTlsSpec extends StreamSpec(DeprecatedTlsSpec.configOverrides) with WithLogCapturing {
-  import GraphDSL.Implicits._
   import DeprecatedTlsSpec._
+  import GraphDSL.Implicits._
   import system.dispatcher
 
   val sslConfig: Option[AkkaSSLConfig] = None // no special settings to be applied here
@@ -389,11 +391,12 @@ class DeprecatedTlsSpec extends StreamSpec(DeprecatedTlsSpec.configOverrides) wi
             .collect { case SessionBytes(_, b) => b }
             .scan(ByteString.empty)(_ ++ _)
             .filter(_.nonEmpty)
-            .via(new Timeout(6.seconds))
+            .via(new Timeout(10.seconds.dilated))
             .dropWhile(_.size < scenario.output.size)
             .runWith(Sink.headOption)
 
-        Await.result(output, 8.seconds).getOrElse(ByteString.empty).utf8String should be(scenario.output.utf8String)
+        Await.result(output, 12.seconds.dilated).getOrElse(ByteString.empty).utf8String should be(
+          scenario.output.utf8String)
 
         commPattern.cleanup()
       }

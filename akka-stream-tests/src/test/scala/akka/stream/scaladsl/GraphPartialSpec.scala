@@ -1,15 +1,15 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
-import akka.stream.testkit.StreamSpec
-import akka.stream.ClosedShape
-import akka.stream.FlowShape
-
 import scala.concurrent.Await
 import scala.concurrent.duration._
+
+import akka.stream.ClosedShape
+import akka.stream.FlowShape
+import akka.stream.testkit.StreamSpec
 
 class GraphPartialSpec extends StreamSpec("""
     akka.stream.materializer.initial-input-buffer-size = 2

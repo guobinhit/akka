@@ -1,14 +1,15 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor
 
-import akka.japi.Creator
-import akka.util.Reflect
+import scala.collection.immutable
+
 import com.github.ghik.silencer.silent
 
-import scala.collection.immutable
+import akka.japi.Creator
+import akka.util.Reflect
 
 /**
  * This interface defines a class of actor creation strategies deviating from

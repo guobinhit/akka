@@ -8,9 +8,11 @@ For the new API see @ref[Logging](typed/logging.md).
 To use Logging, you must at least use the Akka actors dependency in your project, and will most likely want to configure logging via the SLF4J module (@ref:[see below](#slf4j)).
 
 @@dependency[sbt,Maven,Gradle] {
+  symbol1=AkkaVersion
+  value1="$akka.version$"
   group="com.typesafe.akka"
-  artifact="akka-actor_$scala.binary_version$"
-  version="$akka.version$"
+  artifact="akka-actor_$scala.binary.version$"
+  version=AkkaVersion
 }
 
 @@project-info{ projectId="akka-slf4j" }
@@ -50,21 +52,23 @@ class MyActor extends Actor with akka.actor.ActorLogging {
 @@@
 
 The first parameter to @scala[`Logging`] @java[`Logging.getLogger`] could also be any
-`LoggingBus`, specifically @scala[`system.eventStream`] @scala[`system.eventStream()`]; in the demonstrated
-case, the actor system's address is included in the `akkaSource`
-representation of the log source (see @ref:[Logging Thread, Akka Source and Actor System in MDC](#logging-thread-akka-source-and-actor-system-in-mdc))
+`LoggingBus`, specifically @scala[`system.eventStream`] @scala[`system.eventStream()`]. 
+In the demonstrated case, the actor system's address is included in the `akkaSource`
+representation of the log source (see @ref:[Logging Thread, Akka Source and Actor System in MDC](#logging-thread-akka-source-and-actor-system-in-mdc)),
 while in the second case this is not automatically done.
 The second parameter to @scala[`Logging`] @java[`Logging.getLogger`] is the source of this logging channel.
 The source object is translated to a String according to the following rules:
 
  * if it is an Actor or ActorRef, its path is used
  * in case of a String it is used as is
- * in case of a class an approximation of its simpleName
- * and in all other cases @scala[a compile error occurs unless an implicit
-`LogSource[T]` is in scope for the type in question] @java[the simpleName of its class]
+ * in case of a Class an approximation of its `simpleName` is used
+ * in all other cases @scala[a compile error occurs unless an implicit
+`LogSource[T]` is in scope for the type in question] @java[the `simpleName` of its class] is used
 
 The log message may contain argument placeholders `{}`, which will be
-substituted if the log level is enabled. Giving more arguments than
+substituted if the log level is enabled. Compared to constructing a full string
+for the log message this has the advantage of avoiding superfluous string concatenation
+and object allocations when the log level is disabled. Giving more arguments than
 placeholders results in a warning being appended to the log statement (i.e. on
 the same line with the same severity). You may pass an array as the only
 substitution argument to have its elements be treated individually:
@@ -336,9 +340,11 @@ Akka provides a logger for [SLF4J](http://www.slf4j.org/). This module is availa
 It has a single dependency: the slf4j-api jar. In your runtime, you also need a SLF4J backend. We recommend [Logback](http://logback.qos.ch/):
 
 @@dependency[sbt,Maven,Gradle] {
+  symbol1=AkkaVersion
+  value1="$akka.version$"
   group="com.typesafe.akka"
-  artifact="akka-slf4j_$scala.binary_version$"
-  version="$akka.version$"
+  artifact="akka-slf4j_$scala.binary.version$"
+  version=AkkaVersion
   group2="ch.qos.logback"
   artifact2="logback-classic"
   version2="$logback_version$"
@@ -443,7 +449,7 @@ All MDC properties as key-value entries can be included with `%mdc`:
 
 ```
   <encoder>
-    <pattern>%date{ISO8601} %-5level %logger{36} - %msg {%mdc}%n</pattern>
+    <pattern>%date{ISO8601} %-5level %logger{36} - %msg MDC: {%mdc}%n</pattern>
   </encoder>
 ```
 
@@ -542,7 +548,7 @@ All MDC properties as key-value entries can be included with `%mdc`:
 
 ```
   <encoder>
-    <pattern>%date{ISO8601} %-5level %logger{36} - %msg {%mdc}%n</pattern>
+    <pattern>%date{ISO8601} %-5level %logger{36} - %msg MDC: {%mdc}%n</pattern>
   </encoder>
 ```
 
@@ -572,7 +578,7 @@ The marker can be included in the Logback output with `%marker` and all MDC prop
 
 ```
   <encoder>
-    <pattern>[%date{ISO8601}] [%level] [%logger] [%marker] [%thread] - %msg {%mdc}%n</pattern>
+    <pattern>[%date{ISO8601}] [%level] [%logger] [%marker] [%thread] - %msg MDC: {%mdc}%n</pattern>
   </encoder>
 ```
 

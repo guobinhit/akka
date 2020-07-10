@@ -1,10 +1,18 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
 import java.util.concurrent.TimeoutException
+
+import scala.collection.immutable
+import scala.concurrent.Await
+import scala.concurrent.Future
+import scala.concurrent.Promise
+import scala.concurrent.duration._
+
+import com.github.ghik.silencer.silent
 
 import akka.NotUsed
 import akka.stream._
@@ -16,13 +24,6 @@ import akka.stream.testkit.TestSubscriber.Probe
 import akka.stream.testkit.Utils._
 import akka.stream.testkit.scaladsl.StreamTestKit._
 import akka.stream.testkit.scaladsl.TestSink
-import com.github.ghik.silencer.silent
-
-import scala.collection.immutable
-import scala.concurrent.Await
-import scala.concurrent.Future
-import scala.concurrent.Promise
-import scala.concurrent.duration._
 
 @silent("deprecated")
 class LazySinkSpec extends StreamSpec("""
@@ -130,7 +131,9 @@ class LazySinkSpec extends StreamSpec("""
         val in = Inlet[String]("in")
         val shape = SinkShape(in)
         override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = new GraphStageLogic(shape) {
-          throw matFail
+          if ("confuse IntellIJ dead code checker".length > 2) {
+            throw matFail
+          }
         }
       }
 

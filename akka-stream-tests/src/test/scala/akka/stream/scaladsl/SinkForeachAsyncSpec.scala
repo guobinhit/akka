@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -7,6 +7,13 @@ package akka.stream.scaladsl
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+
+import scala.concurrent.Await
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
+import scala.concurrent.duration._
+import scala.language.postfixOps
+import scala.util.control.NoStackTrace
 
 import akka.Done
 import akka.stream.ActorAttributes.supervisionStrategy
@@ -16,13 +23,6 @@ import akka.stream.testkit.StreamSpec
 import akka.stream.testkit.scaladsl.StreamTestKit._
 import akka.testkit.TestLatch
 import akka.testkit.TestProbe
-
-import scala.concurrent.duration._
-import scala.concurrent.Await
-import scala.concurrent.ExecutionContext
-import scala.concurrent.Future
-import scala.language.postfixOps
-import scala.util.control.NoStackTrace
 
 class SinkForeachAsyncSpec extends StreamSpec {
 

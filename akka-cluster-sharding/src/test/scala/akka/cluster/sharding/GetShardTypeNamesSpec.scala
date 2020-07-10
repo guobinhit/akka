@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
@@ -8,11 +8,13 @@ import akka.actor.Props
 import akka.cluster.Cluster
 import akka.testkit.AkkaSpec
 import akka.testkit.TestActors.EchoActor
+import akka.testkit.WithLogCapturing
 
 object GetShardTypeNamesSpec {
   val config =
     """
-    akka.loglevel = INFO
+    akka.loglevel = DEBUG
+    akka.loggers = ["akka.testkit.SilenceAllTestEventListener"]
     akka.actor.provider = "cluster"
     akka.remote.classic.netty.tcp.port = 0
     akka.remote.artery.canonical.port = 0
@@ -27,7 +29,7 @@ object GetShardTypeNamesSpec {
   }
 }
 
-class GetShardTypeNamesSpec extends AkkaSpec(GetShardTypeNamesSpec.config) {
+class GetShardTypeNamesSpec extends AkkaSpec(GetShardTypeNamesSpec.config) with WithLogCapturing {
   import GetShardTypeNamesSpec._
 
   "GetShardTypeNames" must {

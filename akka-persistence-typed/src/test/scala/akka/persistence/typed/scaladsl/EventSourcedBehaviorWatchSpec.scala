@@ -1,16 +1,19 @@
 /*
- * Copyright (C) 2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.scaladsl
 
 import java.util.concurrent.atomic.AtomicInteger
 
+import org.scalatest.wordspec.AnyWordSpecLike
+
 import akka.actor.testkit.typed.TestException
 import akka.actor.testkit.typed.scaladsl.{ LogCapturing, LoggingTestKit, ScalaTestWithActorTestKit, TestProbe }
 import akka.actor.typed._
 import akka.actor.typed.scaladsl.{ ActorContext, Behaviors }
-import akka.persistence.Recovery
+import akka.persistence.{ Recovery => ClassicRecovery }
+import akka.persistence.typed.{ NoOpEventAdapter, PersistenceId, RecoveryCompleted }
 import akka.persistence.typed.internal.{
   BehaviorSetup,
   EventSourcedSettings,
@@ -19,10 +22,8 @@ import akka.persistence.typed.internal.{
   StashState
 }
 import akka.persistence.typed.internal.EventSourcedBehaviorImpl.WriterIdentity
-import akka.persistence.typed.{ NoOpEventAdapter, PersistenceId, RecoveryCompleted }
 import akka.serialization.jackson.CborSerializable
 import akka.util.ConstantFun
-import org.scalatest.WordSpecLike
 
 object EventSourcedBehaviorWatchSpec {
   sealed trait Command extends CborSerializable
@@ -34,7 +35,7 @@ object EventSourcedBehaviorWatchSpec {
 
 class EventSourcedBehaviorWatchSpec
     extends ScalaTestWithActorTestKit(EventSourcedBehaviorSpec.conf)
-    with WordSpecLike
+    with AnyWordSpecLike
     with LogCapturing {
 
   import EventSourcedBehaviorWatchSpec._
@@ -61,7 +62,7 @@ class EventSourcedBehaviorWatchSpec
       NoOpEventAdapter.instance[String],
       NoOpSnapshotAdapter.instance[String],
       snapshotWhen = ConstantFun.scalaAnyThreeToFalse,
-      Recovery(),
+      ClassicRecovery(),
       RetentionCriteria.disabled,
       holdingRecoveryPermit = false,
       settings = settings,

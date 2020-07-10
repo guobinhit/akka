@@ -1,18 +1,20 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.transport
 
 import scala.concurrent.{ Future, Promise }
 import scala.util.control.NoStackTrace
-import akka.actor.{ ActorRef, Address, NoSerializationVerificationNeeded }
-import akka.util.{ unused, ByteString }
-import akka.remote.transport.AssociationHandle.HandleEventListener
+
+import com.github.ghik.silencer.silent
+
 import akka.AkkaException
+import akka.actor.{ ActorRef, Address, NoSerializationVerificationNeeded }
 import akka.actor.DeadLetterSuppression
 import akka.event.LoggingAdapter
-import com.github.ghik.silencer.silent
+import akka.remote.transport.AssociationHandle.HandleEventListener
+import akka.util.{ unused, ByteString }
 
 @deprecated("Classic remoting is deprecated, use Artery", "2.6.0")
 object Transport {

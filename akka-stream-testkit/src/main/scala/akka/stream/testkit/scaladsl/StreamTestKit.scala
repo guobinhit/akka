@@ -1,10 +1,13 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.testkit.scaladsl
 
 import java.util.concurrent.TimeUnit.MILLISECONDS
+
+import scala.concurrent.{ Await, ExecutionContext }
+import scala.concurrent.duration._
 
 import akka.actor.{ ActorRef, ActorSystem }
 import akka.annotation.InternalApi
@@ -12,9 +15,6 @@ import akka.stream._
 import akka.stream.impl.{ PhasedFusingActorMaterializer, StreamSupervisor }
 import akka.stream.snapshot._
 import akka.testkit.TestProbe
-
-import scala.concurrent.duration._
-import scala.concurrent.{ Await, ExecutionContext }
 
 object StreamTestKit {
 
@@ -102,7 +102,7 @@ object StreamTestKit {
         .append(logic.attributes.attributeList.mkString(", "))
         .append("],\n")
     }
-    builder.setLength(builder.length - 2)
+    builder.setLength(builder.length() - 2)
     shell match {
       case running: RunningInterpreter =>
         builder.append("\n  ],\n  connections: [\n")
@@ -119,7 +119,7 @@ object StreamTestKit {
             .append(connection.state)
             .append(")\n")
         }
-        builder.setLength(builder.length - 2)
+        builder.setLength(builder.length() - 2)
 
       case _ =>
     }

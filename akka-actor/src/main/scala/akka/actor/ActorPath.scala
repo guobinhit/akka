@@ -1,15 +1,17 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor
+import java.lang.{ StringBuilder => JStringBuilder }
+import java.net.MalformedURLException
+
 import scala.annotation.{ switch, tailrec }
 import scala.collection.immutable
-import akka.japi.Util.immutableSeq
-import java.net.MalformedURLException
-import java.lang.{ StringBuilder => JStringBuilder }
 
 import com.github.ghik.silencer.silent
+
+import akka.japi.Util.immutableSeq
 
 /**
  * Java API
@@ -368,16 +370,26 @@ final class ChildActorPath private[akka] (val parent: ActorPath, val name: Strin
   }
 
   override def toStringWithAddress(addr: Address): String = {
-    val diff = addressStringLengthDiff(addr)
-    val length = toStringLength + diff
-    buildToString(new JStringBuilder(length), length, diff, _.toStringWithAddress(addr)).toString
+    if (IgnoreActorRef.isIgnoreRefPath(this)) {
+      // we never change address for IgnoreActorRef
+      this.toString
+    } else {
+      val diff = addressStringLengthDiff(addr)
+      val length = toStringLength + diff
+      buildToString(new JStringBuilder(length), length, diff, _.toStringWithAddress(addr)).toString
+    }
   }
 
   override def toSerializationFormatWithAddress(addr: Address): String = {
-    val diff = addressStringLengthDiff(addr)
-    val length = toStringLength + diff
-    val sb = buildToString(new JStringBuilder(length + 12), length, diff, _.toStringWithAddress(addr))
-    appendUidFragment(sb).toString
+    if (IgnoreActorRef.isIgnoreRefPath(this)) {
+      // we never change address for IgnoreActorRef
+      this.toString
+    } else {
+      val diff = addressStringLengthDiff(addr)
+      val length = toStringLength + diff
+      val sb = buildToString(new JStringBuilder(length + 12), length, diff, _.toStringWithAddress(addr))
+      appendUidFragment(sb).toString
+    }
   }
 
   private def addressStringLengthDiff(address: Address): Int = {

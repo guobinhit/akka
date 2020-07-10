@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.util
 import java.nio.charset.StandardCharsets
 
-import org.scalatest.Matchers
-import org.scalatest.WordSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class AsciiStringCopySpec extends WordSpec with Matchers {
+class AsciiStringCopySpec extends AnyWordSpec with Matchers {
 
   "The copyUSAsciiStrToBytes optimization" must {
 

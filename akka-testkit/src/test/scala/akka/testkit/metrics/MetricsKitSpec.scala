@@ -1,13 +1,15 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.testkit.metrics
 
-import org.scalatest._
 import com.typesafe.config.ConfigFactory
+import org.scalatest._
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class MetricsKitSpec extends WordSpec with Matchers with BeforeAndAfter with BeforeAndAfterAll with MetricsKit {
+class MetricsKitSpec extends AnyWordSpec with Matchers with BeforeAndAfter with BeforeAndAfterAll with MetricsKit {
 
   import scala.concurrent.duration._
 

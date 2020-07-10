@@ -1,23 +1,25 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.routing
 
 import scala.collection.immutable
+
+import com.github.ghik.silencer.silent
+
 import akka.ConfigurationException
 import akka.actor.ActorContext
 import akka.actor.ActorPath
+import akka.actor.ActorSystem
 import akka.actor.AutoReceivedMessage
 import akka.actor.OneForOneStrategy
 import akka.actor.Props
 import akka.actor.SupervisorStrategy
 import akka.actor.Terminated
 import akka.dispatch.Dispatchers
-import akka.actor.ActorSystem
 import akka.japi.Util.immutableSeq
 import akka.util.unused
-import com.github.ghik.silencer.silent
 
 /**
  * This trait represents a router factory: it produces the actual router actor

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.javadsl;
@@ -33,7 +33,7 @@ import com.typesafe.config.ConfigFactory;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
-import org.scalatest.junit.JUnitSuite;
+import org.scalatestplus.junit.JUnitSuite;
 import org.slf4j.event.Level;
 
 import java.time.Duration;
@@ -773,7 +773,7 @@ public class PersistentActorJavaDslTest extends JUnitSuite {
     probe.expectMessage("0 onRecoveryCompleted");
     ref.tell("cmd");
     probe.expectMessage("0 onCommand");
-    probe.expectMessage("0 applyEvent");
+    probe.expectMessage("1 applyEvent");
     probe.expectMessage("1 thenRun");
   }
 }

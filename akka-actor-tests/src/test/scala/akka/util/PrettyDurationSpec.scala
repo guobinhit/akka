@@ -1,16 +1,17 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.util
 
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class PrettyDurationSpec extends WordSpec with Matchers {
-
-  import akka.util.PrettyDuration._
+class PrettyDurationSpec extends AnyWordSpec with Matchers {
 
   import scala.concurrent.duration._
+
+  import akka.util.PrettyDuration._
 
   val cases: Seq[(Duration, String)] =
     9.nanos -> "9.000 ns" ::

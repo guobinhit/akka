@@ -1,15 +1,16 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.javadsl
 
+import scala.concurrent.duration.FiniteDuration
+
+import com.github.ghik.silencer.silent
+
 import akka.NotUsed
 import akka.japi.function
 import akka.stream._
-import com.github.ghik.silencer.silent
-
-import scala.concurrent.duration.FiniteDuration
 
 object BidiFlow {
 

@@ -1,48 +1,43 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka
 
 import sbt._
 import Keys._
+import scala.language.implicitConversions
 
 object Dependencies {
   import DependencyHelpers._
 
-  lazy val scalaTestVersion = settingKey[String]("The version of ScalaTest to use.")
-  lazy val scalaCheckVersion = settingKey[String]("The version of ScalaCheck to use.")
   lazy val java8CompatVersion = settingKey[String]("The version of scala-java8-compat to use.")
 
-  val junitVersion = "4.12"
-  val slf4jVersion = "1.7.29"
+  val junitVersion = "4.13"
+  val slf4jVersion = "1.7.30"
   // check agrona version when updating this
-  val aeronVersion = "1.24.0"
+  val aeronVersion = "1.27.0"
   // needs to be inline with the aeron version, check
   // https://github.com/real-logic/aeron/blob/1.x.y/build.gradle
-  val agronaVersion = "1.1.0"
+  val agronaVersion = "1.4.1"
   val nettyVersion = "3.10.6.Final"
-  val jacksonVersion = "2.10.1"
-  val protobufJavaVersion = "3.10.0"
+  val jacksonVersion = "2.10.4"
+  val protobufJavaVersion = "3.11.4"
   val logbackVersion = "1.2.3"
 
-  val scala212Version = "2.12.10"
+  val scala212Version = "2.12.11"
   val scala213Version = "2.13.1"
 
   val reactiveStreamsVersion = "1.0.3"
 
   val sslConfigVersion = "0.4.1"
 
+  val scalaTestVersion = "3.1.1"
+  val scalaCheckVersion = "1.14.3"
+
   val Versions = Seq(
     crossScalaVersions := Seq(scala212Version, scala213Version),
     scalaVersion := System.getProperty("akka.build.scalaVersion", crossScalaVersions.value.head),
-    scalaCheckVersion := sys.props.get("akka.build.scalaCheckVersion").getOrElse("1.14.2"),
-    scalaTestVersion := {
-      CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((2, n)) if n >= 13 => "3.0.8"
-        case _                       => "3.0.7"
-      }
-    },
     java8CompatVersion := {
       CrossVersion.partialVersion(scalaVersion.value) match {
         // java8-compat is only used in a couple of places for 2.13,
@@ -68,13 +63,13 @@ object Dependencies {
 
     val sigar = "org.fusesource" % "sigar" % "1.6.4" // ApacheV2
 
-    val jctools = "org.jctools" % "jctools-core" % "2.1.2" // ApacheV2
+    val jctools = "org.jctools" % "jctools-core" % "3.0.0" // ApacheV2
 
     // reactive streams
     val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion // CC0
 
     // ssl-config
-    val sslConfigCore = Def.setting { "com.typesafe" %% "ssl-config-core" % sslConfigVersion } // ApacheV2
+    val sslConfigCore = "com.typesafe" %% "ssl-config-core" % sslConfigVersion // ApacheV2
 
     val lmdb = "org.lmdbjava" % "lmdbjava" % "0.7.0" // ApacheV2, OpenLDAP Public License
 
@@ -88,6 +83,8 @@ object Dependencies {
     // Added explicitly for when artery tcp is used
     val agrona = "org.agrona" % "agrona" % agronaVersion // ApacheV2
 
+    val asnOne = ("com.hierynomus" % "asn-one" % "0.4.0").exclude("org.slf4j", "slf4j-api") // ApacheV2
+
     val jacksonCore = "com.fasterxml.jackson.core" % "jackson-core" % jacksonVersion // ApacheV2
     val jacksonAnnotations = "com.fasterxml.jackson.core" % "jackson-annotations" % jacksonVersion // ApacheV2
     val jacksonDatabind = "com.fasterxml.jackson.core" % "jackson-databind" % jacksonVersion // ApacheV2
@@ -96,8 +93,7 @@ object Dependencies {
     val jacksonScala = "com.fasterxml.jackson.module" %% "jackson-module-scala" % jacksonVersion // ApacheV2
     val jacksonParameterNames = "com.fasterxml.jackson.module" % "jackson-module-parameter-names" % jacksonVersion // ApacheV2
     val jacksonCbor = "com.fasterxml.jackson.dataformat" % "jackson-dataformat-cbor" % jacksonVersion // ApacheV2
-
-    val protobufRuntime = "com.google.protobuf" % "protobuf-java" % protobufJavaVersion
+    val lz4Java = "org.lz4" % "lz4-java" % "1.7.1" // ApacheV2
 
     val logback = "ch.qos.logback" % "logback-classic" % logbackVersion // EPL 1.0
 
@@ -108,14 +104,22 @@ object Dependencies {
 
     object Test {
       val commonsMath = "org.apache.commons" % "commons-math" % "2.2" % "test" // ApacheV2
-      val commonsIo = "commons-io" % "commons-io" % "2.6" % "test" // ApacheV2
-      val commonsCodec = "commons-codec" % "commons-codec" % "1.13" % "test" // ApacheV2
+      val commonsIo = "commons-io" % "commons-io" % "2.7" % "test" // ApacheV2
+      val commonsCodec = "commons-codec" % "commons-codec" % "1.14" % "test" // ApacheV2
       val junit = "junit" % "junit" % junitVersion % "test" // Common Public License 1.0
       val logback = Compile.logback % "test" // EPL 1.0
-      val mockito = "org.mockito" % "mockito-core" % "3.2.4" % "test" // MIT
-      // changing the scalatest dependency must be reflected in akka-docs/rst/dev/multi-jvm-testing.rst
-      val scalatest = Def.setting { "org.scalatest" %% "scalatest" % scalaTestVersion.value % "test" } // ApacheV2
-      val scalacheck = Def.setting { "org.scalacheck" %% "scalacheck" % scalaCheckVersion.value % "test" } // New BSD
+
+      val scalatest = "org.scalatest" %% "scalatest" % scalaTestVersion % "test" // ApacheV2
+      val scalacheck = "org.scalacheck" %% "scalacheck" % scalaCheckVersion % "test" // New BSD
+
+      // The 'scalaTestPlus' projects are independently versioned,
+      // but the version of each module starts with the scalatest
+      // version it was intended to work with
+      val scalatestJUnit = "org.scalatestplus" %% "junit-4-12" % (scalaTestVersion + ".0") % "test" // ApacheV2
+      val scalatestTestNG = "org.scalatestplus" %% "testng-6-7" % (scalaTestVersion + ".0") % "test" // ApacheV2
+      val scalatestScalaCheck = "org.scalatestplus" %% "scalacheck-1-14" % (scalaTestVersion + ".0") % "test" // ApacheV2
+      val scalatestMockito = "org.scalatestplus" %% "mockito-3-2" % (scalaTestVersion + ".0") % "test" // ApacheV2
+
       val pojosr = "com.googlecode.pojosr" % "de.kalpatec.pojosr.framework" % "0.2.1" % "test" // ApacheV2
       val tinybundles = "org.ops4j.pax.tinybundles" % "tinybundles" % "3.0.0" % "test" // ApacheV2
       val log4j = "log4j" % "log4j" % "1.2.17" % "test" // ApacheV2
@@ -127,8 +131,8 @@ object Dependencies {
       val dockerClient = "com.spotify" % "docker-client" % "8.16.0" % "test" // ApacheV2
 
       // metrics, measurements, perf testing
-      val metrics = "io.dropwizard.metrics" % "metrics-core" % "4.1.1" % "test" // ApacheV2
-      val metricsJvm = "io.dropwizard.metrics" % "metrics-jvm" % "4.1.1" % "test" // ApacheV2
+      val metrics = "io.dropwizard.metrics" % "metrics-core" % "4.1.9" % "test" // ApacheV2
+      val metricsJvm = "io.dropwizard.metrics" % "metrics-jvm" % "4.1.9" % "test" // ApacheV2
       val latencyUtils = "org.latencyutils" % "LatencyUtils" % "2.0.3" % "test" // Free BSD
       val hdrHistogram = "org.hdrhistogram" % "HdrHistogram" % "2.1.12" % "test" // CC0
       val metricsAll = Seq(metrics, metricsJvm, latencyUtils, hdrHistogram)
@@ -155,9 +159,11 @@ object Dependencies {
 
       val junit = Compile.junit % "optional;provided;test"
 
-      val scalatest = Def.setting { "org.scalatest" %% "scalatest" % scalaTestVersion.value % "optional;provided;test" } // ApacheV2
+      val scalatest = "org.scalatest" %% "scalatest" % scalaTestVersion % "optional;provided;test" // ApacheV2
 
       val logback = Compile.logback % "optional;provided;test" // EPL 1.0
+
+      val protobufRuntime = "com.google.protobuf" % "protobuf-java" % protobufJavaVersion % "optional;provided"
 
     }
 
@@ -171,71 +177,83 @@ object Dependencies {
 
   val actorTyped = l ++= Seq(slf4jApi)
 
-  val discovery = l ++= Seq(Test.junit, Test.scalatest.value)
+  val discovery = l ++= Seq(Test.junit, Test.scalatest)
 
-  val coordination = l ++= Seq(Test.junit, Test.scalatest.value)
+  val coordination = l ++= Seq(Test.junit, Test.scalatest)
 
-  val testkit = l ++= Seq(Test.junit, Test.scalatest.value) ++ Test.metricsAll
+  val testkit = l ++= Seq(Test.junit, Test.scalatest) ++ Test.metricsAll
 
   val actorTests = l ++= Seq(
         Test.junit,
-        Test.scalatest.value,
+        Test.scalatest,
+        Test.scalatestJUnit,
+        Test.scalatestScalaCheck,
         Test.commonsCodec,
         Test.commonsMath,
-        Test.scalacheck.value,
+        Test.scalacheck,
         Test.jimfs,
         Test.dockerClient,
         Provided.activation // dockerClient needs javax.activation.DataSource in JDK 11+
       )
 
-  val actorTestkitTyped = l ++= Seq(Provided.logback, Provided.junit, Provided.scalatest.value)
+  val actorTestkitTyped = l ++= Seq(Provided.logback, Provided.junit, Provided.scalatest, Test.scalatestJUnit)
+
+  val pki = l ++=
+      Seq(
+        asnOne,
+        // pull up slf4j version from the one provided transitively in asnOne to fix unidoc
+        Compile.slf4jApi,
+        Test.scalatest)
 
   val remoteDependencies = Seq(netty, aeronDriver, aeronClient)
   val remoteOptionalDependencies = remoteDependencies.map(_ % "optional")
 
-  val remote = l ++= Seq(agrona, Test.junit, Test.scalatest.value, Test.jimfs, Test.protobufRuntime) ++ remoteOptionalDependencies
+  val remote = l ++= Seq(agrona, Test.junit, Test.scalatest, Test.jimfs, Test.protobufRuntime) ++ remoteOptionalDependencies
 
-  val remoteTests = l ++= Seq(Test.junit, Test.scalatest.value) ++ remoteDependencies
+  val remoteTests = l ++= Seq(Test.junit, Test.scalatest) ++ remoteDependencies
 
   val multiNodeTestkit = l ++= Seq(netty)
 
-  val cluster = l ++= Seq(Test.junit, Test.scalatest.value)
+  val cluster = l ++= Seq(Test.junit, Test.scalatest)
 
-  val clusterTools = l ++= Seq(Test.junit, Test.scalatest.value)
+  val clusterTools = l ++= Seq(Test.junit, Test.scalatest)
 
   val clusterSharding = l ++= Seq(
         Provided.levelDBmultiJVM,
         Provided.levelDBNative,
         Test.junit,
-        Test.scalatest.value,
+        Test.scalatest,
         Test.commonsIo)
 
-  val clusterMetrics = l ++= Seq(Provided.sigarLoader, Test.slf4jJul, Test.slf4jLog4j, Test.logback, Test.mockito)
+  val clusterMetrics = l ++= Seq(
+        Provided.sigarLoader,
+        Test.slf4jJul,
+        Test.slf4jLog4j,
+        Test.logback,
+        Test.scalatestMockito)
 
-  val distributedData = l ++= Seq(lmdb, Test.junit, Test.scalatest.value)
+  val distributedData = l ++= Seq(lmdb, Test.junit, Test.scalatest)
 
   val slf4j = l ++= Seq(slf4jApi, Test.logback)
 
   val persistence = l ++= Seq(
         Provided.levelDB,
         Provided.levelDBNative,
-        Test.scalatest.value,
+        Test.scalatest,
+        Test.scalatestJUnit,
         Test.junit,
         Test.commonsIo,
         Test.commonsCodec)
 
-  val persistenceQuery = l ++= Seq(
-        Test.scalatest.value,
-        Test.junit,
-        Test.commonsIo,
-        Provided.levelDB,
-        Provided.levelDBNative)
+  val persistenceQuery = l ++= Seq(Test.scalatest, Test.junit, Test.commonsIo, Provided.levelDB, Provided.levelDBNative)
 
   val persistenceTck = l ++= Seq(
-        Test.scalatest.value.withConfigurations(Some("compile")),
+        Test.scalatest.withConfigurations(Some("compile")),
         Test.junit.withConfigurations(Some("compile")),
         Provided.levelDB,
         Provided.levelDBNative)
+
+  val persistenceTestKit = l ++= Seq(Test.scalatest, Test.logback)
 
   val persistenceShared = l ++= Seq(Provided.levelDB, Provided.levelDBNative)
 
@@ -248,8 +266,9 @@ object Dependencies {
         jacksonJsr310,
         jacksonParameterNames,
         jacksonCbor,
+        lz4Java,
         Test.junit,
-        Test.scalatest.value)
+        Test.scalatest)
 
   val osgi = l ++= Seq(
         osgiCore,
@@ -258,22 +277,33 @@ object Dependencies {
         Test.commonsIo,
         Test.pojosr,
         Test.tinybundles,
-        Test.scalatest.value,
+        Test.scalatest,
         Test.junit)
 
-  val docs = l ++= Seq(Test.scalatest.value, Test.junit, Docs.sprayJson, Docs.gson, Provided.levelDB)
+  val docs = l ++= Seq(Test.scalatest, Test.junit, Docs.sprayJson, Docs.gson, Provided.levelDB)
 
-  val benchJmh = l ++= Seq(Provided.levelDB, Provided.levelDBNative, Compile.jctools)
+  val benchJmh = l ++= Seq(logback, Provided.levelDB, Provided.levelDBNative, Compile.jctools)
 
   // akka stream
 
-  lazy val stream = l ++= Seq[sbt.ModuleID](reactiveStreams, sslConfigCore.value, Test.scalatest.value)
+  lazy val stream = l ++= Seq[sbt.ModuleID](reactiveStreams, sslConfigCore, Test.scalatest)
 
-  lazy val streamTestkit = l ++= Seq(Test.scalatest.value, Test.scalacheck.value, Test.junit)
+  lazy val streamTestkit = l ++= Seq(Test.scalatest, Test.scalacheck, Test.junit)
 
-  lazy val streamTests = l ++= Seq(Test.scalatest.value, Test.scalacheck.value, Test.junit, Test.commonsIo, Test.jimfs)
+  lazy val streamTests = l ++= Seq(
+        Test.scalatest,
+        Test.scalacheck,
+        Test.scalatestScalaCheck,
+        Test.junit,
+        Test.commonsIo,
+        Test.jimfs)
 
-  lazy val streamTestsTck = l ++= Seq(Test.scalatest.value, Test.scalacheck.value, Test.junit, Test.reactiveStreamsTck)
+  lazy val streamTestsTck = l ++= Seq(
+        Test.scalatest,
+        Test.scalatestTestNG,
+        Test.scalacheck,
+        Test.junit,
+        Test.reactiveStreamsTck)
 
 }
 

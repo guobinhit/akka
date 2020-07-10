@@ -1,20 +1,20 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.config
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.scaladsl.Behaviors
-import org.scalatest.WordSpec
-import org.scalatest.Matchers
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 //#imports
 import akka.actor.typed.ActorSystem
 import com.typesafe.config.ConfigFactory
 //#imports
 
-class ConfigDocSpec extends WordSpec with Matchers {
+class ConfigDocSpec extends AnyWordSpec with Matchers {
   val rootBehavior = Behaviors.empty[String]
 
   def compileOnlyCustomConfig(): Unit = {

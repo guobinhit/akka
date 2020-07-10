@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.fsm;
@@ -21,7 +21,7 @@ import java.time.Duration;
 
 import akka.persistence.fsm.PersistentFSM.CurrentState;
 import org.junit.Test;
-import org.scalatest.junit.JUnitSuite;
+import org.scalatestplus.junit.JUnitSuite;
 
 import static akka.persistence.fsm.PersistentFSM.FSMState;
 

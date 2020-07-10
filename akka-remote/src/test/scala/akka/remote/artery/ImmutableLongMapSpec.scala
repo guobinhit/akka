@@ -1,15 +1,17 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
 
-import org.scalatest.Matchers
-import org.scalatest.WordSpec
-import akka.util.OptionVal
 import scala.util.Random
 
-class ImmutableLongMapSpec extends WordSpec with Matchers {
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+
+import akka.util.OptionVal
+
+class ImmutableLongMapSpec extends AnyWordSpec with Matchers {
 
   "ImmutableLongMap" must {
 

@@ -1,24 +1,26 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.pubsub.protobuf
 
-import akka.serialization._
-import akka.actor.{ Address, ExtendedActorSystem }
 import java.io.{ ByteArrayInputStream, ByteArrayOutputStream }
-import akka.protobufv3.internal.{ ByteString, MessageLite }
-import java.util.zip.GZIPOutputStream
+import java.io.NotSerializableException
 import java.util.zip.GZIPInputStream
+import java.util.zip.GZIPOutputStream
+
 import scala.annotation.tailrec
-import akka.cluster.pubsub.protobuf.msg.{ DistributedPubSubMessages => dm }
-import akka.util.ccompat.JavaConverters._
+import scala.collection.immutable.TreeMap
+
+import akka.actor.{ Address, ExtendedActorSystem }
+import akka.actor.ActorRef
 import akka.cluster.pubsub.DistributedPubSubMediator._
 import akka.cluster.pubsub.DistributedPubSubMediator.Internal._
-import akka.actor.ActorRef
+import akka.cluster.pubsub.protobuf.msg.{ DistributedPubSubMessages => dm }
+import akka.protobufv3.internal.{ ByteString, MessageLite }
+import akka.serialization._
 import akka.util.ccompat._
-import scala.collection.immutable.TreeMap
-import java.io.NotSerializableException
+import akka.util.ccompat.JavaConverters._
 
 /**
  * INTERNAL API: Protobuf serializer of DistributedPubSubMediator messages.

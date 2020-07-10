@@ -1,20 +1,21 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.classic.transport
 
-import akka.actor._
-import akka.remote.classic.transport.ThrottlerTransportAdapterSpec._
-import akka.remote.transport.ThrottlerTransportAdapter._
-import akka.remote.transport.{ TestTransport, ThrottlerTransportAdapter }
-import akka.remote.{ EndpointException, RemoteActorRefProvider }
-import akka.testkit.{ AkkaSpec, DefaultTimeout, EventFilter, ImplicitSender, TestEvent, TimingTest }
-import com.typesafe.config.{ Config, ConfigFactory }
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
 import com.github.ghik.silencer.silent
+import com.typesafe.config.{ Config, ConfigFactory }
+
+import akka.actor._
+import akka.remote.{ EndpointException, RemoteActorRefProvider }
+import akka.remote.classic.transport.ThrottlerTransportAdapterSpec._
+import akka.remote.transport.{ TestTransport, ThrottlerTransportAdapter }
+import akka.remote.transport.ThrottlerTransportAdapter._
+import akka.testkit.{ AkkaSpec, DefaultTimeout, EventFilter, ImplicitSender, TestEvent, TimingTest }
 
 object ThrottlerTransportAdapterSpec {
   val configA: Config =
@@ -77,7 +78,7 @@ object ThrottlerTransportAdapterSpec {
 class ThrottlerTransportAdapterSpec extends AkkaSpec(configA) with ImplicitSender with DefaultTimeout {
 
   val systemB = ActorSystem("systemB", system.settings.config)
-  val remote = systemB.actorOf(Props[Echo], "echo")
+  val remote = systemB.actorOf(Props[Echo](), "echo")
 
   val rootB = RootActorPath(systemB.asInstanceOf[ExtendedActorSystem].provider.getDefaultAddress)
   val here = {

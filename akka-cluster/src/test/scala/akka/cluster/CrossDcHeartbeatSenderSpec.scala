@@ -1,16 +1,16 @@
 /*
- * Copyright (C) 2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
+
+import scala.collection.immutable.SortedSet
 
 import akka.actor.{ ActorSelection, Address, Props }
 import akka.cluster.ClusterEvent.CurrentClusterState
 import akka.cluster.ClusterHeartbeatSender.Heartbeat
 import akka.cluster.CrossDcHeartbeatSenderSpec.TestCrossDcHeartbeatSender
 import akka.testkit.{ AkkaSpec, ImplicitSender, TestProbe }
-
-import scala.collection.immutable.SortedSet
 
 object CrossDcHeartbeatSenderSpec {
   class TestCrossDcHeartbeatSender(probe: TestProbe) extends CrossDcHeartbeatSender {

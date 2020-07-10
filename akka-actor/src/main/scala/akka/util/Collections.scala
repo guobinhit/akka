@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.util
 
-import scala.collection.immutable
 import scala.annotation.tailrec
+import scala.collection.immutable
 
 /**
  * INTERNAL API

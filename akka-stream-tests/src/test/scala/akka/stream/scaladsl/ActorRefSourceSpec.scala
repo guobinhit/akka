@@ -1,19 +1,20 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
+import scala.concurrent.duration._
+
+import org.reactivestreams.Publisher
+
 import akka.Done
 import akka.actor.{ ActorRef, PoisonPill, Status }
 import akka.stream.{ OverflowStrategy, _ }
-import akka.stream.testkit.Utils._
 import akka.stream.testkit._
-import akka.stream.testkit.scaladsl.StreamTestKit._
+import akka.stream.testkit.Utils._
 import akka.stream.testkit.scaladsl._
-import org.reactivestreams.Publisher
-
-import scala.concurrent.duration._
+import akka.stream.testkit.scaladsl.StreamTestKit._
 
 class ActorRefSourceSpec extends StreamSpec {
 

@@ -1,18 +1,19 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
-
-import akka.stream._
-import akka.stream.testkit._
-import akka.stream.testkit.scaladsl.StreamTestKit._
-import com.github.ghik.silencer.silent
 
 import scala.collection.immutable
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
+
+import com.github.ghik.silencer.silent
+
+import akka.stream._
+import akka.stream.testkit._
+import akka.stream.testkit.scaladsl.StreamTestKit._
 
 class FlowPrefixAndTailSpec extends StreamSpec("""
     akka.stream.materializer.initial-input-buffer-size = 2
@@ -30,7 +31,7 @@ class FlowPrefixAndTailSpec extends StreamSpec("""
       val fut = Source.empty.prefixAndTail(10).runWith(futureSink)
       val (prefix, tailFlow) = Await.result(fut, 3.seconds)
       prefix should be(Nil)
-      val tailSubscriber = TestSubscriber.manualProbe[Int]
+      val tailSubscriber = TestSubscriber.manualProbe[Int]()
       tailFlow.to(Sink.fromSubscriber(tailSubscriber)).run()
       tailSubscriber.expectSubscriptionAndComplete()
     }
@@ -40,7 +41,7 @@ class FlowPrefixAndTailSpec extends StreamSpec("""
       val fut = Source(List(1, 2, 3)).prefixAndTail(10).runWith(futureSink)
       val (prefix, tailFlow) = Await.result(fut, 3.seconds)
       prefix should be(List(1, 2, 3))
-      val tailSubscriber = TestSubscriber.manualProbe[Int]
+      val tailSubscriber = TestSubscriber.manualProbe[Int]()
       tailFlow.to(Sink.fromSubscriber(tailSubscriber)).run()
       tailSubscriber.expectSubscriptionAndComplete()
     }
@@ -100,8 +101,9 @@ class FlowPrefixAndTailSpec extends StreamSpec("""
 
       val subscriber2 = TestSubscriber.probe[Int]()
       tail.to(Sink.fromSubscriber(subscriber2)).run()
-      subscriber2.expectSubscriptionAndError().getMessage should ===(
-        "Substream Source cannot be materialized more than once")
+      val ex = subscriber2.expectSubscriptionAndError()
+      ex.getMessage should ===("Substream Source(TailSource) cannot be materialized more than once")
+      ex.getStackTrace.exists(_.getClassName contains "FlowPrefixAndTailSpec") shouldBe true
 
       subscriber1.requestNext(2).expectComplete()
 
@@ -126,7 +128,7 @@ class FlowPrefixAndTailSpec extends StreamSpec("""
 
       tail.to(Sink.fromSubscriber(subscriber)).run()(tightTimeoutMaterializer)
       subscriber.expectSubscriptionAndError().getMessage should ===(
-        s"Substream Source has not been materialized in ${ms} milliseconds")
+        s"Substream Source(TailSource) has not been materialized in ${ms} milliseconds")
     }
     "not fail the stream if substream has not been subscribed in time and configured subscription timeout is noop" in assertAllStagesStopped {
       @silent("deprecated")

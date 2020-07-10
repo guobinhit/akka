@@ -1,23 +1,24 @@
 /*
- * Copyright (C) 2014-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed
 
-import akka.actor.typed.scaladsl.{ Behaviors => SBehaviors }
-import akka.actor.typed.scaladsl.{ AbstractBehavior => SAbstractBehavior }
-import akka.actor.typed.javadsl.{ Behaviors => JBehaviors }
-import akka.japi.pf.{ FI, PFBuilder }
 import java.util.function.{ Function => F1 }
 
-import akka.Done
-import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
-import akka.actor.testkit.typed.scaladsl.LogCapturing
-import akka.actor.testkit.typed.scaladsl.{ BehaviorTestKit, TestInbox }
-import org.scalactic.TypeCheckedTripleEquals
-import org.scalatest.Matchers
-import org.scalatest.WordSpecLike
 import com.github.ghik.silencer.silent
+import org.scalactic.TypeCheckedTripleEquals
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
+
+import akka.Done
+import akka.actor.testkit.typed.scaladsl.{ BehaviorTestKit, TestInbox }
+import akka.actor.testkit.typed.scaladsl.LogCapturing
+import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
+import akka.actor.typed.javadsl.{ Behaviors => JBehaviors }
+import akka.actor.typed.scaladsl.{ AbstractBehavior => SAbstractBehavior }
+import akka.actor.typed.scaladsl.{ Behaviors => SBehaviors }
+import akka.japi.pf.{ FI, PFBuilder }
 
 object BehaviorSpec {
   sealed trait Command {
@@ -69,7 +70,7 @@ object BehaviorSpec {
     override def next = StateA
   }
 
-  trait Common extends WordSpecLike with Matchers with TypeCheckedTripleEquals with LogCapturing {
+  trait Common extends AnyWordSpecLike with Matchers with TypeCheckedTripleEquals with LogCapturing {
     type Aux >: Null <: AnyRef
     def behavior(monitor: ActorRef[Event]): (Behavior[Command], Aux)
     @silent("never used")

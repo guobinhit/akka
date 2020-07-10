@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.scaladsl
@@ -8,18 +8,19 @@ import java.util.UUID
 
 import scala.concurrent.duration._
 
+import com.typesafe.config.ConfigFactory
+import org.scalatest.wordspec.AnyWordSpecLike
+
 import akka.actor.testkit.typed.TestException
+import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import akka.actor.testkit.typed.scaladsl.TestProbe
-import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.actor.typed.ActorRef
 import akka.actor.typed.SupervisorStrategy
 import akka.actor.typed.scaladsl.Behaviors
 import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.RecoveryCompleted
 import akka.persistence.typed.scaladsl.EventSourcedBehavior.CommandHandler
-import com.typesafe.config.ConfigFactory
-import org.scalatest.WordSpecLike
 
 object PerformanceSpec {
 
@@ -117,7 +118,7 @@ class PerformanceSpec extends ScalaTestWithActorTestKit(ConfigFactory.parseStrin
       akka.persistence.snapshot-store.plugin = "akka.persistence.snapshot-store.local"
       akka.persistence.snapshot-store.local.dir = "target/snapshots-PerformanceSpec/"
       akka.test.single-expect-default = 10s
-      """).withFallback(ConfigFactory.parseString(PerformanceSpec.config))) with WordSpecLike with LogCapturing {
+      """).withFallback(ConfigFactory.parseString(PerformanceSpec.config))) with AnyWordSpecLike with LogCapturing {
 
   import PerformanceSpec._
 
@@ -145,7 +146,7 @@ class PerformanceSpec extends ScalaTestWithActorTestKit(ConfigFactory.parseStrin
   }
 
   def stressEventSourcedPersistentActor(failAt: Option[Long]): Unit = {
-    val probe = TestProbe[Reply]
+    val probe = TestProbe[Reply]()
     val name = s"${this.getClass.getSimpleName}-${UUID.randomUUID().toString}"
     val persistentActor = spawn(eventSourcedTestPersistenceBehavior(name, probe), name)
     stressPersistentActor(persistentActor, probe, failAt, "persistent events")

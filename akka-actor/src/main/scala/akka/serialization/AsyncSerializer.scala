@@ -1,15 +1,15 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.serialization
 
 import java.util.concurrent.CompletionStage
 
-import akka.actor.ExtendedActorSystem
-import scala.concurrent.duration.Duration
 import scala.concurrent.{ Await, Future }
+import scala.concurrent.duration.Duration
 
+import akka.actor.ExtendedActorSystem
 import akka.event.Logging
 
 /**

@@ -1,19 +1,19 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.testkit.typed.internal
 
 import java.util.concurrent.ConcurrentLinkedQueue
 
-import akka.actor.{ ActorPath, Cancellable }
-import akka.actor.typed.{ ActorRef, Behavior, Props }
-import akka.annotation.InternalApi
-import akka.actor.testkit.typed.Effect
-import akka.actor.testkit.typed.Effect._
-
 import scala.concurrent.duration.FiniteDuration
 import scala.reflect.ClassTag
+
+import akka.actor.{ ActorPath, Cancellable }
+import akka.actor.testkit.typed.Effect
+import akka.actor.testkit.typed.Effect._
+import akka.actor.typed.{ ActorRef, Behavior, Props }
+import akka.annotation.InternalApi
 
 /**
  * INTERNAL API

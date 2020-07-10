@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.query
@@ -52,7 +52,7 @@ final case class TimeBasedUUID(value: UUID) extends Offset with Ordered[TimeBase
 /**
  * Used when retrieving all events.
  */
-final case object NoOffset extends Offset {
+case object NoOffset extends Offset {
 
   /**
    * Java API:

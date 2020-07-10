@@ -1,18 +1,19 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.ddata
 
 import scala.collection.immutable.TreeMap
 
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+
 import akka.actor.Address
 import akka.cluster.UniqueAddress
 import akka.cluster.ddata.Replicator.Changed
-import org.scalatest.Matchers
-import org.scalatest.WordSpec
 
-class ORSetSpec extends WordSpec with Matchers {
+class ORSetSpec extends AnyWordSpec with Matchers {
 
   val node1 = UniqueAddress(Address("akka", "Sys", "localhost", 2551), 1L)
   val node2 = UniqueAddress(node1.address.copy(port = Some(2552)), 2L)

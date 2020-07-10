@@ -1,8 +1,11 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.typed.scaladsl
+
+import scala.annotation.implicitNotFound
+import scala.concurrent.Future
 
 import akka.NotUsed
 import akka.actor.typed.ActorRef
@@ -10,9 +13,6 @@ import akka.pattern.AskTimeoutException
 import akka.stream._
 import akka.stream.scaladsl._
 import akka.util.Timeout
-
-import scala.annotation.implicitNotFound
-import scala.concurrent.Future
 
 /**
  * Collection of Flows aimed at integrating with typed Actors.

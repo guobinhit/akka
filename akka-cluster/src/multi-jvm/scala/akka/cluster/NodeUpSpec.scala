@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
 
+import java.util.concurrent.atomic.AtomicReference
+
+import scala.collection.immutable.SortedSet
+import scala.concurrent.duration._
+
+import akka.actor.Actor
+import akka.actor.Props
 import akka.remote.testkit.MultiNodeConfig
 import akka.remote.testkit.MultiNodeSpec
 import akka.testkit._
-import scala.concurrent.duration._
-import scala.collection.immutable.SortedSet
-import java.util.concurrent.atomic.AtomicReference
-import akka.actor.Props
-import akka.actor.Actor
 
 object NodeUpMultiJvmSpec extends MultiNodeConfig {
   val first = role("first")
@@ -25,8 +27,8 @@ class NodeUpMultiJvmNode2 extends NodeUpSpec
 
 abstract class NodeUpSpec extends MultiNodeSpec(NodeUpMultiJvmSpec) with MultiNodeClusterSpec {
 
-  import NodeUpMultiJvmSpec._
   import ClusterEvent._
+  import NodeUpMultiJvmSpec._
 
   "A cluster node that is joining another cluster" must {
     "not be able to join a node that is not a cluster member" in {

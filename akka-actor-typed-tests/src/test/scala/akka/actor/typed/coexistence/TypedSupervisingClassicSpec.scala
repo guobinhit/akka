@@ -1,17 +1,18 @@
 /*
- * Copyright (C) 2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.coexistence
+import org.scalatest.wordspec.AnyWordSpecLike
+
+import akka.{ actor => classic }
 import akka.actor.Actor
 import akka.actor.testkit.typed.TestException
-import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.actor.testkit.typed.scaladsl.{ ScalaTestWithActorTestKit, TestProbe }
+import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.Behaviors
-import org.scalatest.WordSpecLike
 import akka.actor.typed.scaladsl.adapter._
-import akka.{ actor => classic }
 
 object TypedSupervisingClassicSpec {
 
@@ -43,14 +44,14 @@ object TypedSupervisingClassicSpec {
 
 class TypedSupervisingClassicSpec extends ScalaTestWithActorTestKit("""
     akka.loglevel = INFO
-  """.stripMargin) with WordSpecLike with LogCapturing {
+  """.stripMargin) with AnyWordSpecLike with LogCapturing {
   import TypedSupervisingClassicSpec._
 
   "Typed supervising classic" should {
     "default to restart" in {
       val ref: ActorRef[Protocol] = spawn(classicActorOf())
-      val lifecycleProbe = TestProbe[String]
-      val probe = TestProbe[SpawnedClassicActor]
+      val lifecycleProbe = TestProbe[String]()
+      val probe = TestProbe[SpawnedClassicActor]()
       ref ! SpawnClassicActor(classic.Props(new CLassicActor(lifecycleProbe.ref)), probe.ref)
       val spawnedClassic = probe.expectMessageType[SpawnedClassicActor].ref
       lifecycleProbe.expectMessage("preStart")

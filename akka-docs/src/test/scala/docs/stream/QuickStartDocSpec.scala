@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.stream
@@ -18,7 +18,8 @@ import scala.concurrent.duration._
 import java.nio.file.Paths
 //#other-imports
 
-import org.scalatest._
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.concurrent._
 
 //#main-app
@@ -28,7 +29,7 @@ object Main extends App {
 }
 //#main-app
 
-class QuickStartDocSpec extends WordSpec with BeforeAndAfterAll with ScalaFutures {
+class QuickStartDocSpec extends AnyWordSpec with BeforeAndAfterAll with ScalaFutures {
   implicit val patience = PatienceConfig(5.seconds)
 
   def println(any: Any) = () // silence printing stuff

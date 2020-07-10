@@ -1,19 +1,20 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence
 
-import akka.actor.DeadLetter
-import akka.persistence.PersistentActorBoundedStashingSpec._
-import akka.persistence.journal.SteppingInmemJournal
-import akka.testkit.TestEvent.Mute
-import akka.testkit.EventFilter
-import akka.testkit.ImplicitSender
+import scala.concurrent.duration._
+
 import com.typesafe.config.Config
 import org.scalatest.BeforeAndAfterEach
 
-import scala.concurrent.duration._
+import akka.actor.DeadLetter
+import akka.persistence.PersistentActorBoundedStashingSpec._
+import akka.persistence.journal.SteppingInmemJournal
+import akka.testkit.EventFilter
+import akka.testkit.ImplicitSender
+import akka.testkit.TestEvent.Mute
 
 object PersistentActorBoundedStashingSpec {
   final case class Cmd(data: Any)

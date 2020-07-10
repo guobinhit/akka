@@ -1,18 +1,20 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.setup
 
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
-import org.scalatest.{ Matchers, WordSpec }
 
 case class DummySetup(name: String) extends Setup
 case class DummySetup2(name: String) extends Setup
 case class DummySetup3(name: String) extends Setup
 
-class ActorSystemSetupSpec extends WordSpec with Matchers {
+class ActorSystemSetupSpec extends AnyWordSpec with Matchers {
 
   "The ActorSystemSettings" should {
 

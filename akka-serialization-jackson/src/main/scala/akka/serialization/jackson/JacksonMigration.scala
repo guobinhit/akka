@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.serialization.jackson
 
 import com.fasterxml.jackson.databind.JsonNode
+
 import akka.util.unused
 
 /**

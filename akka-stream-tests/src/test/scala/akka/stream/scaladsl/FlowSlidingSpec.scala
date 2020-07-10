@@ -1,28 +1,29 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
-import akka.stream.testkit.scaladsl.StreamTestKit._
+import com.github.ghik.silencer.silent
+import org.scalacheck.Gen
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
+
+import akka.pattern.pipe
 import akka.stream.{ ActorMaterializer, ActorMaterializerSettings }
 import akka.stream.testkit._
-import org.scalacheck.Gen
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import akka.pattern.pipe
-import com.github.ghik.silencer.silent
+import akka.stream.testkit.scaladsl.StreamTestKit._
 
 @silent
-class FlowSlidingSpec extends StreamSpec with GeneratorDrivenPropertyChecks {
+class FlowSlidingSpec extends StreamSpec with ScalaCheckPropertyChecks {
   import system.dispatcher
   val settings = ActorMaterializerSettings(system).withInputBuffer(initialSize = 2, maxSize = 16)
 
-  implicit val materializer = ActorMaterializer(settings)
+  implicit val materializer: ActorMaterializer = ActorMaterializer(settings)
 
   "Sliding" must {
     import org.scalacheck.Shrink.shrinkAny
     def check(gen: Gen[(Int, Int, Int)]): Unit =
-      forAll(gen, MinSize(1000), MaxSize(1000)) {
+      forAll(gen, minSize(1000), sizeRange(0)) {
         case (len, win, step) =>
           val af = Source
             .fromIterator(() => Iterator.from(0).take(len))

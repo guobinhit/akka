@@ -1,13 +1,14 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
 
-import akka.remote.testkit.{ MultiNodeConfig, MultiNodeSpec }
+import scala.concurrent.duration._
+
 import com.typesafe.config.ConfigFactory
 
-import scala.concurrent.duration._
+import akka.remote.testkit.{ MultiNodeConfig, MultiNodeSpec }
 
 object MultiDcLastNodeSpec extends MultiNodeConfig {
   val first = role("first")

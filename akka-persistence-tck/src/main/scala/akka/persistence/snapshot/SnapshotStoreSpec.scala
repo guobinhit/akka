@@ -1,18 +1,19 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.snapshot
 
-import akka.persistence.scalatest.{ MayVerb, OptionalTests }
-
 import scala.collection.immutable.Seq
+
+import com.typesafe.config.Config
+import com.typesafe.config.ConfigFactory
+
 import akka.actor._
 import akka.persistence._
 import akka.persistence.SnapshotProtocol._
+import akka.persistence.scalatest.{ MayVerb, OptionalTests }
 import akka.testkit.TestProbe
-import com.typesafe.config.ConfigFactory
-import com.typesafe.config.Config
 
 object SnapshotStoreSpec {
   val config: Config = ConfigFactory.parseString(s"""
@@ -44,7 +45,8 @@ abstract class SnapshotStoreSpec(config: Config)
     with MayVerb
     with OptionalTests
     with SnapshotStoreCapabilityFlags {
-  implicit lazy val system = ActorSystem("SnapshotStoreSpec", config.withFallback(SnapshotStoreSpec.config))
+  implicit lazy val system: ActorSystem =
+    ActorSystem("SnapshotStoreSpec", config.withFallback(SnapshotStoreSpec.config))
 
   private var senderProbe: TestProbe = _
   private var metadata: Seq[SnapshotMetadata] = Nil

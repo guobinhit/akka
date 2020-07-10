@@ -1,16 +1,17 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
 
 import java.lang.management.ManagementFactory
-import javax.management.StandardMBean
-import akka.event.LoggingAdapter
-import akka.actor.AddressFromURIString
-import javax.management.ObjectName
 import javax.management.InstanceAlreadyExistsException
 import javax.management.InstanceNotFoundException
+import javax.management.ObjectName
+import javax.management.StandardMBean
+
+import akka.actor.AddressFromURIString
+import akka.event.LoggingAdapter
 
 /**
  * Interface for the cluster JMX MBean.

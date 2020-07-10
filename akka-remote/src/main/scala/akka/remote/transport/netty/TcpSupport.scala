@@ -1,22 +1,23 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.transport.netty
 
+import java.net.InetSocketAddress
+
+import scala.concurrent.{ Future, Promise }
+
+import com.github.ghik.silencer.silent
+import org.jboss.netty.buffer.{ ChannelBuffer, ChannelBuffers }
+import org.jboss.netty.channel._
+
 import akka.actor.Address
+import akka.event.LoggingAdapter
 import akka.remote.transport.AssociationHandle
 import akka.remote.transport.AssociationHandle.{ Disassociated, HandleEvent, HandleEventListener, InboundPayload }
 import akka.remote.transport.Transport.AssociationEventListener
 import akka.util.ByteString
-import java.net.InetSocketAddress
-
-import akka.event.LoggingAdapter
-import org.jboss.netty.buffer.{ ChannelBuffer, ChannelBuffers }
-import org.jboss.netty.channel._
-import scala.concurrent.{ Future, Promise }
-
-import com.github.ghik.silencer.silent
 
 /**
  * INTERNAL API

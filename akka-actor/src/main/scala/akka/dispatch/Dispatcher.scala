@@ -1,20 +1,21 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.dispatch
 
-import akka.event.Logging.Error
-import akka.actor.ActorCell
-import akka.event.Logging
-import akka.dispatch.sysmsg.SystemMessage
 import java.util.concurrent.{ ExecutorService, RejectedExecutionException }
+import java.util.concurrent.atomic.AtomicReferenceFieldUpdater
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
-import java.util.concurrent.atomic.AtomicReferenceFieldUpdater
 
 import com.github.ghik.silencer.silent
+
+import akka.actor.ActorCell
+import akka.dispatch.sysmsg.SystemMessage
+import akka.event.Logging
+import akka.event.Logging.Error
 
 /**
  * The event-based ``Dispatcher`` binds a set of Actors to a thread pool backed up by a

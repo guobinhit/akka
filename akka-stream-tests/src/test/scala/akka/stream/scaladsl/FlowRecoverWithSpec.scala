@@ -1,25 +1,26 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
-import akka.stream.stage.{ GraphStage, GraphStageLogic }
-import akka.stream.testkit.StreamSpec
-import akka.stream.testkit.scaladsl.TestSink
-import akka.stream._
-import akka.stream.testkit.Utils._
-import akka.stream.testkit.scaladsl.StreamTestKit._
+import scala.util.control.NoStackTrace
+
 import com.github.ghik.silencer.silent
 
-import scala.util.control.NoStackTrace
+import akka.stream._
+import akka.stream.stage.{ GraphStage, GraphStageLogic }
+import akka.stream.testkit.StreamSpec
+import akka.stream.testkit.Utils._
+import akka.stream.testkit.scaladsl.StreamTestKit._
+import akka.stream.testkit.scaladsl.TestSink
 
 @silent // tests deprecated APIs
 class FlowRecoverWithSpec extends StreamSpec {
 
   val settings = ActorMaterializerSettings(system).withInputBuffer(initialSize = 1, maxSize = 1)
 
-  implicit val materializer = ActorMaterializer(settings)
+  implicit val materializer: ActorMaterializer = ActorMaterializer(settings)
 
   val ex = new RuntimeException("ex") with NoStackTrace
 

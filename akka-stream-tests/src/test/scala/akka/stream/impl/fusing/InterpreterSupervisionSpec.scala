@@ -1,13 +1,13 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl.fusing
 
-import akka.stream.testkit.StreamSpec
-
 import scala.util.control.NoStackTrace
+
 import akka.stream.Supervision
+import akka.stream.testkit.StreamSpec
 
 class InterpreterSupervisionSpec extends StreamSpec with GraphInterpreterSpecKit {
 

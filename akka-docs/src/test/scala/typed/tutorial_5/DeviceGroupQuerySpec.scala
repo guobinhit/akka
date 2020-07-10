@@ -1,13 +1,12 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package typed.tutorial_5
 
 import scala.concurrent.duration._
-
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
-import org.scalatest.WordSpecLike
+import org.scalatest.wordspec.AnyWordSpecLike
 import typed.tutorial_5.Device.Command
 import typed.tutorial_5.DeviceGroupQuery.WrappedRespondTemperature
 import typed.tutorial_5.DeviceManager.DeviceNotAvailable
@@ -16,7 +15,7 @@ import typed.tutorial_5.DeviceManager.RespondAllTemperatures
 import typed.tutorial_5.DeviceManager.Temperature
 import typed.tutorial_5.DeviceManager.TemperatureNotAvailable
 
-class DeviceGroupQuerySpec extends ScalaTestWithActorTestKit with WordSpecLike {
+class DeviceGroupQuerySpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
 
   "DeviceGroupQuery" must {
 

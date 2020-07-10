@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.akka.typed
@@ -13,9 +13,8 @@ import akka.dispatch.Dispatcher
 import DispatchersDocSpec._
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import com.typesafe.config.ConfigFactory
-import org.scalatest.WordSpecLike
+import org.scalatest.wordspec.AnyWordSpecLike
 import scala.concurrent.Future
-
 import akka.actor.testkit.typed.scaladsl.LogCapturing
 
 object DispatchersDocSpec {
@@ -60,7 +59,7 @@ object DispatchersDocSpec {
 
 class DispatchersDocSpec
     extends ScalaTestWithActorTestKit(DispatchersDocSpec.config)
-    with WordSpecLike
+    with AnyWordSpecLike
     with LogCapturing {
 
   "Actor Dispatchers" should {

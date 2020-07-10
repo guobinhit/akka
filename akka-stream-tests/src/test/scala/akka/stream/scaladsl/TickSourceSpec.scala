@@ -1,15 +1,15 @@
 /*
- * Copyright (C) 2014-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
+
+import scala.concurrent.duration._
 
 import akka.stream.ClosedShape
 import akka.stream.testkit._
 import akka.stream.testkit.scaladsl.StreamTestKit._
 import akka.testkit.TimingTest
-
-import scala.concurrent.duration._
 
 class TickSourceSpec extends StreamSpec {
 

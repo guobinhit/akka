@@ -1,28 +1,26 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.testkit.typed.internal
 
 import java.time.{ Duration => JDuration }
+import java.util.{ List => JList }
 import java.util.concurrent.BlockingDeque
 import java.util.concurrent.LinkedBlockingDeque
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Supplier
-import java.util.{ List => JList }
 
 import scala.annotation.tailrec
-import akka.util.ccompat.JavaConverters._
-
 import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
+
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.TestKitSettings
 import akka.actor.testkit.typed.javadsl.{ TestProbe => JavaTestProbe }
-import akka.actor.testkit.typed.scaladsl.TestDuration
 import akka.actor.testkit.typed.scaladsl.{ TestProbe => ScalaTestProbe }
+import akka.actor.testkit.typed.scaladsl.TestDuration
 import akka.actor.typed.ActorRef
 import akka.actor.typed.ActorSystem
 import akka.actor.typed.Behavior
@@ -33,11 +31,10 @@ import akka.annotation.InternalApi
 import akka.util.BoxedType
 import akka.util.JavaDurationConverters._
 import akka.util.PrettyDuration._
+import akka.util.ccompat.JavaConverters._
 
 @InternalApi
 private[akka] object TestProbeImpl {
-  private val testActorId = new AtomicInteger(0)
-
   private final case class WatchActor[U](actor: ActorRef[U])
   private case object Stop
 
@@ -68,6 +65,9 @@ private[akka] final class TestProbeImpl[M](name: String, system: ActorSystem[_])
     with ScalaTestProbe[M] {
 
   import TestProbeImpl._
+
+  // have to use same global counter as Classic TestKit to ensure unique names
+  private def testActorId = akka.testkit.TestKit.testActorId
   protected implicit val settings: TestKitSettings = TestKitSettings(system)
   private val queue = new LinkedBlockingDeque[M]
   private val terminations = new LinkedBlockingDeque[Terminated]
@@ -389,4 +389,5 @@ private[akka] final class TestProbeImpl[M](name: String, system: ActorSystem[_])
     testActor.asInstanceOf[ActorRef[AnyRef]] ! Stop
   }
 
+  override private[akka] def asJava: JavaTestProbe[M] = this
 }

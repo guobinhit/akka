@@ -1,19 +1,18 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence
+
+import scala.collection.immutable
+import scala.concurrent.Future
+import scala.util.{ Failure, Try }
+import scala.util.control.NoStackTrace
 
 import akka.actor.{ OneForOneStrategy, _ }
 import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.journal.inmem.InmemJournal
 import akka.testkit.{ EventFilter, ImplicitSender, TestEvent, TestProbe }
-
-import scala.collection.immutable
-import scala.util.control.NoStackTrace
-import scala.util.{ Failure, Try }
-
-import scala.concurrent.Future
 
 object EventSourcedActorFailureSpec {
   import PersistentActorSpec.{ Cmd, Evt, ExamplePersistentActor }

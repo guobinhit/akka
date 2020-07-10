@@ -1,20 +1,21 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.classic.transport
 
-import akka.actor.{ Address, ExtendedActorSystem }
-import akka.remote.RemoteActorRefProvider
-import akka.remote.transport.AssociationHandle.{ ActorHandleEventListener, Disassociated, InboundPayload }
-import akka.remote.transport.TestTransport.{ AssociateAttempt, DisassociateAttempt, ListenAttempt, WriteAttempt, _ }
-import akka.remote.transport.Transport._
-import akka.remote.transport.{ AssociationRegistry => _, _ }
-import akka.testkit.{ AkkaSpec, DefaultTimeout, ImplicitSender }
-import akka.util.ByteString
 import scala.concurrent.{ Await, Future }
 
 import com.github.ghik.silencer.silent
+
+import akka.actor.{ Address, ExtendedActorSystem }
+import akka.remote.RemoteActorRefProvider
+import akka.remote.transport.{ AssociationRegistry => _, _ }
+import akka.remote.transport.AssociationHandle.{ ActorHandleEventListener, Disassociated, InboundPayload }
+import akka.remote.transport.TestTransport.{ AssociateAttempt, DisassociateAttempt, ListenAttempt, WriteAttempt, _ }
+import akka.remote.transport.Transport._
+import akka.testkit.{ AkkaSpec, DefaultTimeout, ImplicitSender }
+import akka.util.ByteString
 
 @silent("deprecated")
 abstract class GenericTransportSpec(withAkkaProtocol: Boolean = false)

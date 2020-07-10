@@ -1,12 +1,11 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.akka.typed;
 
 import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.*;
-import org.scalatest.junit.JUnitSuite;
 import akka.actor.typed.DispatcherSelector;
 
 public class DispatchersDocTest {

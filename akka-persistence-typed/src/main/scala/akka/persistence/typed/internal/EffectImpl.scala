@@ -1,15 +1,15 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.internal
 
 import scala.collection.immutable
 
+import akka.actor.typed.ActorRef
 import akka.annotation.InternalApi
 import akka.persistence.typed.javadsl
 import akka.persistence.typed.scaladsl
-import akka.actor.typed.ActorRef
 
 /** INTERNAL API */
 @InternalApi

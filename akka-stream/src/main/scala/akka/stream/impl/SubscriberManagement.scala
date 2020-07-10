@@ -1,12 +1,13 @@
 /*
- * Copyright (C) 2014-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl
 
 import scala.annotation.tailrec
-import org.reactivestreams.{ Subscriber, Subscription }
+
 import SubscriberManagement.ShutDown
+import org.reactivestreams.{ Subscriber, Subscription }
 
 /**
  * INTERNAL API

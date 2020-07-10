@@ -1,14 +1,15 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream
 
-import akka.Done
+import scala.util.{ Failure, Success, Try }
+import scala.util.control.NoStackTrace
+
 import com.github.ghik.silencer.silent
 
-import scala.util.control.NoStackTrace
-import scala.util.{ Failure, Success, Try }
+import akka.Done
 
 /**
  * Holds a result of an IO operation.

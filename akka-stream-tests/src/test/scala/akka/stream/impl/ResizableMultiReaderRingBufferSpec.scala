@@ -1,14 +1,17 @@
 /*
- * Copyright (C) 2014-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl
 
 import scala.util.Random
-import org.scalatest.{ Matchers, WordSpec }
+
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+
 import akka.stream.impl.ResizableMultiReaderRingBuffer._
 
-class ResizableMultiReaderRingBufferSpec extends WordSpec with Matchers {
+class ResizableMultiReaderRingBufferSpec extends AnyWordSpec with Matchers {
 
   "A ResizableMultiReaderRingBuffer" should {
 

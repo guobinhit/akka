@@ -1,14 +1,15 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl
+
+import com.github.ghik.silencer.silent
 
 import akka.stream.ActorAttributes
 import akka.stream.ActorAttributes.MaxFixedBufferSize
 import akka.stream.ActorMaterializerSettings
 import akka.stream.testkit.StreamSpec
-import com.github.ghik.silencer.silent
 
 @silent("deprecated")
 class FixedBufferSpec extends StreamSpec {

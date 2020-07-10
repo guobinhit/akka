@@ -1,18 +1,21 @@
 /*
- * Copyright (C) 2014-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence
 
+import java.io.File
+
+import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.concurrent.duration._
+
+import org.apache.commons.io.FileUtils
 import org.openjdk.jmh.annotations._
+import org.openjdk.jmh.annotations.Scope
+
 import akka.actor._
 import akka.testkit.TestProbe
-import java.io.File
-import org.apache.commons.io.FileUtils
-import org.openjdk.jmh.annotations.Scope
-import scala.concurrent.duration._
-import scala.concurrent.Await
 
 @State(Scope.Benchmark)
 @BenchmarkMode(Array(Mode.Throughput))
@@ -45,7 +48,7 @@ class PersistentActorWithAtLeastOnceDeliveryBenchmark {
 
     storageLocations.foreach(FileUtils.deleteDirectory)
 
-    destinationActor = system.actorOf(Props[DestinationActor], "destination")
+    destinationActor = system.actorOf(Props[DestinationActor](), "destination")
 
     noPersistPersistentActorWithAtLeastOnceDelivery = system.actorOf(
       Props(classOf[NoPersistPersistentActorWithAtLeastOnceDelivery], dataCount, probe.ref, destinationActor.path),

@@ -1,8 +1,13 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream
+
+import scala.concurrent.Await
+import scala.concurrent.Promise
+
+import com.github.ghik.silencer.silent
 
 import akka.actor.ActorSystem
 import akka.actor.ClassicActorSystemProvider
@@ -13,14 +18,10 @@ import akka.actor.ExtensionId
 import akka.actor.ExtensionIdProvider
 import akka.annotation.InternalApi
 import akka.dispatch.Dispatchers
-import akka.stream.impl.MaterializerGuardian
-
-import scala.concurrent.Await
-import scala.concurrent.Promise
-import akka.util.JavaDurationConverters._
 import akka.pattern.ask
+import akka.stream.impl.MaterializerGuardian
+import akka.util.JavaDurationConverters._
 import akka.util.Timeout
-import com.github.ghik.silencer.silent
 
 /**
  * The system materializer is a default materializer to use for most cases running streams, it is a single instance
@@ -84,7 +85,9 @@ final class SystemMaterializer(system: ExtendedActorSystem) extends Extension {
     Await.result(started, materializerTimeout.duration).materializer
   }
 
-  // block on async creation to make it effectively final
-  val materializer = Await.result(systemMaterializerPromise.future, materializerTimeout.duration)
+  val materializer: Materializer = {
+    // block on async creation to make it effectively final
+    Await.result(systemMaterializerPromise.future, materializerTimeout.duration)
+  }
 
 }

@@ -1,17 +1,18 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
+
+import scala.concurrent.duration._
 
 import akka.actor.{ Actor, ActorRef, ExtendedActorSystem, NoSerializationVerificationNeeded, PoisonPill, Props }
 import akka.cluster.ClusterSettings.DataCenter
 import akka.cluster.sharding.ShardCoordinator.Internal.ShardStopped
 import akka.cluster.sharding.ShardCoordinator.LeastShardAllocationStrategy
 import akka.cluster.sharding.ShardRegion.{ ExtractEntityId, ExtractShardId, HandOffStopper, Msg }
+import akka.testkit.WithLogCapturing
 import akka.testkit.{ AkkaSpec, TestProbe }
-
-import scala.concurrent.duration._
 
 object ClusterShardingInternalsSpec {
   case class HandOffStopMessage() extends NoSerializationVerificationNeeded
@@ -30,7 +31,10 @@ class ClusterShardingInternalsSpec extends AkkaSpec("""
     |akka.actor.provider = cluster
     |akka.remote.classic.netty.tcp.port = 0
     |akka.remote.artery.canonical.port = 0
-    |""".stripMargin) {
+    |akka.loglevel = DEBUG
+    |akka.cluster.sharding.verbose-debug-logging = on
+    |akka.loggers = ["akka.testkit.SilenceAllTestEventListener"]
+    |""".stripMargin) with WithLogCapturing {
   import ClusterShardingInternalsSpec._
 
   case class StartingProxy(

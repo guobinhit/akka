@@ -3,7 +3,7 @@
 Akka Classic is the original Actor APIs, which have been improved by more type safe and guided Actor APIs,
 known as Akka Typed.
 
-If you already know the classic actor APIs and would like to learn Akka Typed, this reference is a good resource.
+If you already know the classic Actor APIs and would like to learn Akka Typed, this reference is a good resource.
 Many concepts are the same and this page tries to highlight differences and how to do certain things
 in Typed compared to classic.
 
@@ -26,9 +26,11 @@ module, with a few exceptions.
 For example `akka-cluster-typed`:
 
 @@dependency[sbt,Maven,Gradle] {
+  symbol1=AkkaVersion
+  value1="$akka.version$"
   group=com.typesafe.akka
-  artifact=akka-cluster-typed_$scala.binary_version$
-  version=$akka.version$
+  artifact=akka-cluster-typed_$scala.binary.version$
+  version=AkkaVersion
 }
 
 Artifact names:
@@ -56,12 +58,12 @@ APIs, which is familiar from Akka Streams.
 
 Examples of a few package names:
 
-| Classic               | Typed for Scala                 | Typed for Java                 |
-|-----------------------|---------------------------------|--------------------------------|
-| akka.actor            | akka.actor.typed.scaladsl       | akka.actor.typed.javadsl       |
-| akka.cluster          | akka.cluster.typed              | akka.cluster.typed             |
-| akka.cluster.sharding | akka.cluster.sharding.scaladsl  | akka.cluster.sharding.javadsl  |
-| akka.persistence      | akka.persistence.typed.scaladsl | akka.persistence.typed.javadsl |
+| Classic               | Typed for Scala                       | Typed for Java                       |
+|-----------------------|---------------------------------------|--------------------------------------|
+| akka.actor            | akka.actor.typed.scaladsl             | akka.actor.typed.javadsl             |
+| akka.cluster          | akka.cluster.typed                    | akka.cluster.typed                   |
+| akka.cluster.sharding | akka.cluster.sharding.typed.scaladsl  | akka.cluster.sharding.typed.javadsl  |
+| akka.persistence      | akka.persistence.typed.scaladsl       | akka.persistence.typed.javadsl       |
 
 ## Actor definition
 
@@ -90,9 +92,10 @@ Java
 
 Why is it called `Behavior` and not `Actor`?
 
-In Typed the `Behavior` defines how to handle incoming messages and after processing each message it may return
-a different `Behavior` to be used for the next message. This means that an actor is started with an initial `Behavior`
-and may change `Behavior` over its lifecycle. This is described more in the section about @ref:[become](#become).
+In Typed, the `Behavior` defines how to handle incoming messages. After processing a message, a different
+`Behavior` may be returned for processing the next message. This means that an actor is started with an
+initial `Behavior` and may change `Behavior` over its lifecycle. This is described more in the section
+about @ref:[become](#become).
 
 Note that the `Behavior` has a type parameter describing the type of messages that it can handle. This information
 is not defined explicitly for a classic actor.
@@ -108,16 +111,17 @@ A classic actor is started with the `actorOf` method of the `ActorContext` or `A
 
 Corresponding method in Typed is called `spawn` in the @scala[`akka.actor.typed.scaladsl.ActorContext`]@java[`akka.actor.typed.javadsl.ActorContext`].
 
-There is no `spawn` in the @scala[`akka.actor.typed.scaladsl.ActorSystem`]@java[`akka.actor.typed.javadsl.ActorSystem`]
-for creating top level actors. Instead, the single to level actor is defined by a user guardian `Behavior` that
-is given when starting the `ActorSystem`. Other actors are started as children of that user guardian actor or
+There is no `spawn` method in the @scala[`akka.actor.typed.scaladsl.ActorSystem`]@java[`akka.actor.typed.javadsl.ActorSystem`]
+for creating top level actors. Instead, there is a single top level actor defined by a user guardian `Behavior` that is given
+when starting the `ActorSystem`. Other actors are started as children of that user guardian actor or
 children of other actors in the actor hierarchy. This is explained more in @ref:[ActorSystem](#actorsystem).
 
-`actorOf` takes an `akka.actor.Props` parameter, which is like a factory for creating the actor instance, and it's
+The `actorOf` method takes an `akka.actor.Props` parameter, which is like a factory for creating the actor instance, and it's
 also used when creating a new instance when the actor is restarted. The `Props` may also define additional
 properties such as which dispatcher to use for the actor.
 
-The `spawn` method in Typed creates an actor from a given `Behavior` instead of via a `Props` factory.
+In typed, the `spawn` method creates an actor directly from a given `Behavior` without using a `Props` factory.
+It does however accept an optional `akka.actor.typed.Props` for specifying Actor metadata.
 The factory aspect is instead defined via `Behaviors.setup` when using the object-oriented style with
 a class extending `AbstractBehavior`. For the function style there is typically no need for the factory.
 
@@ -145,11 +149,11 @@ understand it.
 when creating an `ActorSystem` in Typed you give it a `Behavior` that will be used as the top level actor, also known 
 as the user guardian.
 
-It's from the user guardian you create additional actors for the application and initialize tools like
-Cluster Sharding. In contrast, such initialization are typically performed from the "outside" after
-starting a classic `ActorSystem`.
+Additional actors for an application are created from the user guardian alongside performing the initialization
+of Akka components such as Cluster Sharding. In contrast, in a classic `ActorSystem`, such initialization is
+typically performed from the "outside".
 
-`actorOf` of the classic `ActorSystem` is typically used to create a few (or many) top level actors. The
+The `actorOf` method of the classic `ActorSystem` is typically used to create a few (or many) top level actors. The
 `ActorSystem` in Typed doesn't have that capability. Instead, such actors are started as children of
 the user guardian actor or children of other actors in the actor hierarchy.
 
@@ -192,8 +196,9 @@ can be replaced by a probe or being stubbed out in tests.
 
 ## Supervision
 
-An important difference is that actors in Typed are by default stopped if an exception is thrown and no
-supervision strategy is defined while in classic actors they are restarted.
+An important difference between classic and typed is that in typed, actors are stopped by default if
+an exception is thrown and no supervision strategy is defined. In contrast,
+in classic, by default, actors are restarted.
 
 In classic actors the supervision strategy for child actors are defined by overriding the `supervisorStrategy`
 method in the parent actor.
@@ -211,7 +216,7 @@ Links to reference documentation:
 * @ref:[Classic](../fault-tolerance.md)
 * @ref:[Typed](fault-tolerance.md)
 
-## Lifcycle hooks
+## Lifecycle hooks
 
 Classic actors have methods `preStart`, `preRestart`, `postRestart` and `postStop` that can be overridden
 to act on changes to the actor's lifecycle.
@@ -220,8 +225,9 @@ This is supported with corresponding `PreRestart` and `PostStop` signal messages
 `PreStart` and `PostRestart` signals because such action can be done from `Behaviors.setup` or the
 constructor of the `AbstractBehavior` class.
 
-Note that classic `postStop` is called also when the actor is restarted. That is not the case in Typed, only the
-`PreRestart` signal is emitted. If you need to do resource cleanup on both restart and stop you have to do
+Note that in classic, the `postStop` lifecycle hook is also called when the
+actor is restarted. That is not the case in Typed, only the
+`PreRestart` signal is emitted. If you need to do resource cleanup on both restart and stop, you have to do
 that for both `PreRestart` and `PostStop`.
 
 Links to reference documentation:
@@ -247,8 +253,8 @@ Links to reference documentation:
 
 ## Stopping
 
-Classic actors can be stopped with the `stop` method of `ActorContext` or `ActorSystem`. In Typed an actor is
-stopping itself by returning `Behaviors.stopped`. There is also a `stop` method in the `ActorContext` but it
+Classic actors can be stopped with the `stop` method of `ActorContext` or `ActorSystem`. In Typed an actor stops 
+itself by returning `Behaviors.stopped`. There is also a `stop` method in the `ActorContext` but it
 can only be used for stopping direct child actors and not any arbitrary actor.
 
 `PoisonPill` is not supported in Typed. Instead, if you need to request an actor to stop you should
@@ -304,7 +310,7 @@ The type of the returned `ActorRef` is unknown, since different types can be use
 children. Therefore, this is not a useful way to lookup children when the purpose is to send
 messages to them.
 
-Instead of finding children via the `ActorContext` it's recommended to use an application specific
+Instead of finding children via the `ActorContext`, it is recommended to use an application specific
 collection for bookkeeping of children, such as a @scala[`Map[String, ActorRef[Child.Command]]`]
 @java[`Map<String, ActorRef<Child.Command>>`]. It can look like this:
 
@@ -319,7 +325,7 @@ convenient to use `watchWith`, as illustrated in the example above, because then
 key to the `Map` in the termination message. In that way the name of the actor doesn't have to be
 the same as identifier used for bookkeeping.
 
-Retrieving the children from the `ActorContext` can still be useful for some certain cases, such as:
+Retrieving the children from the `ActorContext` can still be useful for some use cases, such as:
 
 * see if a child name is in use
 * stopping children
@@ -329,10 +335,10 @@ Retrieving the children from the `ActorContext` can still be useful for some cer
 
 Starting an actor on a remote node—so called remote deployment—isn't supported in Typed.
 
-The main reason is that we would discourage this feature since it often result too tight coupling
-between nodes and undesired failure handling. For example if the node of the parent actor crashes
-all remote deployed child actors are brought down with it. Sometimes that can be desired but many
-times it is used without realizing. This can be achieve by other means, such as using `watch`.
+This feature would be discouraged because it often results in tight coupling between nodes and undesirable
+failure handling. For example if the node of the parent actor crashes, all remote deployed child actors are
+brought down with it. Sometimes that can be desired but many times it is used without realizing. This can be
+achieved by other means, such as using `watch`.
 
 ## Routers
 
@@ -401,10 +407,10 @@ Links to reference documentation:
 
 ## Synchronous Testing
 
-The Test Kits for synchronous testing are completely different.
+Classic and typed have different Test Kits for synchronous testing.
 
-Behaviors in Typed can be tested in isolation without having to be packaged into an Actor,
-tests can run fully synchronously without having to worry about timeouts and spurious failures.
+Behaviors in Typed can be tested in isolation without having to be packaged into an actor.
+As a consequence, tests can run fully synchronously without having to worry about timeouts and spurious failures.
 
 The `BehaviorTestKit` provides a nice way of unit testing a `Behavior` in a deterministic way, but it has
 some limitations to be aware of. Similar limitations exists for synchronous testing of classic actors.

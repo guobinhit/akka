@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -27,8 +27,8 @@ private[remote] class MessageDispatcher(system: ExtendedActorSystem, provider: R
   private val debugLogEnabled: Boolean = log.isDebugEnabled
 
   def dispatch(inboundEnvelope: InboundEnvelope): Unit = {
-    import provider.remoteSettings.Artery._
     import Logging.messageClassName
+    import provider.remoteSettings.Artery._
 
     val recipient = inboundEnvelope.recipient.get
     val message = inboundEnvelope.message

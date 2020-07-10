@@ -1,12 +1,13 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.routing
 
+import java.util.Arrays
+
 import scala.collection.immutable
 import scala.reflect.ClassTag
-import java.util.Arrays
 
 /**
  * Consistent Hashing node ring implementation.

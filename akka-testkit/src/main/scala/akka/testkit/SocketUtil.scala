@@ -1,15 +1,15 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.testkit
 
-import scala.collection.immutable
-import scala.util.Random
 import java.net.{ DatagramSocket, InetSocketAddress, NetworkInterface, StandardProtocolFamily }
 import java.nio.channels.DatagramChannel
 import java.nio.channels.ServerSocketChannel
 
+import scala.collection.immutable
+import scala.util.Random
 import scala.util.control.NonFatal
 
 /**
@@ -30,9 +30,9 @@ object SocketUtil {
   }
 
   sealed trait Protocol
-  final case object Tcp extends Protocol
-  final case object Udp extends Protocol
-  final case object Both extends Protocol
+  case object Tcp extends Protocol
+  case object Udp extends Protocol
+  case object Both extends Protocol
 
   /** @return A port on 'localhost' that is currently available */
   def temporaryLocalPort(udp: Boolean = false): Int = temporaryServerAddress("localhost", udp).getPort

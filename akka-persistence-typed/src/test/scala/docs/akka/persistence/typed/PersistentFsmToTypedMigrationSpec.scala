@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.akka.persistence.typed
@@ -30,10 +30,9 @@ import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.RecoveryCompleted
 import akka.persistence.typed.SnapshotAdapter
 import com.typesafe.config.ConfigFactory
-import org.scalatest.WordSpec
+import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.concurrent.ScalaFutures
 import scala.concurrent.duration._
-
 import akka.actor.testkit.typed.scaladsl.LogCapturing
 
 object PersistentFsmToTypedMigrationSpec {
@@ -206,7 +205,7 @@ object ShoppingCartBehavior {
 
 }
 
-class PersistentFsmToTypedMigrationSpec extends WordSpec with ScalaFutures with LogCapturing {
+class PersistentFsmToTypedMigrationSpec extends AnyWordSpec with ScalaFutures with LogCapturing {
 
   import akka.persistence.fsm.PersistentFSMSpec._
 

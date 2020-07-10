@@ -1,18 +1,20 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.routing
 
-import scala.collection.immutable
 import java.util.concurrent.ThreadLocalRandom
 
-import akka.dispatch.Dispatchers
-import com.typesafe.config.Config
-import akka.actor.SupervisorStrategy
-import akka.japi.Util.immutableSeq
-import akka.actor.ActorSystem
+import scala.collection.immutable
+
 import com.github.ghik.silencer.silent
+import com.typesafe.config.Config
+
+import akka.actor.ActorSystem
+import akka.actor.SupervisorStrategy
+import akka.dispatch.Dispatchers
+import akka.japi.Util.immutableSeq
 
 object RandomRoutingLogic {
   def apply(): RandomRoutingLogic = new RandomRoutingLogic

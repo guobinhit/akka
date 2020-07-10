@@ -1,29 +1,30 @@
 /*
- * Copyright (C) 2014-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
-import akka.pattern
-import akka.stream.impl.ReactiveStreamsCompliance
-import akka.stream.testkit.TestSubscriber.Probe
-import akka.stream.testkit.Utils.TE
-import akka.stream.testkit._
-import akka.stream.testkit.scaladsl._
-import org.scalatest.Matchers
-import akka.stream.ActorAttributes
-import akka.stream.Supervision
-
 import scala.collection.immutable
-import scala.concurrent.duration._
-import scala.concurrent.{ Future, Promise }
+import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.Future
 import scala.concurrent.Promise
+import scala.concurrent.duration._
 import scala.util.Failure
+
+import org.scalatest.matchers.should.Matchers
+
+import akka.pattern
+import akka.stream.ActorAttributes
+import akka.stream.Supervision
+import akka.stream.impl.ReactiveStreamsCompliance
+import akka.stream.testkit._
+import akka.stream.testkit.TestSubscriber.Probe
+import akka.stream.testkit.Utils.TE
+import akka.stream.testkit.scaladsl._
 
 class FlowScanAsyncSpec extends StreamSpec with Matchers {
 
-  implicit val executionContext = system.dispatcher
+  implicit val executionContext: ExecutionContextExecutor = system.dispatcher
 
   "A ScanAsync" must {
 
@@ -128,7 +129,7 @@ class FlowScanAsyncSpec extends StreamSpec with Matchers {
       }
 
       "skip error values and handle stage completion after future get resolved" in {
-        val promises = Promise[Int].success(1) :: Promise[Int] :: Nil
+        val promises = Promise[Int]().success(1) :: Promise[Int]() :: Nil
         val (pub, sub) = whenEventualFuture(promises, 0, decider = Supervision.restartingDecider)
         pub.sendNext(0)
         sub.expectNext(0, 1)
@@ -139,7 +140,7 @@ class FlowScanAsyncSpec extends StreamSpec with Matchers {
       }
 
       "skip error values and handle stage completion before future get resolved" in {
-        val promises = Promise[Int].success(1) :: Promise[Int] :: Nil
+        val promises = Promise[Int]().success(1) :: Promise[Int]() :: Nil
         val (pub, sub) = whenEventualFuture(promises, 0, decider = Supervision.restartingDecider)
         pub.sendNext(0)
         sub.expectNext(0, 1)
@@ -162,7 +163,7 @@ class FlowScanAsyncSpec extends StreamSpec with Matchers {
       }
 
       "skip error values and handle stage completion after future get resolved" in {
-        val promises = Promise[Int].success(1) :: Promise[Int] :: Nil
+        val promises = Promise[Int]().success(1) :: Promise[Int]() :: Nil
         val (pub, sub) = whenEventualFuture(promises, 0, decider = Supervision.resumingDecider)
         pub.sendNext(0)
         sub.expectNext(0, 1)
@@ -173,7 +174,7 @@ class FlowScanAsyncSpec extends StreamSpec with Matchers {
       }
 
       "skip error values and handle stage completion before future get resolved" in {
-        val promises = Promise[Int].success(1) :: Promise[Int] :: Nil
+        val promises = Promise[Int]().success(1) :: Promise[Int]() :: Nil
         val (pub, sub) = whenEventualFuture(promises, 0, decider = Supervision.resumingDecider)
         pub.sendNext(0)
         sub.expectNext(0, 1)

@@ -1,17 +1,16 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.testkit
 
-import org.scalatest.WordSpec
-import org.scalatest.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.matchers.should.Matchers
 import akka.testkit.TestKitBase
 import akka.actor.ActorSystem
 import akka.actor.Props
 import akka.actor.Actor
 import akka.actor.ActorRef
-import akka.testkit.ImplicitSender
 import akka.testkit.TestProbe
 import akka.actor.ActorRefFactory
 import akka.testkit.TestKit
@@ -76,7 +75,7 @@ class MockedChild extends Actor {
   }
 }
 
-class ParentChildSpec extends WordSpec with Matchers with TestKitBase with BeforeAndAfterAll {
+class ParentChildSpec extends AnyWordSpec with Matchers with TestKitBase with BeforeAndAfterAll {
   implicit lazy val system = ActorSystem("ParentChildSpec")
 
   override def afterAll(): Unit = {

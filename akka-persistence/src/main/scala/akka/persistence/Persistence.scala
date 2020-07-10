@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence
@@ -7,38 +7,25 @@ package akka.persistence
 import java.util.concurrent.atomic.AtomicReference
 import java.util.function.Consumer
 
+import scala.annotation.tailrec
+import scala.concurrent.duration._
+import scala.util.control.NonFatal
+
+import com.typesafe.config.{ Config, ConfigFactory }
+
 import akka.actor._
+import akka.annotation.InternalApi
+import akka.annotation.InternalStableApi
 import akka.event.{ Logging, LoggingAdapter }
 import akka.persistence.journal.{ EventAdapters, IdentityEventAdapters }
 import akka.util.Collections.EmptyImmutableSeq
 import akka.util.Helpers.ConfigOps
-import com.typesafe.config.{ Config, ConfigFactory }
-
-import scala.annotation.tailrec
-import scala.concurrent.duration._
 import akka.util.Reflect
-
-import scala.util.control.NonFatal
-import akka.annotation.InternalApi
 
 /**
  * Persistence configuration.
  */
 final class PersistenceSettings(config: Config) {
-
-  object view {
-    val autoUpdate: Boolean =
-      config.getBoolean("view.auto-update")
-
-    val autoUpdateInterval: FiniteDuration =
-      config.getMillisDuration("view.auto-update-interval")
-
-    val autoUpdateReplayMax: Long =
-      posMax(config.getLong("view.auto-update-replay-max"))
-
-    private def posMax(v: Long) =
-      if (v < 0) Long.MaxValue else v
-  }
 
   object atLeastOnceDelivery {
 
@@ -165,8 +152,11 @@ object Persistence extends ExtensionId[Persistence] with ExtensionIdProvider {
   def lookup() = Persistence
 
   /** INTERNAL API. */
-  private[persistence] case class PluginHolder(actor: ActorRef, adapters: EventAdapters, config: Config)
-      extends Extension
+  private[persistence] case class PluginHolder(actorFactory: () => ActorRef, adapters: EventAdapters, config: Config)
+      extends Extension {
+    // lazy creation of actor so that it's not started when only looking up adapters
+    lazy val actor: ActorRef = actorFactory()
+  }
 
   /** Config path to fall-back to if a setting is not defined in a specific plugin's config section */
   val JournalFallbackConfigPath = "akka.persistence.journal-plugin-fallback"
@@ -359,6 +349,7 @@ class Persistence(val system: ExtendedActorSystem) extends Extension {
    * When configured, uses `journalPluginId` as absolute path to the journal configuration entry.
    * Configuration entry must contain few required fields, such as `class`. See `src/main/resources/reference.conf`.
    */
+  @InternalStableApi
   private[akka] final def journalFor(
       journalPluginId: String,
       journalPluginConfig: Config = ConfigFactory.empty): ActorRef = {
@@ -375,6 +366,7 @@ class Persistence(val system: ExtendedActorSystem) extends Extension {
    * When configured, uses `snapshotPluginId` as absolute path to the snapshot store configuration entry.
    * Configuration entry must contain few required fields, such as `class`. See `src/main/resources/reference.conf`.
    */
+  @InternalStableApi
   private[akka] final def snapshotStoreFor(
       snapshotPluginId: String,
       snapshotPluginConfig: Config = ConfigFactory.empty): ActorRef = {
@@ -442,10 +434,10 @@ class Persistence(val system: ExtendedActorSystem) extends Extension {
         !isEmpty(configPath) && mergedConfig.hasPath(configPath),
         s"'reference.conf' is missing persistence plugin config path: '$configPath'")
       val config: Config = mergedConfig.getConfig(configPath).withFallback(mergedConfig.getConfig(fallbackPath))
-      val plugin: ActorRef = createPlugin(configPath, config)
+      val pluginActorFactory = () => createPlugin(configPath, config)
       val adapters: EventAdapters = createAdapters(configPath, mergedConfig)
 
-      PluginHolder(plugin, adapters, config)
+      PluginHolder(pluginActorFactory, adapters, config)
     }
   }
 

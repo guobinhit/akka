@@ -1,16 +1,16 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.ddata
 
+import scala.collection.immutable
+
+import akka.annotation.InternalApi
 import akka.cluster.Cluster
 import akka.cluster.UniqueAddress
-import akka.util.HashCode
-import akka.annotation.InternalApi
 import akka.cluster.ddata.ORMap.ZeroTag
-
-import scala.collection.immutable
+import akka.util.HashCode
 
 object ORMap {
   private val _empty: ORMap[Any, ReplicatedData] = new ORMap(ORSet.empty, Map.empty, VanillaORMapTag)

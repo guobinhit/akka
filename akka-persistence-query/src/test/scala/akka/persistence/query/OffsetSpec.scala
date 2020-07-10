@@ -1,16 +1,17 @@
 /*
- * Copyright (C) 2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.query
 
 import java.util.UUID
 
-import org.scalatest.{ Matchers, WordSpecLike }
-
 import scala.util.Random
 
-class OffsetSpec extends WordSpecLike with Matchers {
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
+
+class OffsetSpec extends AnyWordSpecLike with Matchers {
 
   "TimeBasedUUID offset" must {
 

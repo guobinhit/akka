@@ -1,14 +1,16 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
 
-import scala.annotation.tailrec
-import akka.util.OptionVal
-import scala.reflect.ClassTag
 import java.util.Arrays
+
+import scala.annotation.tailrec
+import scala.reflect.ClassTag
+
 import akka.util.HashCode
+import akka.util.OptionVal
 
 /**
  * INTERNAL API

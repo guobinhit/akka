@@ -1,15 +1,16 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote
 
-import akka.event.Logging.LogLevel
-import akka.event.{ Logging, LoggingAdapter }
-import akka.actor.{ ActorSystem, Address }
+import scala.runtime.AbstractFunction2
+
 import com.github.ghik.silencer.silent
 
-import scala.runtime.AbstractFunction2
+import akka.actor.{ ActorSystem, Address }
+import akka.event.{ Logging, LoggingAdapter }
+import akka.event.Logging.LogLevel
 
 @silent("@SerialVersionUID has no effect")
 @SerialVersionUID(1L)

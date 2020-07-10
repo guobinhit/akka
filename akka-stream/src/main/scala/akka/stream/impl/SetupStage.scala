@@ -1,8 +1,12 @@
 /*
- * Copyright (C) 2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl
+
+import scala.concurrent.Future
+import scala.concurrent.Promise
+import scala.util.control.NonFatal
 
 import akka.annotation.InternalApi
 import akka.stream._
@@ -15,10 +19,6 @@ import akka.stream.stage.GraphStageWithMaterializedValue
 import akka.stream.stage.InHandler
 import akka.stream.stage.OutHandler
 
-import scala.concurrent.Future
-import scala.concurrent.Promise
-import scala.util.control.NonFatal
-
 /** Internal Api */
 @InternalApi private[stream] final class SetupSinkStage[T, M](factory: (Materializer, Attributes) => Sink[T, M])
     extends GraphStageWithMaterializedValue[SinkShape[T], Future[M]] {
@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
   override val shape = SinkShape(in)
 
   override def createLogicAndMaterializedValue(inheritedAttributes: Attributes): (GraphStageLogic, Future[M]) = {
-    val matPromise = Promise[M]
+    val matPromise = Promise[M]()
     (createStageLogic(matPromise), matPromise.future)
   }
 
@@ -63,7 +63,7 @@ import scala.util.control.NonFatal
   override val shape = FlowShape(in, out)
 
   override def createLogicAndMaterializedValue(inheritedAttributes: Attributes): (GraphStageLogic, Future[M]) = {
-    val matPromise = Promise[M]
+    val matPromise = Promise[M]()
     (createStageLogic(matPromise), matPromise.future)
   }
 
@@ -106,7 +106,7 @@ import scala.util.control.NonFatal
   override val shape = SourceShape(out)
 
   override def createLogicAndMaterializedValue(inheritedAttributes: Attributes): (GraphStageLogic, Future[M]) = {
-    val matPromise = Promise[M]
+    val matPromise = Promise[M]()
     (createStageLogic(matPromise), matPromise.future)
   }
 

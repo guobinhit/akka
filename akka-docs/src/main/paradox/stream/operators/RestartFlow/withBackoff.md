@@ -4,13 +4,9 @@ Wrap the given @apidoc[Flow] with a @apidoc[Flow] that will restart it when it f
 
 @ref[Error handling](../index.md#error-handling)
 
-@@@div { .group-scala }
-
 ## Signature
 
-@@signature [RestartFlow.scala](/akka-stream/src/main/scala/akka/stream/scaladsl/RestartFlow.scala) { #withBackoff }
-
-@@@
+@apidoc[RestartFlow.withBackoff](RestartFlow$) { scala="#withBackoff[In,Out](minBackoff:scala.concurrent.duration.FiniteDuration,maxBackoff:scala.concurrent.duration.FiniteDuration,randomFactor:Double)(flowFactory:()=&gt;akka.stream.scaladsl.Flow[In,Out,_]):akka.stream.scaladsl.Flow[In,Out,akka.NotUsed]" java="#withBackoff(java.time.Duration,java.time.Duration,double,int,akka.japi.function.Creator)" }
 
 ## Description
 
@@ -23,7 +19,7 @@ The restart process is inherently lossy, since there is no coordination between 
 messages. A termination signal from either end of the wrapped @apidoc[Flow] will cause the other end to be terminated,
 and any in transit messages will be lost. During backoff, this @apidoc[Flow] will backpressure.
 
-This uses the same exponential backoff algorithm as @apidoc[Backoff].
+This uses the same exponential backoff algorithm as @apidoc[Backoff$].
 
 ## Reactive Streams semantics
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
@@ -91,7 +91,7 @@ object RemoveInternalClusterShardingData {
       if (journalPluginId == "") system.settings.config.getString("akka.persistence.journal.plugin")
       else journalPluginId
     if (resolvedJournalPluginId == "akka.persistence.journal.leveldb-shared") {
-      val store = system.actorOf(Props[SharedLeveldbStore], "store")
+      val store = system.actorOf(Props[SharedLeveldbStore](), "store")
       SharedLeveldbJournal.setStore(store, system)
     }
 

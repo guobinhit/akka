@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.protobuf
@@ -7,23 +7,24 @@ package akka.cluster.protobuf
 import java.io.{ ByteArrayInputStream, ByteArrayOutputStream }
 import java.util.zip.{ GZIPInputStream, GZIPOutputStream }
 
-import akka.actor.{ Address, ExtendedActorSystem }
-import akka.cluster._
-import akka.cluster.protobuf.msg.{ ClusterMessages => cm }
-import akka.serialization._
-import akka.protobufv3.internal.{ ByteString, MessageLite }
-
 import scala.annotation.tailrec
 import scala.collection.immutable
-import akka.util.ccompat.JavaConverters._
 import scala.concurrent.duration.Deadline
-import akka.annotation.InternalApi
-import akka.cluster.InternalClusterAction._
-import akka.cluster.routing.{ ClusterRouterPool, ClusterRouterPoolSettings }
-import akka.routing.Pool
-import akka.util.ccompat._
+
 import com.github.ghik.silencer.silent
 import com.typesafe.config.{ Config, ConfigFactory, ConfigRenderOptions }
+
+import akka.actor.{ Address, ExtendedActorSystem }
+import akka.annotation.InternalApi
+import akka.cluster._
+import akka.cluster.InternalClusterAction._
+import akka.cluster.protobuf.msg.{ ClusterMessages => cm }
+import akka.cluster.routing.{ ClusterRouterPool, ClusterRouterPoolSettings }
+import akka.protobufv3.internal.{ ByteString, MessageLite }
+import akka.routing.Pool
+import akka.serialization._
+import akka.util.ccompat._
+import akka.util.ccompat.JavaConverters._
 
 /**
  * INTERNAL API
@@ -31,27 +32,36 @@ import com.typesafe.config.{ Config, ConfigFactory, ConfigRenderOptions }
 @InternalApi
 @ccompatUsedUntil213
 private[akka] object ClusterMessageSerializer {
-  // FIXME use short manifests when we can break wire compatibility
-  // needs to be full class names for backwards compatibility
-  val JoinManifest = s"akka.cluster.InternalClusterAction$$Join"
-  val WelcomeManifest = s"akka.cluster.InternalClusterAction$$Welcome"
-  val LeaveManifest = s"akka.cluster.ClusterUserAction$$Leave"
-  val DownManifest = s"akka.cluster.ClusterUserAction$$Down"
-  // #24622 wire compatibility
-  // we need to use this object name rather than classname to be able to join a 2.5.9 cluster during rolling upgrades
-  val InitJoinManifest = s"akka.cluster.InternalClusterAction$$InitJoin$$"
-  val InitJoinAckManifest = s"akka.cluster.InternalClusterAction$$InitJoinAck"
-  val InitJoinNackManifest = s"akka.cluster.InternalClusterAction$$InitJoinNack"
-  // FIXME, remove in a later version (2.6?) and make 2.5.24+ a mandatory step for rolling upgrade
+  // Kept for one version iteration from 2.6.4 to allow rolling migration to short manifests
+  // can be removed in 2.6.6 or later.
+  val OldJoinManifest = s"akka.cluster.InternalClusterAction$$Join"
+  val OldWelcomeManifest = s"akka.cluster.InternalClusterAction$$Welcome"
+  val OldLeaveManifest = s"akka.cluster.ClusterUserAction$$Leave"
+  val OldDownManifest = s"akka.cluster.ClusterUserAction$$Down"
+  val OldInitJoinManifest = s"akka.cluster.InternalClusterAction$$InitJoin$$"
+  val OldInitJoinAckManifest = s"akka.cluster.InternalClusterAction$$InitJoinAck"
+  val OldInitJoinNackManifest = s"akka.cluster.InternalClusterAction$$InitJoinNack"
   val HeartBeatManifestPre2523 = s"akka.cluster.ClusterHeartbeatSender$$Heartbeat"
   val HeartBeatRspManifest2523 = s"akka.cluster.ClusterHeartbeatSender$$HeartbeatRsp"
+  val OldExitingConfirmedManifest = s"akka.cluster.InternalClusterAction$$ExitingConfirmed"
+  val OldGossipStatusManifest = "akka.cluster.GossipStatus"
+  val OldGossipEnvelopeManifest = "akka.cluster.GossipEnvelope"
+  val OldClusterRouterPoolManifest = "akka.cluster.routing.ClusterRouterPool"
 
-  val HeartBeatManifest = "HB"
-  val HeartBeatRspManifest = "HBR"
-  val ExitingConfirmedManifest = s"akka.cluster.InternalClusterAction$$ExitingConfirmed"
-  val GossipStatusManifest = "akka.cluster.GossipStatus"
-  val GossipEnvelopeManifest = "akka.cluster.GossipEnvelope"
-  val ClusterRouterPoolManifest = "akka.cluster.routing.ClusterRouterPool"
+  // is handled on the deserializing side in 2.6.2 and then on the serializing side in 2.6.3
+  val JoinManifest = "J"
+  val WelcomeManifest = "W"
+  val LeaveManifest = "L"
+  val DownManifest = "D"
+  val InitJoinManifest = "IJ"
+  val InitJoinAckManifest = "IJA"
+  val InitJoinNackManifest = "IJN"
+  val HeartbeatManifest = "HB"
+  val HeartbeatRspManifest = "HBR"
+  val ExitingConfirmedManifest = "EC"
+  val GossipStatusManifest = "GS"
+  val GossipEnvelopeManifest = "GE"
+  val ClusterRouterPoolManifest = "CRP"
 
   private final val BufferSize = 1024 * 4
 }
@@ -76,8 +86,8 @@ final class ClusterMessageSerializer(val system: ExtendedActorSystem)
     case _: InternalClusterAction.InitJoin      => InitJoinManifest
     case _: InternalClusterAction.InitJoinAck   => InitJoinAckManifest
     case _: InternalClusterAction.InitJoinNack  => InitJoinNackManifest
-    case _: ClusterHeartbeatSender.Heartbeat    => HeartBeatManifestPre2523
-    case _: ClusterHeartbeatSender.HeartbeatRsp => HeartBeatRspManifest2523
+    case _: ClusterHeartbeatSender.Heartbeat    => HeartbeatManifest
+    case _: ClusterHeartbeatSender.HeartbeatRsp => HeartbeatRspManifest
     case _: ExitingConfirmed                    => ExitingConfirmedManifest
     case _: GossipStatus                        => GossipStatusManifest
     case _: GossipEnvelope                      => GossipEnvelopeManifest
@@ -87,8 +97,8 @@ final class ClusterMessageSerializer(val system: ExtendedActorSystem)
   }
 
   def toBinary(obj: AnyRef): Array[Byte] = obj match {
-    case ClusterHeartbeatSender.Heartbeat(from, _, _)            => addressToProtoByteArray(from)
-    case ClusterHeartbeatSender.HeartbeatRsp(from, _, _)         => uniqueAddressToProtoByteArray(from)
+    case hb: ClusterHeartbeatSender.Heartbeat                    => heartbeatToProtoByteArray(hb)
+    case hbr: ClusterHeartbeatSender.HeartbeatRsp                => heartbeatRspToProtoByteArray(hbr)
     case m: GossipEnvelope                                       => gossipEnvelopeToProto(m).toByteArray
     case m: GossipStatus                                         => gossipStatusToProto(m).toByteArray
     case InternalClusterAction.Join(node, roles)                 => joinToProto(node, roles).toByteArray
@@ -105,10 +115,8 @@ final class ClusterMessageSerializer(val system: ExtendedActorSystem)
   }
 
   def fromBinary(bytes: Array[Byte], manifest: String): AnyRef = manifest match {
-    case HeartBeatManifestPre2523  => deserializeHeartBeatAsAddress(bytes)
-    case HeartBeatRspManifest2523  => deserializeHeartBeatRspAsUniqueAddress(bytes)
-    case HeartBeatManifest         => deserializeHeartBeat(bytes)
-    case HeartBeatRspManifest      => deserializeHeartBeatResponse(bytes)
+    case HeartbeatManifest         => deserializeHeartBeat(bytes)
+    case HeartbeatRspManifest      => deserializeHeartBeatResponse(bytes)
     case GossipStatusManifest      => deserializeGossipStatus(bytes)
     case GossipEnvelopeManifest    => deserializeGossipEnvelope(bytes)
     case InitJoinManifest          => deserializeInitJoin(bytes)
@@ -120,7 +128,21 @@ final class ClusterMessageSerializer(val system: ExtendedActorSystem)
     case DownManifest              => deserializeDown(bytes)
     case ExitingConfirmedManifest  => deserializeExitingConfirmed(bytes)
     case ClusterRouterPoolManifest => deserializeClusterRouterPool(bytes)
-    case _                         => throw new IllegalArgumentException(s"Unknown manifest [${manifest}]")
+    // needs to stay in 2.6.5 to be able to talk to a 2.5.{3,4} node during rolling upgrade
+    case HeartBeatManifestPre2523     => deserializeHeartBeatAsAddress(bytes)
+    case HeartBeatRspManifest2523     => deserializeHeartBeatRspAsUniqueAddress(bytes)
+    case OldGossipStatusManifest      => deserializeGossipStatus(bytes)
+    case OldGossipEnvelopeManifest    => deserializeGossipEnvelope(bytes)
+    case OldInitJoinManifest          => deserializeInitJoin(bytes)
+    case OldInitJoinAckManifest       => deserializeInitJoinAck(bytes)
+    case OldInitJoinNackManifest      => deserializeInitJoinNack(bytes)
+    case OldJoinManifest              => deserializeJoin(bytes)
+    case OldWelcomeManifest           => deserializeWelcome(bytes)
+    case OldLeaveManifest             => deserializeLeave(bytes)
+    case OldDownManifest              => deserializeDown(bytes)
+    case OldExitingConfirmedManifest  => deserializeExitingConfirmed(bytes)
+    case OldClusterRouterPoolManifest => deserializeClusterRouterPool(bytes)
+    case _                            => throw new IllegalArgumentException(s"Unknown manifest [${manifest}]")
   }
 
   def compress(msg: MessageLite): Array[Byte] = {
@@ -146,6 +168,26 @@ final class ClusterMessageSerializer(val system: ExtendedActorSystem)
     try readChunk()
     finally in.close()
     out.toByteArray
+  }
+
+  private def heartbeatToProtoByteArray(hb: ClusterHeartbeatSender.Heartbeat): Array[Byte] = {
+    cm.Heartbeat
+      .newBuilder()
+      .setFrom(addressToProto(hb.from))
+      .setSequenceNr(hb.sequenceNr)
+      .setCreationTime(hb.creationTimeNanos)
+      .build
+      .toByteArray
+  }
+
+  private def heartbeatRspToProtoByteArray(hbr: ClusterHeartbeatSender.HeartbeatRsp): Array[Byte] = {
+    cm.HeartBeatResponse
+      .newBuilder()
+      .setFrom(uniqueAddressToProto(hbr.from))
+      .setSequenceNr(hbr.sequenceNr)
+      .setCreationTime(hbr.creationTimeNanos)
+      .build
+      .toByteArray
   }
 
   private def addressFromBinary(bytes: Array[Byte]): Address =

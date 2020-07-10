@@ -1,12 +1,13 @@
 /*
- * Copyright (C) 2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
+import com.github.ghik.silencer.silent
+
 import akka.NotUsed
 import akka.stream.testkit.StreamSpec
-import com.github.ghik.silencer.silent
 
 @silent("deprecated")
 class SetupSpec extends StreamSpec {

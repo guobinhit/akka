@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl.fusing
@@ -7,26 +7,26 @@ package akka.stream.impl.fusing
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicReference
 
+import scala.annotation.tailrec
+import scala.collection.immutable
+import scala.concurrent.duration.FiniteDuration
+import scala.util.control.NonFatal
+
 import akka.NotUsed
 import akka.annotation.InternalApi
+import akka.stream._
 import akka.stream.ActorAttributes.StreamSubscriptionTimeout
 import akka.stream.ActorAttributes.SupervisionStrategy
-import akka.stream._
+import akka.stream.impl.{ Buffer => BufferImpl }
 import akka.stream.impl.ActorSubscriberMessage
 import akka.stream.impl.Stages.DefaultAttributes
 import akka.stream.impl.SubscriptionTimeoutException
 import akka.stream.impl.TraversalBuilder
 import akka.stream.impl.fusing.GraphStages.SingleSource
-import akka.stream.impl.{ Buffer => BufferImpl }
 import akka.stream.scaladsl._
 import akka.stream.stage._
 import akka.util.OptionVal
 import akka.util.ccompat.JavaConverters._
-
-import scala.annotation.tailrec
-import scala.collection.immutable
-import scala.concurrent.duration.FiniteDuration
-import scala.util.control.NonFatal
 
 /**
  * INTERNAL API
@@ -221,7 +221,7 @@ import scala.util.control.NonFatal
     override def onUpstreamFinish(): Unit = {
       if (!prefixComplete) {
         // This handles the unpulled out case as well
-        emit(out, (builder.result, Source.empty), () => completeStage())
+        emit(out, (builder.result(), Source.empty), () => completeStage())
       } else {
         if (!tailSource.isClosed) tailSource.complete()
         completeStage()
@@ -413,7 +413,7 @@ import scala.util.control.NonFatal
 
         override def onPull(): Unit = {
           cancelTimer(key)
-          if (firstPush) {
+          if (firstPush()) {
             firstPushCounter -= 1
             push(firstElement)
             firstElement = null.asInstanceOf[T]
@@ -700,10 +700,17 @@ import scala.util.control.NonFatal
 
       case cmd: CommandScheduledBeforeMaterialization =>
         throw new IllegalStateException(
-          s"${newState.command} on subsink is illegal when ${cmd.command} is still pending")
+          s"${newState.command} on subsink($name) is illegal when ${cmd.command} is still pending")
     }
 
   override def createLogic(attr: Attributes) = new GraphStageLogic(shape) with InHandler {
+    // check for previous materialization eagerly so we fail with a more useful stacktrace
+    private[this] val materializationException: OptionVal[IllegalStateException] =
+      if (status.get.isInstanceOf[AsyncCallback[_]])
+        OptionVal.Some(createMaterializedTwiceException())
+      else
+        OptionVal.None
+
     setHandler(in, this)
 
     override def onPush(): Unit = externalCallback(ActorSubscriberMessage.OnNext(grab(in)))
@@ -726,7 +733,7 @@ import scala.util.control.NonFatal
             setCallback(callback)
 
         case _: /* Materialized */ AsyncCallback[Command @unchecked] =>
-          failStage(new IllegalStateException("Substream Source cannot be materialized more than once"))
+          failStage(materializationException.getOrElse(createMaterializedTwiceException()))
       }
 
     override def preStart(): Unit =
@@ -734,6 +741,9 @@ import scala.util.control.NonFatal
         case RequestOne    => tryPull(in)
         case Cancel(cause) => cancelStage(cause)
       }
+
+    def createMaterializedTwiceException(): IllegalStateException =
+      new IllegalStateException(s"Substream Sink($name) cannot be materialized more than once")
   }
 
   override def toString: String = name
@@ -778,9 +788,16 @@ import scala.util.control.NonFatal
     status.compareAndSet(
       null,
       ActorSubscriberMessage.OnError(
-        new SubscriptionTimeoutException(s"Substream Source has not been materialized in $d")))
+        new SubscriptionTimeoutException(s"Substream Source($name) has not been materialized in $d")))
 
   override def createLogic(inheritedAttributes: Attributes) = new GraphStageLogic(shape) with OutHandler {
+    // check for previous materialization eagerly so we fail with a more useful stacktrace
+    private[this] val materializationException: OptionVal[IllegalStateException] =
+      if (status.get.isInstanceOf[AsyncCallback[_]])
+        OptionVal.Some(createMaterializedTwiceException())
+      else
+        OptionVal.None
+
     setHandler(out, this)
 
     @tailrec private def setCB(cb: AsyncCallback[ActorSubscriberMessage]): Unit = {
@@ -789,7 +806,7 @@ import scala.util.control.NonFatal
         case ActorSubscriberMessage.OnComplete  => completeStage()
         case ActorSubscriberMessage.OnError(ex) => failStage(ex)
         case _: AsyncCallback[_] =>
-          failStage(new IllegalStateException("Substream Source cannot be materialized more than once"))
+          failStage(materializationException.getOrElse(createMaterializedTwiceException()))
       }
     }
 
@@ -804,6 +821,9 @@ import scala.util.control.NonFatal
 
     override def onPull(): Unit = externalCallback.invoke(RequestOne)
     override def onDownstreamFinish(cause: Throwable): Unit = externalCallback.invoke(Cancel(cause))
+
+    def createMaterializedTwiceException(): IllegalStateException =
+      new IllegalStateException(s"Substream Source($name) cannot be materialized more than once")
   }
 
   override def toString: String = name

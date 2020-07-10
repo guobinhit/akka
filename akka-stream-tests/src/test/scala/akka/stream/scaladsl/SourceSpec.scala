@@ -1,9 +1,10 @@
 /*
- * Copyright (C) 2014-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
+import akka.Done
 import akka.stream.testkit.Utils.TE
 import akka.testkit.DefaultTimeout
 import com.github.ghik.silencer.silent
@@ -25,7 +26,7 @@ import scala.collection.immutable
 @silent // tests assigning to typed val
 class SourceSpec extends StreamSpec with DefaultTimeout {
 
-  implicit val config = PatienceConfig(timeout = Span(timeout.duration.toMillis, Millis))
+  implicit val config: PatienceConfig = PatienceConfig(timeout = Span(timeout.duration.toMillis, Millis))
 
   "Single Source" must {
 
@@ -85,7 +86,7 @@ class SourceSpec extends StreamSpec with DefaultTimeout {
     "merge from many inputs" in {
       val probes = immutable.Seq.fill(5)(TestPublisher.manualProbe[Int]())
       val source = Source.asSubscriber[Int]
-      val out = TestSubscriber.manualProbe[Int]
+      val out = TestSubscriber.manualProbe[Int]()
 
       val s = Source
         .fromGraph(GraphDSL.create(source, source, source, source, source)(immutable.Seq(_, _, _, _, _)) {
@@ -121,7 +122,7 @@ class SourceSpec extends StreamSpec with DefaultTimeout {
     "combine from many inputs with simplified API" in {
       val probes = immutable.Seq.fill(3)(TestPublisher.manualProbe[Int]())
       val source = for (i <- 0 to 2) yield Source.fromPublisher(probes(i))
-      val out = TestSubscriber.manualProbe[Int]
+      val out = TestSubscriber.manualProbe[Int]()
 
       Source.combine(source(0), source(1), source(2))(Merge(_)).to(Sink.fromSubscriber(out)).run()
       val sub = out.expectSubscription()
@@ -142,7 +143,7 @@ class SourceSpec extends StreamSpec with DefaultTimeout {
     "combine from two inputs with simplified API" in {
       val probes = immutable.Seq.fill(2)(TestPublisher.manualProbe[Int]())
       val source = Source.fromPublisher(probes(0)) :: Source.fromPublisher(probes(1)) :: Nil
-      val out = TestSubscriber.manualProbe[Int]
+      val out = TestSubscriber.manualProbe[Int]()
 
       Source.combine(source(0), source(1))(Merge(_)).to(Sink.fromSubscriber(out)).run()
 
@@ -214,6 +215,18 @@ class SourceSpec extends StreamSpec with DefaultTimeout {
       val f = Source.repeat(42).grouped(1000).runWith(Sink.head)
       f.futureValue.size should ===(1000)
       f.futureValue.toSet should ===(Set(42))
+    }
+
+    "repeat example" in {
+      // #repeat
+      val source: Source[Int, NotUsed] = Source.repeat(42)
+      val f = source.take(4).runWith(Sink.foreach(println))
+      // 42
+      // 42
+      // 42
+      // 42
+      // #repeat
+      f.futureValue shouldBe Done
     }
   }
 
@@ -352,6 +365,12 @@ class SourceSpec extends StreamSpec with DefaultTimeout {
     "suitably override attribute handling methods" in {
       import Attributes._
       val s: Source[Int, NotUsed] = Source.single(42).async.addAttributes(none).named("")
+    }
+  }
+
+  "A Source.run" must {
+    "ignore elements it outputs and only signal the completion of the processing" in {
+      Source.fromIterator(() => (1 to 5).toIterator).map(_ * 10).run().futureValue shouldBe Done
     }
   }
 

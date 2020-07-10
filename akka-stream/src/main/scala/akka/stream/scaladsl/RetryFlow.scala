@@ -1,13 +1,13 @@
 /*
- * Copyright (C) 2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
+import scala.concurrent.duration._
+
 import akka.annotation.ApiMayChange
 import akka.stream.impl.RetryFlowCoordinator
-
-import scala.concurrent.duration._
 
 object RetryFlow {
 

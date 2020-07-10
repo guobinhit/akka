@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.javadsl;
@@ -10,7 +10,7 @@ import org.junit.Test;
 
 import java.util.concurrent.Flow;
 
-import org.scalatest.junit.JUnitSuite;
+import org.scalatestplus.junit.JUnitSuite;
 
 public class JavaFlowSupportCompileTest extends JUnitSuite {
   @Test

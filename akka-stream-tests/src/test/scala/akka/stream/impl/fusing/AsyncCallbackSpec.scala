@@ -1,8 +1,13 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl.fusing
+
+import scala.concurrent.Await
+import scala.concurrent.Future
+import scala.concurrent.Promise
+import scala.language.reflectiveCalls
 
 import akka.Done
 import akka.actor.ActorRef
@@ -11,16 +16,11 @@ import akka.stream.scaladsl.Keep
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
 import akka.stream.stage._
-import akka.stream.testkit.Utils.TE
 import akka.stream.testkit.TestPublisher
 import akka.stream.testkit.TestSubscriber
+import akka.stream.testkit.Utils.TE
 import akka.testkit.AkkaSpec
 import akka.testkit.TestProbe
-
-import scala.concurrent.Await
-import scala.concurrent.Future
-import scala.concurrent.Promise
-import scala.language.reflectiveCalls
 
 class AsyncCallbackSpec extends AkkaSpec("""
     akka.stream.materializer.debug.fuzzing-mode = off

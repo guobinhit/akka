@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.akka.typed
@@ -16,7 +16,7 @@ import akka.actor.typed.ActorRef
 import org.slf4j.Logger
 import scala.concurrent.duration._
 import scala.concurrent.Await
-import org.scalatest.WordSpecLike
+import org.scalatest.wordspec.AnyWordSpecLike
 import akka.actor.typed.Terminated
 
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
@@ -28,7 +28,7 @@ object GracefulStopDocSpec {
   object MasterControlProgram {
     sealed trait Command
     final case class SpawnJob(name: String) extends Command
-    final case object GracefulShutdown extends Command
+    case object GracefulShutdown extends Command
 
     // Predefined cleanup operation
     def cleanup(log: Logger): Unit = log.info("Cleaning up!")
@@ -132,7 +132,7 @@ object GracefulStopDocSpec {
 
 }
 
-class GracefulStopDocSpec extends ScalaTestWithActorTestKit with WordSpecLike with LogCapturing {
+class GracefulStopDocSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike with LogCapturing {
 
   import GracefulStopDocSpec._
 

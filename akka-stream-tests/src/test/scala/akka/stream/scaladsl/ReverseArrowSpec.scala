@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
-import akka.stream._
-import akka.stream.testkit._
-
 import scala.concurrent.Await
 import scala.concurrent.duration._
+
+import akka.stream._
+import akka.stream.testkit._
 
 class ReverseArrowSpec extends StreamSpec {
   import GraphDSL.Implicits._
@@ -41,7 +41,7 @@ class ReverseArrowSpec extends StreamSpec {
     }
 
     "work from Sink" in {
-      val sub = TestSubscriber.manualProbe[Int]
+      val sub = TestSubscriber.manualProbe[Int]()
       RunnableGraph
         .fromGraph(GraphDSL.create() { implicit b =>
           Sink.fromSubscriber(sub) <~ source

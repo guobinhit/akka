@@ -1,14 +1,15 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.testkit.typed.scaladsl
 
-import akka.actor.testkit.typed.LoggingEvent
-import org.scalatest.WordSpecLike
+import org.scalatest.wordspec.AnyWordSpecLike
 import org.slf4j.event.Level
 
-class LoggingTestKitSpec extends ScalaTestWithActorTestKit with WordSpecLike with LogCapturing {
+import akka.actor.testkit.typed.LoggingEvent
+
+class LoggingTestKitSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike with LogCapturing {
 
   private class AnError extends Exception
   private def errorNoCause =

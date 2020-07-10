@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.scaladsl.adapter
@@ -7,16 +7,17 @@ package akka.actor.typed.scaladsl.adapter
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
+import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+
 import akka.actor.ActorSystemImpl
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.actor.typed.ActorSystem
 import akka.actor.typed.scaladsl.Behaviors
-import org.scalatest.Matchers
-import org.scalatest.WordSpec
-import org.scalatest.concurrent.ScalaFutures
 
-class GuardianStartupSpec extends WordSpec with Matchers with ScalaFutures with LogCapturing {
+class GuardianStartupSpec extends AnyWordSpec with Matchers with ScalaFutures with LogCapturing {
 
   "The user guardian" must {
 

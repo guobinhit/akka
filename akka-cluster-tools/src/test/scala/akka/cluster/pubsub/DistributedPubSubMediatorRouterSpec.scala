@@ -1,14 +1,15 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.pubsub
 
-import akka.testkit._
-import akka.routing.{ ConsistentHashingRoutingLogic, RouterEnvelope }
-import org.scalatest.WordSpecLike
-import akka.actor.ActorRef
 import com.typesafe.config.ConfigFactory
+import org.scalatest.wordspec.AnyWordSpecLike
+
+import akka.actor.ActorRef
+import akka.routing.{ ConsistentHashingRoutingLogic, RouterEnvelope }
+import akka.testkit._
 
 case class WrappedMessage(msg: String) extends RouterEnvelope {
   override def message = msg
@@ -27,7 +28,7 @@ object DistributedPubSubMediatorRouterSpec {
   """
 }
 
-trait DistributedPubSubMediatorRouterSpec { this: WordSpecLike with TestKit with ImplicitSender =>
+trait DistributedPubSubMediatorRouterSpec { this: AnyWordSpecLike with TestKit with ImplicitSender =>
   def nonUnwrappingPubSub(mediator: ActorRef, testActor: ActorRef, msg: Any): Unit = {
 
     val path = testActor.path.toStringWithoutAddress

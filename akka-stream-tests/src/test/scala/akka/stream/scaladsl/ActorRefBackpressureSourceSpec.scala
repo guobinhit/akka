@@ -1,18 +1,18 @@
 /*
- * Copyright (C) 2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
+import scala.concurrent.duration._
+
 import akka.actor.Status
+import akka.stream.CompletionStrategy
+import akka.stream.testkit.StreamSpec
 import akka.stream.testkit.Utils.TE
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
-import akka.stream.CompletionStrategy
-import akka.stream.testkit.StreamSpec
 import akka.testkit.TestProbe
-
-import scala.concurrent.duration._
 
 private object ActorRefBackpressureSourceSpec {
   case object AckMsg

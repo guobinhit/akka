@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.akka.cluster.typed
@@ -8,7 +8,8 @@ import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.testkit.SocketUtil
 import com.github.ghik.silencer.silent
 import com.typesafe.config.ConfigFactory
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.matchers.should.Matchers
 //#cluster-imports
 import akka.actor.typed._
 import akka.actor.typed.scaladsl._
@@ -40,6 +41,8 @@ akka {
     seed-nodes = [
       "akka://ClusterSystem@127.0.0.1:2551",
       "akka://ClusterSystem@127.0.0.1:2552"]
+    
+    downing-provider-class = "akka.cluster.sbr.SplitBrainResolverProvider"
   }
 }
 #config-seeds
@@ -102,7 +105,7 @@ akka {
   }
 }
 
-class BasicClusterConfigSpec extends WordSpec with ScalaFutures with Eventually with Matchers with LogCapturing {
+class BasicClusterConfigSpec extends AnyWordSpec with ScalaFutures with Eventually with Matchers with LogCapturing {
   import BasicClusterExampleSpec._
 
   implicit override val patienceConfig =
@@ -156,7 +159,7 @@ akka {
 
 }
 
-class BasicClusterManualSpec extends WordSpec with ScalaFutures with Eventually with Matchers with LogCapturing {
+class BasicClusterManualSpec extends AnyWordSpec with ScalaFutures with Eventually with Matchers with LogCapturing {
 
   import BasicClusterManualSpec._
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka
@@ -27,50 +27,9 @@ object AkkaBuild {
 
   lazy val buildSettings = Def.settings(
     organization := "com.typesafe.akka",
-    Dependencies.Versions,
-    // use the same value as in the build scope
-    // TODO #26675 this can be removed once we use sbt-dynver instead of timestamps
-    // everywhere
-    version := (version in ThisBuild).value)
-
-  // TODO #26675 this can be removed once we use sbt-dynver instead of timestamps
-  // everywhere
-  lazy val currentDateTime = {
-    // storing the first accessed timestamp in system property so that it will be the
-    // same when build is reloaded or when using `+`.
-    // `+` actually doesn't re-initialize this part of the build but that may change in the future.
-    sys.props.getOrElseUpdate("akka.build.timestamp",
-      DateTimeFormatter
-        .ofPattern("yyyyMMdd-HHmmss")
-        .format(ZonedDateTime.now(ZoneOffset.UTC)))
-  }
-
-  // TODO #26675 this can be removed once we use sbt-dynver instead of timestamps
-  // everywhere
-  def akkaVersion: String = {
-    val default = "2.6-SNAPSHOT"
-    sys.props.getOrElse("akka.build.version", default) match {
-      case "timestamp" => s"2.6-$currentDateTime" // used when publishing timestamped snapshots
-      case "file" => akkaVersionFromFile(default)  
-      case v => v
-    }
-  }
-
-  // TODO #26675 this can be removed once we use sbt-dynver instead of timestamps
-  // everywhere
-  def akkaVersionFromFile(default: String): String = {
-    val versionFile = "akka-actor/target/classes/version.conf"
-    if (new File(versionFile).exists()) {
-      val versionProps = new Properties()
-      val reader = new FileReader(versionFile)
-      try versionProps.load(reader) finally reader.close()
-      versionProps.getProperty("akka.version", default).replaceAll("\"", "")
-    } else
-      default
-  }
+    Dependencies.Versions)
 
   lazy val rootSettings = Def.settings(
-    Release.settings,
     UnidocRoot.akkaSettings,
     Protobuf.settings,
     parallelExecution in GlobalScope := System.getProperty("akka.parallelExecution", parallelExecutionByDefault.toString).toBoolean,
@@ -158,16 +117,6 @@ object AkkaBuild {
 
     crossVersion := CrossVersion.binary,
 
-    // Adds a `src/main/scala-2.13+` source directory for Scala 2.13 and newer
-    // and a `src/main/scala-2.13-` source directory for Scala version older than 2.13
-    unmanagedSourceDirectories in Compile += {
-      val sourceDir = (sourceDirectory in Compile).value
-      CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((2, n)) if n >= 13 => sourceDir / "scala-2.13+"
-        case _                       => sourceDir / "scala-2.13-"
-      }
-    },
-
     ivyLoggingLevel in ThisBuild := UpdateLogging.Quiet,
 
     licenses := Seq(("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0.html"))),
@@ -193,7 +142,7 @@ object AkkaBuild {
          |implicit def _system = system
          |def startSystem(remoting: Boolean = false) { system = ActorSystem("repl", if(remoting) remoteConfig else config); println("don’t forget to system.terminate()!") }
          |implicit def ec = system.dispatcher
-         |implicit val timeout = Timeout(5 seconds)
+         |implicit val timeout: Timeout = Timeout(5 seconds)
          |""".stripMargin,
 
     /**

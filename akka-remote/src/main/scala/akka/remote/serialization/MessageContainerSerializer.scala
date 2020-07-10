@@ -1,17 +1,18 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.serialization
 
 import scala.collection.immutable
-import akka.protobufv3.internal.ByteString
+
 import akka.actor.ActorSelectionMessage
 import akka.actor.ExtendedActorSystem
 import akka.actor.SelectChildName
 import akka.actor.SelectChildPattern
 import akka.actor.SelectParent
 import akka.actor.SelectionPathElement
+import akka.protobufv3.internal.ByteString
 import akka.remote.ContainerFormats
 import akka.serialization.{ BaseSerializer, SerializationExtension, Serializers }
 import akka.util.ccompat._

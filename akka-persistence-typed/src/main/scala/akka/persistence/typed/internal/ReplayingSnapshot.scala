@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.internal
@@ -8,10 +8,11 @@ import akka.actor.typed.Behavior
 import akka.actor.typed.internal.PoisonPill
 import akka.actor.typed.scaladsl.{ ActorContext, Behaviors }
 import akka.annotation.{ InternalApi, InternalStableApi }
+import akka.persistence._
 import akka.persistence.SnapshotProtocol.LoadSnapshotFailed
 import akka.persistence.SnapshotProtocol.LoadSnapshotResult
-import akka.persistence._
 import akka.persistence.typed.RecoveryFailed
+import akka.persistence.typed.internal.EventSourcedBehaviorImpl.GetState
 import akka.util.unused
 
 /**
@@ -66,7 +67,8 @@ private[akka] class ReplayingSnapshot[C, E, S](override val setup: BehaviorSetup
               Behaviors.unhandled
             } else
               onCommand(cmd)
-          case RecoveryPermitGranted => Behaviors.unhandled // should not happen, we already have the permit
+          case get: GetState[S @unchecked] => stashInternal(get)
+          case RecoveryPermitGranted       => Behaviors.unhandled // should not happen, we already have the permit
         }
         .receiveSignal(returnPermitOnStop.orElse {
           case (_, PoisonPill) =>
@@ -118,7 +120,6 @@ private[akka] class ReplayingSnapshot[C, E, S](override val setup: BehaviorSetup
   def onCommand(cmd: IncomingCommand[C]): Behavior[InternalProtocol] = {
     // during recovery, stash all incoming commands
     stashInternal(cmd)
-    Behaviors.same
   }
 
   def onJournalResponse(response: JournalProtocol.Response): Behavior[InternalProtocol] = {

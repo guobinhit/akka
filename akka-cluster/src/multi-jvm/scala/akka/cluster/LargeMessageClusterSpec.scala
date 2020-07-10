@@ -1,10 +1,12 @@
 /*
- * Copyright (C) 2017-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
 
 import scala.concurrent.duration._
+
+import com.typesafe.config.ConfigFactory
 
 import akka.actor.ActorIdentity
 import akka.actor.ActorRef
@@ -19,7 +21,6 @@ import akka.remote.testkit.MultiNodeSpec
 import akka.serialization.SerializerWithStringManifest
 import akka.testkit._
 import akka.util.unused
-import com.typesafe.config.ConfigFactory
 
 object LargeMessageClusterMultiJvmSpec extends MultiNodeConfig {
   val first = role("first")

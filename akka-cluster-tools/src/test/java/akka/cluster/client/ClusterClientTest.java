@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.client;
@@ -13,7 +13,7 @@ import org.junit.ClassRule;
 import org.junit.Test;
 
 import akka.testkit.AkkaJUnitActorSystemResource;
-import org.scalatest.junit.JUnitSuite;
+import org.scalatestplus.junit.JUnitSuite;
 
 public class ClusterClientTest extends JUnitSuite {
 

@@ -1,18 +1,19 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
 
-import akka.actor.{ ActorRef, ActorSystem, ExtendedActorSystem, InternalActorRef }
-import akka.event._
-import akka.testkit.TestEvent.Mute
-import akka.testkit.{ AkkaSpec, EventFilter, TestProbe }
-import akka.util.{ unused, OptionVal }
 import java.nio.{ ByteBuffer, CharBuffer }
 import java.nio.charset.Charset
 
 import scala.concurrent.duration._
+
+import akka.actor.{ ActorRef, ActorSystem, ExtendedActorSystem, InternalActorRef }
+import akka.event._
+import akka.testkit.{ AkkaSpec, EventFilter, TestProbe }
+import akka.testkit.TestEvent.Mute
+import akka.util.{ unused, OptionVal }
 
 class RemoteInstrumentsSerializationSpec extends AkkaSpec("akka.loglevel = DEBUG") {
   import RemoteInstrumentsSerializationSpec._

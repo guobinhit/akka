@@ -1,21 +1,22 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.internal
 
 import scala.concurrent.duration._
 
+import org.scalatest.wordspec.AnyWordSpecLike
+
+import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import akka.actor.testkit.typed.scaladsl.TestProbe
-import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.Behaviors
 import akka.persistence.typed.internal.InternalProtocol.IncomingCommand
 import akka.persistence.typed.internal.InternalProtocol.RecoveryPermitGranted
-import org.scalatest.WordSpecLike
 
-class StashStateSpec extends ScalaTestWithActorTestKit with WordSpecLike with LogCapturing {
+class StashStateSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike with LogCapturing {
 
   "StashState" should {
 

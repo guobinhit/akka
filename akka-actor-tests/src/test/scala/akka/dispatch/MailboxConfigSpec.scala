@@ -1,20 +1,21 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.dispatch
 
-import language.postfixOps
 import java.util.concurrent.{ BlockingQueue, ConcurrentLinkedQueue }
-
-import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach }
-import com.typesafe.config.{ Config, ConfigFactory }
-import akka.actor._
-import akka.testkit.{ AkkaSpec, EventFilter }
-import akka.util.unused
 
 import scala.concurrent.{ Await, ExecutionContext, Future }
 import scala.concurrent.duration._
+
+import com.typesafe.config.{ Config, ConfigFactory }
+import language.postfixOps
+import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach }
+
+import akka.actor._
+import akka.testkit.{ AkkaSpec, EventFilter }
+import akka.util.unused
 
 abstract class MailboxSpec extends AkkaSpec with BeforeAndAfterAll with BeforeAndAfterEach {
   def name: String
@@ -157,7 +158,7 @@ abstract class MailboxSpec extends AkkaSpec with BeforeAndAfterAll with BeforeAn
       def createConsumer: Future[Vector[Envelope]] = spawn {
         var r = Vector[Envelope]()
 
-        while (producers.exists(_.isCompleted == false) || q.hasMessages) Option(q.dequeue).foreach { message =>
+        while (producers.exists(_.isCompleted == false) || q.hasMessages) Option(q.dequeue()).foreach { message =>
           r = r :+ message
         }
 

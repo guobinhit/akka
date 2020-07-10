@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.event
@@ -7,21 +7,23 @@ package akka.event
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicInteger
 
-import akka.actor.ActorSystem.Settings
-import akka.actor._
-import akka.annotation.{ DoNotInherit, InternalApi }
-import akka.dispatch.RequiresMessageQueue
-import akka.event.Logging._
-import akka.util.unused
-import akka.util.{ Helpers, ReentrantGuard }
-import akka.{ AkkaException, ConfigurationException }
-import com.github.ghik.silencer.silent
-
 import scala.annotation.implicitNotFound
 import scala.collection.immutable
 import scala.concurrent.Await
 import scala.language.existentials
 import scala.util.control.{ NoStackTrace, NonFatal }
+
+import com.github.ghik.silencer.silent
+
+import akka.{ AkkaException, ConfigurationException }
+import akka.actor._
+import akka.actor.ActorSystem.Settings
+import akka.annotation.{ DoNotInherit, InternalApi }
+import akka.dispatch.RequiresMessageQueue
+import akka.event.Logging._
+import akka.util.{ Helpers, ReentrantGuard }
+import akka.util.Timeout
+import akka.util.unused
 
 /**
  * This trait brings log level handling to the EventStream: it reads the log
@@ -198,7 +200,7 @@ trait LoggingBus extends ActorEventBus {
       logName: String): ActorRef = {
     val name = "log" + LogExt(system).id() + "-" + simpleName(clazz)
     val actor = system.systemActorOf(Props(clazz).withDispatcher(system.settings.LoggersDispatcher), name)
-    implicit def timeout = system.settings.LoggerStartTimeout
+    implicit def timeout: Timeout = system.settings.LoggerStartTimeout
     import akka.pattern.ask
     val response = try Await.result(actor ? InitializeLogger(this), timeout.duration)
     catch {
@@ -1637,6 +1639,8 @@ class LogMarker(val name: String, val properties: Map[String, Any]) {
     import akka.util.ccompat.JavaConverters._
     properties.map { case (k, v) => (k, v.asInstanceOf[AnyRef]) }.asJava
   }
+
+  override def toString: String = s"LogMarker($name,$properties)"
 }
 
 object LogMarker {

@@ -1,13 +1,14 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.journal.leveldb
 
+import com.typesafe.config.ConfigFactory
+
 import akka.actor._
 import akka.persistence._
 import akka.testkit.{ AkkaSpec, TestProbe }
-import com.typesafe.config.ConfigFactory
 
 object SharedLeveldbJournalSpec {
   val config = ConfigFactory.parseString(s"""

@@ -1,18 +1,19 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
 
-import org.scalatest.WordSpec
-import org.scalatest.Matchers
-import akka.actor.Address
-import akka.cluster.Gossip.vclockName
-import akka.cluster.ClusterSettings.DefaultDataCenter
-
 import scala.collection.immutable.SortedSet
 
-class GossipSpec extends WordSpec with Matchers {
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+
+import akka.actor.Address
+import akka.cluster.ClusterSettings.DefaultDataCenter
+import akka.cluster.Gossip.vclockName
+
+class GossipSpec extends AnyWordSpec with Matchers {
 
   import MemberStatus._
 

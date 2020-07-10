@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.scaladsl
@@ -7,8 +7,15 @@ package akka.persistence.typed.scaladsl
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 
+import scala.concurrent.duration._
 import scala.util.Success
 import scala.util.Try
+
+import com.typesafe.config.Config
+import com.typesafe.config.ConfigFactory
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
+
 import akka.actor.testkit.typed.scaladsl._
 import akka.actor.typed.ActorRef
 import akka.actor.typed.Behavior
@@ -26,11 +33,6 @@ import akka.persistence.typed.SnapshotFailed
 import akka.persistence.typed.SnapshotSelectionCriteria
 import akka.serialization.jackson.CborSerializable
 import akka.util.unused
-import com.typesafe.config.Config
-import com.typesafe.config.ConfigFactory
-import org.scalatest.Matchers
-import org.scalatest.WordSpecLike
-import scala.concurrent.duration._
 
 object EventSourcedBehaviorRetentionSpec extends Matchers {
 
@@ -44,10 +46,10 @@ object EventSourcedBehaviorRetentionSpec extends Matchers {
     """)
 
   sealed trait Command extends CborSerializable
-  final case object Increment extends Command
+  case object Increment extends Command
   final case class IncrementWithPersistAll(nr: Int) extends Command
   final case class GetValue(replyTo: ActorRef[State]) extends Command
-  final case object StopIt extends Command
+  case object StopIt extends Command
 
   final case class WrappedSignal(signal: EventSourcedSignal)
 
@@ -126,7 +128,7 @@ object EventSourcedBehaviorRetentionSpec extends Matchers {
 
 class EventSourcedBehaviorRetentionSpec
     extends ScalaTestWithActorTestKit(EventSourcedBehaviorRetentionSpec.conf)
-    with WordSpecLike
+    with AnyWordSpecLike
     with LogCapturing {
 
   import EventSourcedBehaviorRetentionSpec._
@@ -207,7 +209,7 @@ class EventSourcedBehaviorRetentionSpec
 
     "snapshot via predicate" in {
       val pid = nextPid()
-      val snapshotSignalProbe = TestProbe[WrappedSignal]
+      val snapshotSignalProbe = TestProbe[WrappedSignal]()
       val alwaysSnapshot: Behavior[Command] =
         Behaviors.setup { ctx =>
           counter(ctx, pid, snapshotSignalProbe = Some(snapshotSignalProbe.ref)).snapshotWhen { (_, _, _) =>
@@ -237,7 +239,7 @@ class EventSourcedBehaviorRetentionSpec
 
     "check all events for snapshot in PersistAll" in {
       val pid = nextPid()
-      val snapshotSignalProbe = TestProbe[WrappedSignal]
+      val snapshotSignalProbe = TestProbe[WrappedSignal]()
       val snapshotAtTwo = Behaviors.setup[Command](ctx =>
         counter(ctx, pid, snapshotSignalProbe = Some(snapshotSignalProbe.ref)).snapshotWhen { (s, _, _) =>
           s.value == 2

@@ -1,17 +1,18 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.persistence
 
 import com.typesafe.config._
+
 import scala.concurrent.duration._
-import org.scalatest.WordSpec
+import org.scalatest.wordspec.AnyWordSpec
 import akka.actor.ActorSystem
 import akka.serialization.{ SerializationExtension, Serializer }
 import akka.testkit.TestKit
 
-class PersistenceSerializerDocSpec extends WordSpec {
+class PersistenceSerializerDocSpec extends AnyWordSpec {
 
   val customSerializerConfig =
     """

@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
+import scala.concurrent.duration.FiniteDuration
+
 import akka.NotUsed
 import akka.stream.{ Attributes, Outlet, SourceShape }
 import akka.stream.stage.{ GraphStage, OutHandler }
-
-import scala.concurrent.duration.FiniteDuration
 
 /**
  * A RestartSource wraps a [[Source]] that gets restarted when it completes or fails.

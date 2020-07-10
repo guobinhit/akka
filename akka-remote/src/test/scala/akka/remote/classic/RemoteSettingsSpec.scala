@@ -1,16 +1,18 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.classic
 
-import akka.remote.RemoteSettings
 import com.github.ghik.silencer.silent
 import com.typesafe.config.ConfigFactory
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+
+import akka.remote.RemoteSettings
 
 @silent("deprecated")
-class RemoteSettingsSpec extends WordSpec with Matchers {
+class RemoteSettingsSpec extends AnyWordSpec with Matchers {
 
   "Remote settings" must {
     "default akka.remote.classic.log-frame-size-exceeding to off" in {

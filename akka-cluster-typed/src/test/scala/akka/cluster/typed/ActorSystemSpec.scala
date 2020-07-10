@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.typed
@@ -11,25 +11,28 @@ import scala.concurrent.Promise
 import scala.concurrent.duration._
 import scala.util.control.NonFatal
 
+import com.typesafe.config.ConfigFactory
+import org.scalatest._
+import org.scalatest.concurrent.Eventually
+import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.time.Span
+import org.scalatest.wordspec.AnyWordSpec
+
 import akka.Done
 import akka.actor.CoordinatedShutdown
 import akka.actor.ExtendedActorSystem
 import akka.actor.InvalidMessageException
-import akka.actor.testkit.typed.scaladsl.TestInbox
 import akka.actor.testkit.typed.scaladsl.LogCapturing
+import akka.actor.testkit.typed.scaladsl.TestInbox
 import akka.actor.typed.ActorRef
 import akka.actor.typed.ActorRefResolver
 import akka.actor.typed.ActorSystem
 import akka.actor.typed.Behavior
 import akka.actor.typed.PostStop
-import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.scaladsl.adapter._
 import akka.serialization.SerializerWithStringManifest
-import com.typesafe.config.ConfigFactory
-import org.scalatest._
-import org.scalatest.concurrent.Eventually
-import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.time.Span
 
 object ActorSystemSpec {
 
@@ -58,7 +61,7 @@ object ActorSystemSpec {
 }
 
 class ActorSystemSpec
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with BeforeAndAfterAll
     with ScalaFutures
@@ -73,12 +76,14 @@ class ActorSystemSpec
       akka.remote.artery.canonical.port = 0
       akka.remote.artery.canonical.hostname = 127.0.0.1
 
-      serializers {
-          test = "akka.cluster.typed.ActorSystemSpec$$TestSerializer"
+      akka.actor {
+        serializers {
+          test = "akka.cluster.typed.ActorSystemSpec$TestSerializer"
         }
         serialization-bindings {
-          "akka.cluster.typed.ActorSystemSpec$$TestMessage" = test
+          "akka.cluster.typed.ActorSystemSpec$TestMessage" = test
         }
+      }
     """)
   def system[T](behavior: Behavior[T], name: String) = ActorSystem(behavior, name, config)
   def suite = "adapter"
@@ -184,7 +189,7 @@ class ActorSystemSpec
 
     "have a working thread factory" in {
       withSystem("thread", Behaviors.empty[String]) { sys =>
-        val p = Promise[Int]
+        val p = Promise[Int]()
         sys.threadFactory
           .newThread(new Runnable {
             def run(): Unit = p.success(42)

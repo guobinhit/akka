@@ -4,13 +4,9 @@ Wrap the given @apidoc[Source] with a @apidoc[Source] that will restart it when 
 
 @ref[Error handling](../index.md#error-handling)
 
-@@@div { .group-scala }
-
 ## Signature
 
-@@signature [RestartSource.scala](/akka-stream/src/main/scala/akka/stream/scaladsl/RestartSource.scala) { #withBackoff }
-
-@@@
+@apidoc[RestartSource.withBackoff](RestartSource$) { scala="#withBackoff[T](minBackoff:scala.concurrent.duration.FiniteDuration,maxBackoff:scala.concurrent.duration.FiniteDuration,randomFactor:Double,maxRestarts:Int)(sourceFactory:()=&gt;akka.stream.scaladsl.Source[T,_]):akka.stream.scaladsl.Source[T,akka.NotUsed]" java="#withBackoff(java.time.Duration,java.time.Duration,double,int,akka.japi.function.Creator)" }
 
 ## Description
 
@@ -20,7 +16,7 @@ When that happens, the wrapped @apidoc[Source], if currently running will be can
 This can be triggered simply by the downstream cancelling, or externally by introducing a @apidoc[KillSwitch] right
 after this @apidoc[Source] in the graph.
 
-This uses the same exponential backoff algorithm as @apidoc[Backoff].
+This uses the same exponential backoff algorithm as @apidoc[Backoff$].
 
 ## Reactive Streams semantics
 

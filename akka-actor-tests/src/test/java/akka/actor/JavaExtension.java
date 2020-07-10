@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor;
@@ -8,7 +8,7 @@ import akka.testkit.AkkaJUnitActorSystemResource;
 import org.junit.*;
 import akka.testkit.AkkaSpec;
 import com.typesafe.config.ConfigFactory;
-import org.scalatest.junit.JUnitSuite;
+import org.scalatestplus.junit.JUnitSuite;
 
 import static org.junit.Assert.*;
 

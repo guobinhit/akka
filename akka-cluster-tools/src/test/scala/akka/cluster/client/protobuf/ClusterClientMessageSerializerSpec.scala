@@ -1,13 +1,14 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.client.protobuf
 
-import akka.actor.ExtendedActorSystem
-import akka.testkit.AkkaSpec
-import akka.cluster.client.ClusterReceptionist.Internal._
 import com.github.ghik.silencer.silent
+
+import akka.actor.ExtendedActorSystem
+import akka.cluster.client.ClusterReceptionist.Internal._
+import akka.testkit.AkkaSpec
 
 @silent("deprecated")
 class ClusterClientMessageSerializerSpec extends AkkaSpec {

@@ -1,18 +1,20 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
 
-import akka.actor.{ Address, AddressFromURIString }
-import org.scalatest.Matchers
-import org.scalatest.WordSpec
 import scala.collection.immutable.SortedSet
 import scala.util.Random
 
-class MemberOrderingSpec extends WordSpec with Matchers {
-  import Member.ordering
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+
+import akka.actor.{ Address, AddressFromURIString }
+
+class MemberOrderingSpec extends AnyWordSpec with Matchers {
   import Member.addressOrdering
+  import Member.ordering
   import MemberStatus._
 
   def m(address: Address, status: MemberStatus): Member = TestMember(address, status)

@@ -1,10 +1,17 @@
 /*
- * Copyright (C) 2014-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream
 
 import java.util.concurrent.TimeUnit
+
+import scala.concurrent.duration._
+import scala.util.control.NoStackTrace
+
+import com.github.ghik.silencer.silent
+import com.typesafe.config.Config
+import com.typesafe.config.ConfigFactory
 
 import akka.actor.ActorContext
 import akka.actor.ActorRef
@@ -18,12 +25,6 @@ import akka.japi.function
 import akka.stream.impl._
 import akka.stream.stage.GraphStageLogic
 import akka.util.Helpers.toRootLowerCase
-import com.github.ghik.silencer.silent
-import com.typesafe.config.Config
-import com.typesafe.config.ConfigFactory
-
-import scala.concurrent.duration._
-import scala.util.control.NoStackTrace
 
 object ActorMaterializer {
 
@@ -744,6 +745,7 @@ final class ActorMaterializerSettings @InternalApi private (
       // for stream refs and io live with the respective stages
       Attributes.InputBuffer(initialInputBufferSize, maxInputBufferSize) ::
       Attributes.CancellationStrategy.Default :: // FIXME: make configurable, see https://github.com/akka/akka/issues/28000
+      Attributes.NestedMaterializationCancellationPolicy.Default ::
       ActorAttributes.Dispatcher(dispatcher) ::
       ActorAttributes.SupervisionStrategy(supervisionDecider) ::
       ActorAttributes.DebugLogging(debugLogging) ::

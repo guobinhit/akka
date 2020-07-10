@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.stream
@@ -156,7 +156,7 @@ class FlowDocSpec extends AkkaSpec with CompileOnlySpec {
     })
 
     //#flow-mat-combine
-    // An source that can be signalled explicitly from the outside
+    // A source that can be signalled explicitly from the outside
     val source: Source[Int, Promise[Option[Int]]] = Source.maybe[Int]
 
     // A flow that internally throttles elements to 1/second, and returns a Cancellable

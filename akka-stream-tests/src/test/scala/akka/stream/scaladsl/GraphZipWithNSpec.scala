@@ -1,14 +1,15 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
-import akka.stream.testkit._
-import scala.concurrent.duration._
-import akka.stream._
-import akka.testkit.EventFilter
 import scala.collection.immutable
+import scala.concurrent.duration._
+
+import akka.stream._
+import akka.stream.testkit._
+import akka.testkit.EventFilter
 
 class GraphZipWithNSpec extends TwoStreamsSetup {
   import GraphDSL.Implicits._

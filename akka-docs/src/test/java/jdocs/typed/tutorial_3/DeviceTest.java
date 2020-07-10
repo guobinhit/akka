@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.typed.tutorial_3;
@@ -21,7 +21,7 @@ import static org.junit.Assert.assertEquals;
 public class DeviceTest {
 //#device-read-test
 */
-public class DeviceTest extends org.scalatest.junit.JUnitSuite {
+public class DeviceTest extends org.scalatestplus.junit.JUnitSuite {
   // #device-read-test
 
   @ClassRule public static final TestKitJunitResource testKit = new TestKitJunitResource();

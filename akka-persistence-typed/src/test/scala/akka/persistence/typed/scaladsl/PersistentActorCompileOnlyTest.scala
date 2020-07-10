@@ -1,21 +1,21 @@
 /*
- * Copyright (C) 2017-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.scaladsl
 
-import akka.actor.typed.ActorSystem
-
 import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
 import scala.concurrent.duration._
+
+import com.github.ghik.silencer.silent
+
 import akka.actor.typed.{ ActorRef, Behavior }
+import akka.actor.typed.ActorSystem
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.scaladsl.TimerScheduler
 import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.RecoveryCompleted
-import com.github.ghik.silencer.silent
-
-import scala.concurrent.Future
 
 // unused names in pattern match can be useful in the docs
 @silent
@@ -218,87 +218,6 @@ object PersistentActorCompileOnlyTest {
 
   }
 
-  object Rehydrating {
-    type Id = String
-
-    sealed trait Command
-    case class AddItem(id: Id) extends Command
-    case class RemoveItem(id: Id) extends Command
-    case class GetTotalPrice(sender: ActorRef[Int]) extends Command
-    /* Internal: */
-    case class GotMetaData(data: MetaData) extends Command
-
-    /**
-     * Items have all kinds of metadata, but we only persist the 'id', and
-     * rehydrate the metadata on recovery from a registry
-     */
-    case class Item(id: Id, name: String, price: Int)
-    case class Basket(items: Seq[Item]) {
-      def updatedWith(data: MetaData): Basket = ???
-    }
-
-    sealed trait Event
-    case class ItemAdded(id: Id) extends Event
-    case class ItemRemoved(id: Id) extends Event
-
-    /*
-     * The metadata registry
-     */
-    case class GetMetaData(id: Id, sender: ActorRef[MetaData])
-    case class MetaData(id: Id, name: String, price: Int)
-    val metadataRegistry: ActorRef[GetMetaData] = ???
-
-    def isFullyHydrated(basket: Basket, ids: List[Id]) = basket.items.map(_.id) == ids
-
-    val behavior: Behavior[Command] = Behaviors.setup { ctx =>
-      var basket = Basket(Nil)
-      var stash: Seq[Command] = Nil
-      val adapt = ctx.messageAdapter((m: MetaData) => GotMetaData(m))
-
-      def addItem(id: Id, self: ActorRef[Command]) =
-        Effect.persist[Event, List[Id]](ItemAdded(id)).thenRun(_ => metadataRegistry ! GetMetaData(id, adapt))
-
-      EventSourcedBehavior[Command, Event, List[Id]](
-        persistenceId = PersistenceId("basket", "1"),
-        emptyState = Nil,
-        commandHandler = { (state, cmd) =>
-          if (isFullyHydrated(basket, state))
-            cmd match {
-              case AddItem(id)    => addItem(id, ctx.self)
-              case RemoveItem(id) => Effect.persist(ItemRemoved(id))
-              case GotMetaData(data) =>
-                basket = basket.updatedWith(data)
-                Effect.none
-              case GetTotalPrice(sender) =>
-                sender ! basket.items.map(_.price).sum
-                Effect.none
-            } else
-            cmd match {
-              case AddItem(id)    => addItem(id, ctx.self)
-              case RemoveItem(id) => Effect.persist(ItemRemoved(id))
-              case GotMetaData(data) =>
-                basket = basket.updatedWith(data)
-                if (isFullyHydrated(basket, state)) {
-                  stash.foreach(ctx.self ! _)
-                  stash = Nil
-                }
-                Effect.none
-              case cmd: GetTotalPrice =>
-                stash :+= cmd
-                Effect.none
-            }
-        },
-        eventHandler = (state, evt) =>
-          evt match {
-            case ItemAdded(id)   => id +: state
-            case ItemRemoved(id) => state.filter(_ != id)
-          }).receiveSignal {
-        case (state, RecoveryCompleted) =>
-          state.foreach(id => metadataRegistry ! GetMetaData(id, adapt))
-      }
-    }
-  }
-
   object FactoringOutEventHandling {
     sealed trait Mood
     case object Happy extends Mood
@@ -371,7 +290,7 @@ object PersistentActorCompileOnlyTest {
 
     private val commandHandler: CommandHandler[Command, Event, State] = CommandHandler.command {
       case Enough =>
-        Effect.persist(Done).thenRun((_: State) => println("yay")).thenStop
+        Effect.persist(Done).thenRun((_: State) => println("yay")).thenStop()
     }
 
     private val eventHandler: (State, Event) => State = {

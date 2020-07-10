@@ -1,14 +1,15 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.util
 
-import org.scalatest.Matchers
-import org.scalatest.WordSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+
 import akka.util.ManifestInfo.Version
 
-class ManifestInfoVersionSpec extends WordSpec with Matchers {
+class ManifestInfoVersionSpec extends AnyWordSpec with Matchers {
 
   "Version" should {
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.akka.cluster.sharding.typed
@@ -13,6 +13,9 @@ import akka.persistence.typed.PersistenceId
 import com.github.ghik.silencer.silent
 import docs.akka.persistence.typed.BlogPostEntity
 import docs.akka.persistence.typed.BlogPostEntity.Command
+
+import akka.cluster.sharding.typed.scaladsl.ClusterSharding
+import akka.cluster.sharding.typed.scaladsl.EntityTypeKey
 
 @silent
 object ShardingCompileOnlySpec {
@@ -167,6 +170,44 @@ object ShardingCompileOnlySpec {
 
     }
     //#sharded-response
+  }
+
+  object ShardRegionStateQuery {
+
+    object Counter {
+      val TypeKey = EntityTypeKey[Basics.Counter.Command]("Counter")
+    }
+
+    val replyMessageAdapter: ActorRef[akka.cluster.sharding.ShardRegion.CurrentShardRegionState] = ???
+
+    //#get-shard-region-state
+    import akka.cluster.sharding.typed.GetShardRegionState
+    import akka.cluster.sharding.ShardRegion.CurrentShardRegionState
+
+    val replyTo: ActorRef[CurrentShardRegionState] = replyMessageAdapter
+
+    ClusterSharding(system).shardState ! GetShardRegionState(Counter.TypeKey, replyTo)
+    //#get-shard-region-state
+  }
+
+  object ClusterShardingStatsQuery {
+
+    object Counter {
+      val TypeKey = EntityTypeKey[Basics.Counter.Command]("Counter")
+    }
+
+    val replyMessageAdapter: ActorRef[akka.cluster.sharding.ShardRegion.ClusterShardingStats] = ???
+
+    //#get-cluster-sharding-stats
+    import akka.cluster.sharding.typed.GetClusterShardingStats
+    import akka.cluster.sharding.ShardRegion.ClusterShardingStats
+    import scala.concurrent.duration._
+
+    val replyTo: ActorRef[ClusterShardingStats] = replyMessageAdapter
+    val timeout: FiniteDuration = 5.seconds
+
+    ClusterSharding(system).shardState ! GetClusterShardingStats(Counter.TypeKey, timeout, replyTo)
+    //#get-cluster-sharding-stats
   }
 
 }

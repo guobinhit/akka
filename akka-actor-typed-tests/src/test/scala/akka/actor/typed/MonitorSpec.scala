@@ -1,16 +1,17 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed
 
+import org.scalatest.wordspec.AnyWordSpecLike
+
+import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import akka.actor.testkit.typed.scaladsl.TestProbe
-import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.actor.typed.scaladsl.Behaviors
-import org.scalatest.WordSpecLike
 
-class MonitorSpec extends ScalaTestWithActorTestKit with WordSpecLike with LogCapturing {
+class MonitorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike with LogCapturing {
 
   "The monitor behavior" should {
 

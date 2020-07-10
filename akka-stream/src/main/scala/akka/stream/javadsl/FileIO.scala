@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.javadsl
@@ -11,7 +11,6 @@ import java.util.concurrent.CompletionStage
 
 import akka.stream.{ javadsl, scaladsl, IOResult }
 import akka.util.ByteString
-
 import akka.util.ccompat.JavaConverters._
 
 /**

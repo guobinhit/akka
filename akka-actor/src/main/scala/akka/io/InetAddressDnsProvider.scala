@@ -1,11 +1,12 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.io
 
-import akka.annotation.InternalApi
 import com.github.ghik.silencer.silent
+
+import akka.annotation.InternalApi
 
 /**
  * INTERNAL API

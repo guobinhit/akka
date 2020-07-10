@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.journal.leveldb
 
 import org.iq80.leveldb.DBIterator
+
 import akka.actor.Actor
 import akka.util.ByteString.UTF_8
 import akka.util.unused

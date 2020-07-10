@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package typed.tutorial_4
 
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
-import org.scalatest.WordSpecLike
+import org.scalatest.wordspec.AnyWordSpecLike
 import typed.tutorial_4.DeviceManager._
 
-class DeviceManagerSpec extends ScalaTestWithActorTestKit with WordSpecLike {
+class DeviceManagerSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
 
   "DeviceManager actor" must {
 

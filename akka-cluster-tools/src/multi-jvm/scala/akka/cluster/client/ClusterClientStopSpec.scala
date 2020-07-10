@@ -1,8 +1,14 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.client
+
+import scala.concurrent.Await
+import scala.concurrent.duration._
+
+import com.github.ghik.silencer.silent
+import com.typesafe.config.ConfigFactory
 
 import akka.actor.{ Actor, Props }
 import akka.cluster.Cluster
@@ -10,11 +16,6 @@ import akka.cluster.pubsub.{ DistributedPubSub, DistributedPubSubMediator }
 import akka.remote.testconductor.RoleName
 import akka.remote.testkit.{ MultiNodeConfig, MultiNodeSpec, STMultiNodeSpec }
 import akka.testkit.{ EventFilter, ImplicitSender }
-import com.typesafe.config.ConfigFactory
-import scala.concurrent.Await
-import scala.concurrent.duration._
-
-import com.github.ghik.silencer.silent
 
 object ClusterClientStopSpec extends MultiNodeConfig {
   val client = role("client")

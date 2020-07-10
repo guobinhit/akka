@@ -1,12 +1,13 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.io.dns.internal
 
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class ResolvConfParserSpec extends WordSpec with Matchers {
+class ResolvConfParserSpec extends AnyWordSpec with Matchers {
 
   private def parse(str: String): ResolvConf = {
     ResolvConfParser.parseLines(str.linesIterator)

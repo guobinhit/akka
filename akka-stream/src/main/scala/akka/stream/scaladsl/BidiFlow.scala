@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
+import scala.concurrent.duration.FiniteDuration
+
 import akka.NotUsed
 import akka.stream.{ BidiShape, _ }
 import akka.stream.impl.{ LinearTraversalBuilder, Timers, TraversalBuilder }
-
-import scala.concurrent.duration.FiniteDuration
 
 final class BidiFlow[-I1, +O1, -I2, +O2, +Mat](
     override val traversalBuilder: TraversalBuilder,

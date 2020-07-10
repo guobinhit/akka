@@ -1,6 +1,6 @@
 # Multi-DC Cluster
 
-For the Akka Classic documentation of this feature see @ref:[Classic Multi-DC Cluster](../cluster-dc.md)
+You are viewing the documentation for the new actor APIs, to view the Akka Classic documentation, see @ref:[Classic Multi-DC Cluster](../cluster-dc.md)
 
 This chapter describes how @ref[Akka Cluster](cluster.md) can be used across
 multiple data centers, availability zones or regions.
@@ -19,9 +19,11 @@ up a large cluster into smaller groups of nodes for better scalability.
 To use Akka Cluster add the following dependency in your project:
 
 @@dependency[sbt,Maven,Gradle] {
+  symbol1=AkkaVersion
+  value1="$akka.version$"
   group=com.typesafe.akka
-  artifact=akka-cluster-typed_$scala.binary_version$
-  version=$akka.version$
+  artifact=akka-cluster-typed_$scala.binary.version$
+  version=AkkaVersion
 }
 
 ## Motivation

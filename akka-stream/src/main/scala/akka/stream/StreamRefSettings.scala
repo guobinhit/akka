@@ -1,18 +1,19 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.ActorSystem
-import akka.annotation.DoNotInherit
-import akka.stream.impl.streamref.StreamRefSettingsImpl
+import scala.concurrent.duration._
+
 import com.github.ghik.silencer.silent
 import com.typesafe.config.Config
 
-import scala.concurrent.duration._
+import akka.actor.ActorSystem
+import akka.annotation.DoNotInherit
+import akka.stream.impl.streamref.StreamRefSettingsImpl
 
 @silent("deprecated")
 object StreamRefSettings {

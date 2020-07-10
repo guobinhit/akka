@@ -1,15 +1,15 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl.io.compression
 
 import java.util.zip.Deflater
 
+import scala.annotation.tailrec
+
 import akka.annotation.InternalApi
 import akka.util.{ ByteString, ByteStringBuilder }
-
-import scala.annotation.tailrec
 
 /** INTERNAL API */
 @InternalApi private[akka] class DeflateCompressor(level: Int = Deflater.BEST_COMPRESSION, nowrap: Boolean = false)

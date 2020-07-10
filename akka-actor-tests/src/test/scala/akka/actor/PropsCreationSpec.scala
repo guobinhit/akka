@@ -1,12 +1,13 @@
 /*
- * Copyright (C) 2014-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor
 
+import com.github.ghik.silencer.silent
+
 import akka.testkit.AkkaSpec
 import akka.util.unused
-import com.github.ghik.silencer.silent
 
 object PropsCreationSpec {
 

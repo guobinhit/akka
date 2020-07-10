@@ -1,22 +1,23 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed
 
 import java.util.concurrent.atomic.AtomicBoolean
 
-import akka.actor.testkit.typed.scaladsl.TestProbe
-import akka.actor.typed.scaladsl.Behaviors
-import org.scalatest.WordSpecLike
 import scala.concurrent.duration._
 
+import org.scalatest.wordspec.AnyWordSpecLike
+
 import akka.actor.ActorInitializationException
+import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.actor.testkit.typed.scaladsl.LoggingTestKit
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
-import akka.actor.testkit.typed.scaladsl.LogCapturing
+import akka.actor.testkit.typed.scaladsl.TestProbe
 import akka.actor.typed.internal.PoisonPill
 import akka.actor.typed.internal.PoisonPillInterceptor
+import akka.actor.typed.scaladsl.Behaviors
 
 object InterceptSpec {
   final case class Msg(hello: String, replyTo: ActorRef[String])
@@ -75,7 +76,7 @@ object InterceptSpec {
   }
 }
 
-class InterceptSpec extends ScalaTestWithActorTestKit with WordSpecLike with LogCapturing {
+class InterceptSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike with LogCapturing {
   import BehaviorInterceptor._
   import InterceptSpec._
 

@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package typed.tutorial_3
 
 //#device-read-test
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
-import org.scalatest.WordSpecLike
+import org.scalatest.wordspec.AnyWordSpecLike
 
-class DeviceSpec extends ScalaTestWithActorTestKit with WordSpecLike {
+class DeviceSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
   import Device._
 
   "Device actor" must {

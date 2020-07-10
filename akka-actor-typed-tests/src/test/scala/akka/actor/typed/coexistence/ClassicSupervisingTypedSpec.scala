@@ -1,8 +1,13 @@
 /*
- * Copyright (C) 2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.coexistence
+import com.typesafe.config.ConfigFactory
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.wordspec.AnyWordSpecLike
+
+import akka.{ actor => u }
 import akka.actor.Actor
 import akka.actor.testkit.typed.TestException
 import akka.actor.testkit.typed.scaladsl.LogCapturing
@@ -10,9 +15,6 @@ import akka.actor.typed._
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.scaladsl.adapter._
 import akka.testkit.TestProbe
-import akka.{ actor => u }
-import com.typesafe.config.ConfigFactory
-import org.scalatest.{ BeforeAndAfterAll, WordSpecLike }
 
 object ProbedBehavior {
   def behavior(probe: u.ActorRef): Behavior[String] = {
@@ -45,7 +47,7 @@ object ClassicSupervisingTypedSpec {
   }
 }
 
-class ClassicSupervisingTypedSpec extends WordSpecLike with LogCapturing with BeforeAndAfterAll {
+class ClassicSupervisingTypedSpec extends AnyWordSpecLike with LogCapturing with BeforeAndAfterAll {
 
   import ClassicSupervisingTypedSpec._
 
@@ -55,7 +57,7 @@ class ClassicSupervisingTypedSpec extends WordSpecLike with LogCapturing with Be
       akka.actor.testkit.typed.expect-no-message-default = 50 ms
       """))
   val classicTestKit = new akka.testkit.TestKit(classicSystem)
-  implicit val classicSender = classicTestKit.testActor
+  implicit val classicSender: u.ActorRef = classicTestKit.testActor
   import classicTestKit._
 
   "A classic actor system that spawns typed actors" should {

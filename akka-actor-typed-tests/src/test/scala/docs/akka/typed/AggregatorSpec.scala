@@ -1,17 +1,16 @@
 /*
- * Copyright (C) 2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.akka.typed
 
 import scala.concurrent.duration._
-
 import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import akka.actor.typed.ActorRef
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.Behaviors
-import org.scalatest.WordSpecLike
+import org.scalatest.wordspec.AnyWordSpecLike
 
 object AggregatorSpec {
   object IllustrateUsage {
@@ -69,7 +68,7 @@ object AggregatorSpec {
   }
 }
 
-class AggregatorSpec extends ScalaTestWithActorTestKit with WordSpecLike with LogCapturing {
+class AggregatorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike with LogCapturing {
 
   "Aggregator" must {
 

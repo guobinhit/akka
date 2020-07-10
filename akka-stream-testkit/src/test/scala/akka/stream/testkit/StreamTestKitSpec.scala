@@ -1,8 +1,10 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.testkit
+
+import scala.concurrent.duration._
 
 import akka.stream.scaladsl.Source
 import akka.stream.testkit.scaladsl.TestSink
@@ -10,8 +12,6 @@ import akka.testkit.AkkaSpec
 import akka.testkit.EventFilter
 import akka.testkit.TestEvent.Mute
 import akka.testkit.TestEvent.UnMute
-
-import scala.concurrent.duration._
 
 class StreamTestKitSpec extends AkkaSpec {
 

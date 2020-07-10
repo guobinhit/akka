@@ -1,20 +1,20 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
+import scala.concurrent.duration._
+
 import akka.NotUsed
 import akka.event.Logging
 import akka.pattern.BackoffSupervisor
-import akka.stream.Attributes.Attribute
 import akka.stream._
+import akka.stream.Attributes.Attribute
+import akka.stream.Attributes.LogLevels
 import akka.stream.impl.fusing.GraphStages.SimpleLinearGraphStage
 import akka.stream.scaladsl.RestartWithBackoffFlow.Delay
 import akka.stream.stage._
-
-import scala.concurrent.duration._
-import akka.stream.Attributes.LogLevels
 import akka.util.OptionVal
 
 /**

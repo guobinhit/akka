@@ -1,22 +1,22 @@
 /*
- * Copyright (C) 2017-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.ddata.typed.internal
 
 import scala.concurrent.duration._
 
-import akka.annotation.InternalApi
-import akka.cluster.{ ddata => dd }
-import akka.pattern.ask
 import akka.actor.typed.ActorRef
 import akka.actor.typed.Behavior
+import akka.actor.typed.Terminated
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.scaladsl.adapter._
-import akka.util.Timeout
-import akka.util.JavaDurationConverters._
+import akka.annotation.InternalApi
+import akka.cluster.{ ddata => dd }
 import akka.cluster.ddata.ReplicatedData
-import akka.actor.typed.Terminated
+import akka.pattern.ask
+import akka.util.JavaDurationConverters._
+import akka.util.Timeout
 
 /**
  * INTERNAL API

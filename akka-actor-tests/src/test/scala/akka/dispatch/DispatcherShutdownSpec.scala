@@ -1,17 +1,21 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.dispatch
 
-import akka.actor.ActorSystem
-import akka.testkit.TestKit
 import java.lang.management.ManagementFactory
-import org.scalatest.{ Matchers, WordSpec }
+
 import scala.concurrent.{ Await, Future }
 import scala.concurrent.duration._
 
-class DispatcherShutdownSpec extends WordSpec with Matchers {
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+
+import akka.actor.ActorSystem
+import akka.testkit.TestKit
+
+class DispatcherShutdownSpec extends AnyWordSpec with Matchers {
 
   "akka dispatcher" should {
 

@@ -1,20 +1,22 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.routing
 
-import scala.annotation.tailrec
-import scala.collection.immutable
 import java.util.concurrent.ThreadLocalRandom
 
+import scala.annotation.tailrec
+import scala.collection.immutable
+
+import com.github.ghik.silencer.silent
 import com.typesafe.config.Config
+
 import akka.actor.ActorCell
 import akka.actor.ActorRefWithCell
+import akka.actor.ActorSystem
 import akka.actor.SupervisorStrategy
 import akka.dispatch.Dispatchers
-import akka.actor.ActorSystem
-import com.github.ghik.silencer.silent
 
 object SmallestMailboxRoutingLogic {
   def apply(): SmallestMailboxRoutingLogic = new SmallestMailboxRoutingLogic

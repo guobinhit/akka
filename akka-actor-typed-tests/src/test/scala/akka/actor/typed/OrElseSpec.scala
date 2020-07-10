@@ -1,15 +1,16 @@
 /*
- * Copyright (C) 2017-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed
 
 import scala.annotation.tailrec
 
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+
 import akka.actor.testkit.typed.scaladsl._
 import akka.actor.typed.scaladsl.Behaviors
-import org.scalatest.Matchers
-import org.scalatest.WordSpec
 
 /**
  * Background: Originally there was an `OrElseBehavior` that could compose two `Behavior`, but that
@@ -183,7 +184,7 @@ object OrElseSpec {
 
 }
 
-class OrElseSpec extends WordSpec with Matchers with LogCapturing {
+class OrElseSpec extends AnyWordSpec with Matchers with LogCapturing {
 
   import OrElseSpec._
 

@@ -1,25 +1,30 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.concurrent.duration.FiniteDuration
+
 import akka.actor.ActorRef
 import akka.testkit.AkkaSpec
 import akka.testkit.TestActors
-import scala.concurrent.duration.FiniteDuration
+import akka.testkit.WithLogCapturing
 
 object ProxyShardingSpec {
   val config = """
-  akka.actor.provider = "cluster"
+  akka.actor.provider = cluster
+  akka.loglevel = DEBUG
+  akka.loggers = ["akka.testkit.SilenceAllTestEventListener"]
   akka.remote.classic.netty.tcp.port = 0
   akka.remote.artery.canonical.port = 0
+  akka.cluster.sharding.verbose-debug-logging = on
   """
 }
 
-class ProxyShardingSpec extends AkkaSpec(ProxyShardingSpec.config) {
+class ProxyShardingSpec extends AkkaSpec(ProxyShardingSpec.config) with WithLogCapturing {
 
   val role = "Shard"
   val clusterSharding: ClusterSharding = ClusterSharding(system)

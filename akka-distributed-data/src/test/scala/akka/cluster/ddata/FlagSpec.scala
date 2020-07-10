@@ -1,14 +1,15 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.ddata
 
-import akka.cluster.ddata.Replicator.Changed
-import org.scalatest.Matchers
-import org.scalatest.WordSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class FlagSpec extends WordSpec with Matchers {
+import akka.cluster.ddata.Replicator.Changed
+
+class FlagSpec extends AnyWordSpec with Matchers {
 
   "A Flag" must {
 

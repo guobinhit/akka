@@ -3,16 +3,18 @@ project.description: The Actor model, managing internal state and changing behav
 ---
 # Introduction to Actors
 
-For the Akka Classic documentation of this feature see @ref:[Classic Actors](../actors.md).
+You are viewing the documentation for the new actor APIs, to view the Akka Classic documentation, see @ref:[Classic Actors](../actors.md).
 
 ## Module info
 
 To use Akka Actors, add the following dependency in your project:
 
 @@dependency[sbt,Maven,Gradle] {
+  symbol1=AkkaVersion
+  value1="$akka.version$"
   group=com.typesafe.akka
-  artifact=akka-actor-typed_$scala.binary_version$
-  version=$akka.version$
+  artifact=akka-actor-typed_$scala.binary.version$
+  version=AkkaVersion
 }
 
 Both the Java and Scala DSLs of Akka modules are bundled in the same JAR. For a smooth development experience,
@@ -23,7 +25,7 @@ imports when working in Scala, or viceversa. See @ref:[IDE Tips](../additional/i
 
 ## Akka Actors
 
-The [Actor Model](http://en.wikipedia.org/wiki/Actor_model) provides a higher level of abstraction for writing concurrent
+The [Actor Model](https://en.wikipedia.org/wiki/Actor_model) provides a higher level of abstraction for writing concurrent
 and distributed systems. It alleviates the developer from having to deal with
 explicit locking and thread management, making it easier to write correct
 concurrent and parallel systems. Actors were defined in the 1973 paper by Carl
@@ -34,7 +36,8 @@ systems. The API of Akka’s Actors has borrowed some of its syntax from Erlang.
 ## First example
 
 If you are new to Akka you might want to start with reading the @ref:[Getting Started Guide](guide/introduction.md)
-and then come back here to learn more. 
+and then come back here to learn more. We also recommend watching the short 
+[introduction video to Akka actors](https://akka.io/blog/news/2019/12/03/akka-typed-actor-intro-video).  
 
 It is helpful to become familiar with the foundational, external and internal
 ecosystem of your Actors, to see what you can leverage and customize as needed, see
@@ -132,7 +135,7 @@ Scala
 Java
 :  @@snip [IntroSpec.scala](/akka-actor-typed-tests/src/test/java/jdocs/akka/typed/IntroTest.java) { #hello-world }
 
-We start an Actor system from the defined `HelloWorldMain` behavior and send two `Start` messages that
+We start an Actor system from the defined `HelloWorldMain` behavior and send two `SayHello` messages that
 will kick-off the interaction between two separate `HelloWorldBot` actors and the single `Greeter` actor.
 
 An application normally consists of a single `ActorSystem`, running many actors, per JVM. 

@@ -1,15 +1,16 @@
 /*
- * Copyright (C) 2017-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed
 
-import akka.annotation.InternalApi
-
-import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration.Duration
-import akka.util.JavaDurationConverters._
+import scala.concurrent.duration.FiniteDuration
+
 import org.slf4j.event.Level
+
+import akka.annotation.InternalApi
+import akka.util.JavaDurationConverters._
 
 object SupervisorStrategy {
 

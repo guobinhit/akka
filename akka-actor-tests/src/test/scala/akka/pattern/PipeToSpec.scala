@@ -1,13 +1,14 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.pattern
 
+import scala.concurrent.Future
+
+import akka.actor.Status
 import akka.testkit.AkkaSpec
 import akka.testkit.TestProbe
-import scala.concurrent.Future
-import akka.actor.Status
 
 class PipeToSpec extends AkkaSpec {
 

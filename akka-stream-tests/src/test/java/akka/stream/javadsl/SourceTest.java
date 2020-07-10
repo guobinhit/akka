@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.javadsl;
@@ -22,6 +22,7 @@ import akka.stream.stage.*;
 import akka.testkit.AkkaSpec;
 import akka.stream.testkit.TestPublisher;
 import akka.testkit.javadsl.TestKit;
+import com.google.common.collect.Iterables;
 import org.junit.ClassRule;
 import org.junit.Test;
 import scala.concurrent.duration.FiniteDuration;
@@ -35,6 +36,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static akka.NotUsed.notUsed;
@@ -626,6 +628,20 @@ public class SourceTest extends StreamTest {
   }
 
   @Test
+  public void mustRepeatForDocs() throws Exception {
+    // #repeat
+    Source<Integer, NotUsed> source = Source.repeat(42);
+    CompletionStage<Done> f = source.take(4).runWith(Sink.foreach(System.out::println), system);
+    // 42
+    // 42
+    // 42
+    // 42
+    // #repeat
+    final Done result = f.toCompletableFuture().get(3, TimeUnit.SECONDS);
+    assertEquals(Done.done(), result);
+  }
+
+  @Test
   public void mustBeAbleToUseQueue() throws Exception {
     final Pair<SourceQueueWithComplete<String>, CompletionStage<List<String>>> x =
         Flow.of(String.class).runWith(Source.queue(2, OverflowStrategy.fail()), Sink.seq(), system);
@@ -1156,5 +1172,40 @@ public class SourceTest extends StreamTest {
     final akka.stream.scaladsl.Source<Integer, NotUsed> scalaSource =
         akka.stream.scaladsl.Source.empty();
     Source<Integer, NotUsed> javaSource = scalaSource.asJava();
+  }
+
+  @Test
+  public void mustProperlyIterate() throws Exception {
+    final Creator<Iterator<Boolean>> input = () -> Iterables.cycle(false, true).iterator();
+
+    final CompletableFuture<List<Boolean>> future =
+        Source.fromIterator(input).grouped(10).runWith(Sink.head(), system).toCompletableFuture();
+
+    assertArrayEquals(
+        new Boolean[] {false, true, false, true, false, true, false, true, false, true},
+        future.get(1, TimeUnit.SECONDS).toArray());
+  }
+
+  @Test
+  public void mustRunSourceAndIgnoreElementsItOutputsAndOnlySignalTheCompletion() {
+    final Iterator<Integer> iterator = IntStream.range(1, 10).iterator();
+    final Creator<Iterator<Integer>> input = () -> iterator;
+    final Done completion =
+        Source.fromIterator(input).map(it -> it * 10).run(system).toCompletableFuture().join();
+    assertEquals(completion, Done.getInstance());
+  }
+
+  @Test
+  public void mustRunSourceAndIgnoreElementsItOutputsAndOnlySignalTheCompletionWithMaterializer() {
+    final Materializer materializer = Materializer.createMaterializer(system);
+    final Iterator<Integer> iterator = IntStream.range(1, 10).iterator();
+    final Creator<Iterator<Integer>> input = () -> iterator;
+    final Done completion =
+        Source.fromIterator(input)
+            .map(it -> it * 10)
+            .run(materializer)
+            .toCompletableFuture()
+            .join();
+    assertEquals(completion, Done.getInstance());
   }
 }

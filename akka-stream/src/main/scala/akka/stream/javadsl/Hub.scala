@@ -1,12 +1,12 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.javadsl
 
-import akka.NotUsed
 import java.util.function.{ BiFunction, Supplier, ToLongBiFunction }
 
+import akka.NotUsed
 import akka.annotation.DoNotInherit
 import akka.util.unused
 

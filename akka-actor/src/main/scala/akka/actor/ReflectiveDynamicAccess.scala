@@ -1,17 +1,17 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor
 
-import scala.collection.immutable
 import java.lang.reflect.InvocationTargetException
 
-import akka.annotation.DoNotInherit
-
+import scala.collection.immutable
 import scala.reflect.ClassTag
 import scala.util.Failure
 import scala.util.Try
+
+import akka.annotation.DoNotInherit
 
 /**
  * This is the default [[akka.actor.DynamicAccess]] implementation used by [[akka.actor.ExtendedActorSystem]]

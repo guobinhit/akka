@@ -1,13 +1,14 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.query
 
-import akka.NotUsed
-import akka.stream.scaladsl.Source
 import com.typesafe.config.{ Config, ConfigFactory }
+
+import akka.NotUsed
 import akka.actor.ExtendedActorSystem
+import akka.stream.scaladsl.Source
 import akka.util.unused
 
 /**

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.scaladsl
@@ -8,6 +8,10 @@ import scala.collection.immutable
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.Try
+
+import com.typesafe.config.Config
+import com.typesafe.config.ConfigFactory
+import org.scalatest.wordspec.AnyWordSpecLike
 
 import akka.actor.testkit.typed.TestException
 import akka.actor.testkit.typed.TestKitSettings
@@ -27,9 +31,6 @@ import akka.persistence.typed.RecoveryCompleted
 import akka.persistence.typed.RecoveryCompleted
 import akka.persistence.typed.RecoveryFailed
 import akka.persistence.typed.internal.JournalFailureException
-import com.typesafe.config.Config
-import com.typesafe.config.ConfigFactory
-import org.scalatest.WordSpecLike
 
 class ChaosJournal extends InmemJournal {
   var counts = Map.empty[String, Int]
@@ -82,7 +83,7 @@ object EventSourcedBehaviorFailureSpec {
 
 class EventSourcedBehaviorFailureSpec
     extends ScalaTestWithActorTestKit(EventSourcedBehaviorFailureSpec.conf)
-    with WordSpecLike
+    with AnyWordSpecLike
     with LogCapturing {
 
   implicit val testSettings: TestKitSettings = TestKitSettings(system)

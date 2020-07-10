@@ -1,17 +1,17 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.receptionist
+
+import scala.concurrent.Future
+import scala.concurrent.duration._
+import scala.util.Success
 
 import akka.actor.typed.{ ActorRef, ActorSystem }
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.scaladsl.Behaviors
 import akka.util.Timeout
-
-import scala.concurrent.Future
-import scala.concurrent.duration._
-import scala.util.Success
 
 object ReceptionistApiSpec {
 
@@ -59,7 +59,7 @@ object ReceptionistApiSpec {
 
       // another more "normal" is subscribe using an adapter
       // FIXME inference doesn't work with partial function
-      val adapter = context.spawnMessageAdapter { listing: Receptionist.Listing =>
+      val adapter = context.spawnMessageAdapter { (listing: Receptionist.Listing) =>
         listing.serviceInstances(key) // Set[ActorRef[String]] !!
       }
       context.system.receptionist ! Receptionist.Subscribe(key, adapter)

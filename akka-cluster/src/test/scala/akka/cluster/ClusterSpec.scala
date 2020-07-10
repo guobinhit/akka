@@ -1,18 +1,24 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
 
 import java.lang.management.ManagementFactory
+import javax.management.ObjectName
+
+import scala.concurrent.Await
+import scala.concurrent.duration._
+
+import com.typesafe.config.ConfigFactory
 
 import akka.actor.ActorSystem
 import akka.actor.Address
 import akka.actor.CoordinatedShutdown
 import akka.actor.ExtendedActorSystem
 import akka.actor.Props
-import akka.cluster.ClusterEvent.MemberEvent
 import akka.cluster.ClusterEvent._
+import akka.cluster.ClusterEvent.MemberEvent
 import akka.cluster.InternalClusterAction._
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
@@ -21,11 +27,6 @@ import akka.stream.scaladsl.StreamRefs
 import akka.testkit.AkkaSpec
 import akka.testkit.ImplicitSender
 import akka.testkit.TestProbe
-import com.typesafe.config.ConfigFactory
-import javax.management.ObjectName
-
-import scala.concurrent.Await
-import scala.concurrent.duration._
 
 object ClusterSpec {
   val config = """

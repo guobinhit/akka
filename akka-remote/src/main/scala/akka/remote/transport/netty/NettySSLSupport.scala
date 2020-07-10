@@ -1,14 +1,15 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.transport.netty
 
-import akka.japi.Util._
+import com.github.ghik.silencer.silent
 import com.typesafe.config.Config
 import org.jboss.netty.handler.ssl.SslHandler
+
+import akka.japi.Util._
 import akka.util.ccompat._
-import com.github.ghik.silencer.silent
 
 /**
  * INTERNAL API

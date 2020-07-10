@@ -1,14 +1,15 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.javadsl
 
-import akka.NotUsed
-import akka.japi.function.Creator
+import scala.concurrent.duration.FiniteDuration
+
 import com.github.ghik.silencer.silent
 
-import scala.concurrent.duration.FiniteDuration
+import akka.NotUsed
+import akka.japi.function.Creator
 
 /**
  * A RestartSource wraps a [[Source]] that gets restarted when it completes or fails.

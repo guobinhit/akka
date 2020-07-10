@@ -1,12 +1,11 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package typed.tutorial_3
 
 import akka.actor.typed.PostStop
 import akka.actor.typed.Signal
-import akka.actor.typed.scaladsl.LoggerOps
 
 object DeviceInProgress1 {
 
@@ -30,6 +29,7 @@ object DeviceInProgress2 {
   import akka.actor.typed.scaladsl.AbstractBehavior
   import akka.actor.typed.scaladsl.ActorContext
   import akka.actor.typed.scaladsl.Behaviors
+  import akka.actor.typed.scaladsl.LoggerOps
 
   object Device {
     def apply(groupId: String, deviceId: String): Behavior[Command] =

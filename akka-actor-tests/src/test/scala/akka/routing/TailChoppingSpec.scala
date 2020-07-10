@@ -1,14 +1,16 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.routing
 
 import java.util.concurrent.atomic.AtomicInteger
-import akka.actor.Status.Failure
+
 import scala.concurrent.Await
 import scala.concurrent.duration._
+
 import akka.actor.{ Actor, ActorRef, ActorSystem, Props }
+import akka.actor.Status.Failure
 import akka.pattern.{ ask, AskTimeoutException }
 import akka.testkit._
 

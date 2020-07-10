@@ -1,21 +1,22 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.classic.transport
 
-import akka.actor.{ Actor, ActorRef, ActorSystem, ExtendedActorSystem, Props, RootActorPath, _ }
-import akka.dispatch.sysmsg.{ Failed, SystemMessage }
-import akka.remote.transport.AssociationHandle
-import akka.remote.transport.FailureInjectorTransportAdapter.{ Drop, One }
-import akka.remote.transport.ThrottlerTransportAdapter._
-import akka.remote.{ EndpointException, QuarantinedEvent, RARP }
-import akka.testkit.{ AkkaSpec, DefaultTimeout, EventFilter, ImplicitSender, TestEvent, TimingTest, _ }
-import com.typesafe.config.{ Config, ConfigFactory }
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
 import com.github.ghik.silencer.silent
+import com.typesafe.config.{ Config, ConfigFactory }
+
+import akka.actor.{ Actor, ActorRef, ActorSystem, ExtendedActorSystem, Props, RootActorPath, _ }
+import akka.dispatch.sysmsg.{ Failed, SystemMessage }
+import akka.remote.{ EndpointException, QuarantinedEvent, RARP }
+import akka.remote.transport.AssociationHandle
+import akka.remote.transport.FailureInjectorTransportAdapter.{ Drop, One }
+import akka.remote.transport.ThrottlerTransportAdapter._
+import akka.testkit.{ AkkaSpec, DefaultTimeout, EventFilter, ImplicitSender, TestEvent, TimingTest, _ }
 
 object SystemMessageDeliveryStressTest {
   val msgCount = 5000

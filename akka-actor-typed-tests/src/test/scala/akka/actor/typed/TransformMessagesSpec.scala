@@ -1,21 +1,23 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed
 
 import java.util.concurrent.atomic.AtomicInteger
 
+import scala.concurrent.duration._
+
+import org.scalatest.wordspec.AnyWordSpecLike
+
+import akka.actor
 import akka.actor.ActorInitializationException
+import akka.actor.testkit.typed.scaladsl.LogCapturing
+import akka.actor.testkit.typed.scaladsl.LoggingTestKit
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import akka.actor.testkit.typed.scaladsl.TestProbe
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.scaladsl.adapter._
-import org.scalatest.WordSpecLike
-import scala.concurrent.duration._
-
-import akka.actor.testkit.typed.scaladsl.LoggingTestKit
-import akka.actor.testkit.typed.scaladsl.LogCapturing
 
 object TransformMessagesSpec {
 
@@ -33,9 +35,9 @@ object TransformMessagesSpec {
       }
 }
 
-class TransformMessagesSpec extends ScalaTestWithActorTestKit with WordSpecLike with LogCapturing {
+class TransformMessagesSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike with LogCapturing {
 
-  implicit val classicSystem = system.toClassic
+  implicit val classicSystem: actor.ActorSystem = system.toClassic
 
   def intToString(probe: ActorRef[String]): Behavior[Int] = {
     Behaviors

@@ -1,12 +1,13 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
 
 import scala.collection.immutable.{ SortedSet, TreeMap }
-import org.scalatest.WordSpec
-import org.scalatest.Matchers
+
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 object VectorClockPerfSpec {
   import VectorClock._
@@ -27,7 +28,7 @@ object VectorClockPerfSpec {
 
 }
 
-class VectorClockPerfSpec extends WordSpec with Matchers {
+class VectorClockPerfSpec extends AnyWordSpec with Matchers {
   import VectorClock._
   import VectorClockPerfSpec._
 

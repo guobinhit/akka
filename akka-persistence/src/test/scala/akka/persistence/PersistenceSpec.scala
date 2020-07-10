@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence
@@ -7,16 +7,14 @@ package akka.persistence
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 
-import org.scalatest.matchers.{ MatchResult, Matcher }
-
 import scala.collection.immutable
 import scala.reflect.ClassTag
 import scala.util.control.NoStackTrace
 
 import com.typesafe.config.{ Config, ConfigFactory }
-
 import org.apache.commons.io.FileUtils
 import org.scalatest.BeforeAndAfterEach
+import org.scalatest.matchers.{ MatchResult, Matcher }
 
 import akka.actor.Props
 import akka.testkit.AkkaSpec

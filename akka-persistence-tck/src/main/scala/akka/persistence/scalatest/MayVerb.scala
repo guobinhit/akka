@@ -1,12 +1,12 @@
 /*
- * Copyright (C) 2014-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.scalatest
 
 import org.scalactic.source.Position
 import org.scalatest.exceptions.TestCanceledException
-import org.scalatest.words.StringVerbBlockRegistration
+import org.scalatest.verbs.StringVerbBlockRegistration
 
 trait MayVerb {
   import MayVerb._

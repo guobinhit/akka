@@ -1,8 +1,13 @@
 /*
- * Copyright (C) 2017-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.typed.scaladsl
+
+import scala.concurrent.Future
+import scala.util.Success
+
+import org.scalatest.wordspec.AnyWordSpecLike
 
 import akka.Done
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
@@ -11,12 +16,8 @@ import akka.stream.AbruptStageTerminationException
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
-import org.scalatest.WordSpecLike
 
-import scala.concurrent.Future
-import scala.util.Success
-
-class MaterializerForTypedSpec extends ScalaTestWithActorTestKit with WordSpecLike {
+class MaterializerForTypedSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
 
   "Materialization in typed" should {
 

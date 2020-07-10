@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -11,14 +11,14 @@ import scala.concurrent.Promise
 import scala.util.Try
 
 import akka.Done
+import akka.event.Logging
+import akka.remote.UniqueAddress
 import akka.stream.Attributes
 import akka.stream.FlowShape
 import akka.stream.Inlet
 import akka.stream.Outlet
 import akka.stream.stage._
-import akka.remote.UniqueAddress
 import akka.util.OptionVal
-import akka.event.Logging
 
 /** INTERNAL API: marker trait for protobuf-serializable artery messages */
 private[remote] trait ArteryMessage extends Serializable

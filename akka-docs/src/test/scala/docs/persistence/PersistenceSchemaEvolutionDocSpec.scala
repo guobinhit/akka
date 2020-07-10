@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.persistence
@@ -14,13 +14,13 @@ import akka.persistence.journal.{ EventAdapter, EventSeq }
 import akka.serialization.{ SerializationExtension, SerializerWithStringManifest }
 import akka.testkit.TestKit
 import com.typesafe.config._
-import org.scalatest.WordSpec
+import org.scalatest.wordspec.AnyWordSpec
 import spray.json.JsObject
 
 import scala.concurrent.duration._
 import docs.persistence.proto.FlightAppModels
 
-class PersistenceSchemaEvolutionDocSpec extends WordSpec {
+class PersistenceSchemaEvolutionDocSpec extends AnyWordSpec {
 
   val customSerializerConfig =
     """

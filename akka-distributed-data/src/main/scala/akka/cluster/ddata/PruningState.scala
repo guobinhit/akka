@@ -1,13 +1,13 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.ddata
 
 import akka.actor.Address
+import akka.annotation.InternalApi
 import akka.cluster.Member
 import akka.cluster.UniqueAddress
-import akka.annotation.InternalApi
 import akka.util.unused
 
 /**

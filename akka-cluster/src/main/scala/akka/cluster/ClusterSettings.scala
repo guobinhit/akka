@@ -1,21 +1,21 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
 
 import scala.collection.immutable
+import scala.concurrent.duration.Duration
+import scala.concurrent.duration.FiniteDuration
+
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigObject
 
-import scala.concurrent.duration.Duration
 import akka.actor.Address
 import akka.actor.AddressFromURIString
 import akka.annotation.InternalApi
-import akka.util.Helpers.{ toRootLowerCase, ConfigOps, Requiring }
-
-import scala.concurrent.duration.FiniteDuration
 import akka.japi.Util.immutableSeq
+import akka.util.Helpers.{ toRootLowerCase, ConfigOps, Requiring }
 
 object ClusterSettings {
   type DataCenter = String

@@ -1,14 +1,15 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.scaladsl
 
+import org.scalatest.wordspec.AnyWordSpecLike
+import org.slf4j.LoggerFactory
+
+import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.actor.testkit.typed.scaladsl.LoggingTestKit
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
-import akka.actor.testkit.typed.scaladsl.LogCapturing
-import org.scalatest.WordSpecLike
-import org.slf4j.LoggerFactory
 
 object LoggerOpsSpec {
   case class Value1(i: Int)
@@ -16,7 +17,7 @@ object LoggerOpsSpec {
   case class Value3(i: Int)
 }
 
-class LoggerOpsSpec extends ScalaTestWithActorTestKit with WordSpecLike with LogCapturing {
+class LoggerOpsSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike with LogCapturing {
   import LoggerOpsSpec._
 
   val log = LoggerFactory.getLogger(getClass)

@@ -1,14 +1,16 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
 
+import scala.concurrent.duration._
+
 import com.typesafe.config.ConfigFactory
+
 import akka.remote.testkit.MultiNodeConfig
 import akka.remote.testkit.MultiNodeSpec
 import akka.testkit._
-import scala.concurrent.duration._
 
 object JoinInProgressMultiJvmSpec extends MultiNodeConfig {
   val first = role("first")
@@ -48,7 +50,7 @@ abstract class JoinInProgressSpec extends MultiNodeSpec(JoinInProgressMultiJvmSp
 
       runOn(first) {
         val until = Deadline.now + 5.seconds
-        while (!until.isOverdue) {
+        while (!until.isOverdue()) {
           Thread.sleep(200)
           cluster.failureDetector.isAvailable(second) should ===(true)
         }

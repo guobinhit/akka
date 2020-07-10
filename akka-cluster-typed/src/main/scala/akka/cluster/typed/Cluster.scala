@@ -1,19 +1,19 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.typed
 
+import scala.collection.immutable
+
 import akka.actor.Address
-import akka.annotation.DoNotInherit
-import akka.cluster.ClusterEvent.{ ClusterDomainEvent, CurrentClusterState }
-import akka.cluster._
-import akka.japi.Util
 import akka.actor.typed.{ ActorRef, ActorSystem, Extension, ExtensionId }
 import akka.actor.typed.ExtensionSetup
+import akka.annotation.DoNotInherit
+import akka.cluster._
+import akka.cluster.ClusterEvent.{ ClusterDomainEvent, CurrentClusterState }
 import akka.cluster.typed.internal.AdapterClusterImpl
-
-import scala.collection.immutable
+import akka.japi.Util
 
 /**
  * Messages for subscribing to changes in the cluster state

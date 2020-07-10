@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.akka.cluster.ddata.typed.scaladsl
@@ -8,10 +8,9 @@ import scala.concurrent.duration._
 import akka.cluster.ddata.SelfUniqueAddress
 import akka.cluster.ddata.typed.scaladsl.DistributedData
 import akka.cluster.ddata.typed.scaladsl.Replicator
-import org.scalatest.WordSpecLike
-
 import akka.actor.testkit.typed.scaladsl._
 import com.typesafe.config.ConfigFactory
+import org.scalatest.wordspec.AnyWordSpecLike
 
 // #sample
 import akka.actor.typed.ActorRef
@@ -35,7 +34,7 @@ object ReplicatorDocSpec {
   // #sample
   object Counter {
     sealed trait Command
-    final case object Increment extends Command
+    case object Increment extends Command
     final case class GetValue(replyTo: ActorRef[Int]) extends Command
     final case class GetCachedValue(replyTo: ActorRef[Int]) extends Command
     case object Unsubscribe extends Command
@@ -113,7 +112,7 @@ object ReplicatorDocSpec {
 
 class ReplicatorDocSpec
     extends ScalaTestWithActorTestKit(ReplicatorDocSpec.config)
-    with WordSpecLike
+    with AnyWordSpecLike
     with LogCapturing {
 
   import ReplicatorDocSpec._

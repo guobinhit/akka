@@ -1,20 +1,21 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence
 
 import java.util.concurrent.atomic.AtomicReference
 
+import scala.annotation.tailrec
+import scala.reflect.ClassTag
+import scala.util.Failure
+
+import com.typesafe.config.Config
+
 import akka.actor.{ ExtendedActorSystem, Extension, ExtensionId }
 import akka.annotation.InternalApi
 import akka.event.Logging
 import akka.persistence.PersistencePlugin.PluginHolder
-import com.typesafe.config.Config
-
-import scala.annotation.tailrec
-import scala.reflect.ClassTag
-import scala.util.Failure
 
 /**
  * INTERNAL API

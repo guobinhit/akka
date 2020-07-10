@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.javadsl
@@ -13,8 +13,8 @@ import akka.actor.typed.Behavior
 import akka.actor.typed.internal.BehaviorImpl.DeferredBehavior
 import akka.actor.typed.javadsl.ActorContext
 import akka.annotation.InternalApi
-import akka.persistence.typed.EventAdapter
 import akka.persistence.typed._
+import akka.persistence.typed.EventAdapter
 import akka.persistence.typed.internal._
 import akka.util.unused
 
@@ -23,10 +23,17 @@ abstract class EventSourcedBehavior[Command, Event, State] private[akka] (
     onPersistFailure: Optional[BackoffSupervisorStrategy])
     extends DeferredBehavior[Command] {
 
+  /**
+   * @param persistenceId stable unique identifier for the event sourced behavior
+   */
   def this(persistenceId: PersistenceId) = {
     this(persistenceId, Optional.empty[BackoffSupervisorStrategy])
   }
 
+  /**
+   * @param persistenceId stable unique identifier for the event sourced behavior
+   * @param onPersistFailure BackoffSupervisionStrategy for persist failures
+   */
   def this(persistenceId: PersistenceId, onPersistFailure: BackoffSupervisorStrategy) = {
     this(persistenceId, Optional.ofNullable(onPersistFailure))
   }
@@ -117,6 +124,7 @@ abstract class EventSourcedBehavior[Command, Event, State] private[akka] (
    * You may configure the behavior to skip replaying snapshots completely, in which case the recovery will be
    * performed by replaying all events -- which may take a long time.
    */
+  @deprecated("override recovery instead", "2.6.5")
   def snapshotSelectionCriteria: SnapshotSelectionCriteria = SnapshotSelectionCriteria.latest
 
   /**
@@ -143,6 +151,12 @@ abstract class EventSourcedBehavior[Command, Event, State] private[akka] (
    * By default, retention is disabled and snapshots are not saved and deleted automatically.
    */
   def retentionCriteria: RetentionCriteria = RetentionCriteria.disabled
+
+  /**
+   * Override to change the strategy for recovery of snapshots and events.
+   * By default, snapshots and events are recovered.
+   */
+  def recovery: Recovery = Recovery.default
 
   /**
    * The `tagger` function should give event tags, which will be used in persistence query
@@ -187,7 +201,7 @@ abstract class EventSourcedBehavior[Command, Event, State] private[akka] (
       .snapshotAdapter(snapshotAdapter())
       .withJournalPluginId(journalPluginId)
       .withSnapshotPluginId(snapshotPluginId)
-      .withSnapshotSelectionCriteria(snapshotSelectionCriteria)
+      .withRecovery(recovery.asScala)
 
     val handler = signalHandler()
     val behaviorWithSignalHandler =

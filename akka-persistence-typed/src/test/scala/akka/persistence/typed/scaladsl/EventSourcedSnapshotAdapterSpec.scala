@@ -1,11 +1,15 @@
 /*
- * Copyright (C) 2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.scaladsl
 
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
+
+import com.typesafe.config.Config
+import com.typesafe.config.ConfigFactory
+import org.scalatest.wordspec.AnyWordSpecLike
 
 import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
@@ -16,9 +20,6 @@ import akka.persistence.query.journal.leveldb.scaladsl.LeveldbReadJournal
 import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.SnapshotAdapter
 import akka.serialization.jackson.CborSerializable
-import com.typesafe.config.Config
-import com.typesafe.config.ConfigFactory
-import org.scalatest.WordSpecLike
 
 object EventSourcedSnapshotAdapterSpec {
   private val conf: Config = ConfigFactory.parseString(s"""
@@ -35,9 +36,10 @@ object EventSourcedSnapshotAdapterSpec {
 
 class EventSourcedSnapshotAdapterSpec
     extends ScalaTestWithActorTestKit(EventSourcedSnapshotAdapterSpec.conf)
-    with WordSpecLike
+    with AnyWordSpecLike
     with LogCapturing {
   import EventSourcedSnapshotAdapterSpec._
+
   import akka.actor.typed.scaladsl.adapter._
 
   val pidCounter = new AtomicInteger(0)

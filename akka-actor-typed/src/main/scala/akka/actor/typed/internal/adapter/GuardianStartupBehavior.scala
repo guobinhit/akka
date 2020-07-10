@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.internal.adapter
@@ -73,7 +73,8 @@ private[akka] object GuardianStartupBehavior {
       next
     else {
       ctx.asScala.system.terminate()
-      Behaviors.ignore
+      // return next so that the adapter can call post stop on the previous behavior
+      next
     }
   }
 }

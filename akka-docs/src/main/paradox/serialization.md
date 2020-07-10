@@ -8,9 +8,11 @@ project.description: Serialization APIs built into Akka.
 To use Serialization, you must add the following dependency in your project:
 
 @@dependency[sbt,Maven,Gradle] {
+  symbol1=AkkaVersion
+  value1="$akka.version$"
   group="com.typesafe.akka"
-  artifact="akka-actor_$scala.binary_version$"
-  version="$akka.version$"
+  artifact="akka-actor_$scala.binary.version$"
+  version=AkkaVersion
 }
 
 ## Introduction
@@ -59,7 +61,7 @@ you would need to reference it as `Wrapper$Message` instead of `Wrapper.Message`
 
 @@@
 
-Akka provides serializers for several primitive types and [protobuf](http://code.google.com/p/protobuf/)
+Akka provides serializers for several primitive types and [protobuf](https://github.com/protocolbuffers/protobuf)
 `com.google.protobuf.GeneratedMessage` (protobuf2) and `com.google.protobuf.GeneratedMessageV3` (protobuf3) by default (the latter only if
 depending on the akka-remote module), so normally you don't need to add
 configuration for that if you send raw protobuf messages as actor messages.
@@ -81,6 +83,7 @@ Scala
 
 Java
 :  @@snip [SerializationDocTest.java](/akka-docs/src/test/java/jdocs/serialization/SerializationDocTest.java) { #programmatic }
+
 
 The manifest is a type hint so that the same serializer can be used for different classes.
 
@@ -118,6 +121,21 @@ Scala
 
 Java
 :  @@snip [SerializationDocTest.java](/akka-docs/src/test/java/jdocs/serialization/SerializationDocTest.java) { #my-own-serializer }
+
+The `identifier` must be unique. The identifier is used when selecting which serializer to use for deserialization.
+If you have accidentally configured several serializers with the same identifier that will be detected and prevent
+the `ActorSystem` from being started. It can be a hardcoded value because it must remain the same value to support
+rolling updates. 
+
+@@@ div { .group-scala }
+
+If you prefer to define the identifier in cofiguration that is supported by the `BaseSerializer` trait, which
+implements the `def identifier` by reading it from configuration based on the serializer's class name:
+
+Scala
+:  @@snip [SerializationDocSpec.scala](/akka-docs/src/test/scala/docs/serialization/SerializationDocSpec.scala) { #serialization-identifiers-config }
+
+@@@
 
 The manifest is a type hint so that the same serializer can be used for different
 classes. The manifest parameter in @scala[`fromBinary`]@java[`fromBinaryJava`] is the class of the object that

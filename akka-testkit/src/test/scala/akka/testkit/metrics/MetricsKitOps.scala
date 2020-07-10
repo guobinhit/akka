@@ -1,11 +1,12 @@
 /*
- * Copyright (C) 2009-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.testkit.metrics
 
-import com.codahale.metrics._
 import java.util
+
+import com.codahale.metrics._
 import com.codahale.metrics.jvm
 import com.codahale.metrics.jvm.MemoryUsageGaugeSet
 

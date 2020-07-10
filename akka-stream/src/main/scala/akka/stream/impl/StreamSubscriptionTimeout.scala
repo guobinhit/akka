@@ -1,18 +1,19 @@
 /*
- * Copyright (C) 2014-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl
 
-import akka.actor._
-import akka.annotation.InternalApi
-import akka.stream.StreamSubscriptionTimeoutTerminationMode.{ CancelTermination, NoopTermination, WarnTermination }
-import akka.stream.StreamSubscriptionTimeoutSettings
+import scala.concurrent.duration.FiniteDuration
+import scala.util.control.NoStackTrace
+
 import com.github.ghik.silencer.silent
 import org.reactivestreams._
 
-import scala.concurrent.duration.FiniteDuration
-import scala.util.control.NoStackTrace
+import akka.actor._
+import akka.annotation.InternalApi
+import akka.stream.StreamSubscriptionTimeoutSettings
+import akka.stream.StreamSubscriptionTimeoutTerminationMode.{ CancelTermination, NoopTermination, WarnTermination }
 
 /**
  * INTERNAL API

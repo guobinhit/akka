@@ -1,16 +1,12 @@
-# fromFuture
+# Source.future
 
 Send the single value of the `Future` when it completes and there is demand.
 
 @ref[Source operators](../index.md#source-operators)
 
-@@@div { .group-scala }
-
 ## Signature
 
-@@signature [Source.scala](/akka-stream/src/main/scala/akka/stream/scaladsl/Source.scala) { #future }
-
-@@@
+@apidoc[Source.future](Source$) { scala="#future[T](futureElement:scala.concurrent.Future[T]):akka.stream.scaladsl.Source[T,akka.NotUsed]" }
 
 ## Description
 
@@ -20,6 +16,7 @@ If the future fails the stream is failed with that exception.
 For the corresponding operator for the Java standard library `CompletionStage` see @ref:[completionStage](completionStage.md).
 
 ## Example
+
 Scala
 :  @@snip [SourceFromFuture.scala](/akka-docs/src/test/scala/docs/stream/operators/SourceOperators.scala) { #sourceFromFuture }
 

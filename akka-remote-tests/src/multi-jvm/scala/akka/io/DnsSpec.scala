@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.io
@@ -8,9 +8,10 @@ import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
 
+import com.github.ghik.silencer.silent
+
 import akka.remote.RemotingMultiNodeSpec
 import akka.remote.testkit.MultiNodeConfig
-import com.github.ghik.silencer.silent
 
 object DnsSpec extends MultiNodeConfig {
   val first = role("first")

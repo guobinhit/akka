@@ -1,9 +1,10 @@
 /*
- * Copyright (C) 2016-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.serialization.jackson
 
+import java.nio.charset.StandardCharsets
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDateTime
@@ -11,11 +12,39 @@ import java.time.temporal.ChronoUnit
 import java.util.Arrays
 import java.util.Locale
 import java.util.Optional
+import java.util.UUID
 import java.util.logging.FileHandler
 
 import scala.collection.immutable
-import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration._
+import scala.concurrent.duration.FiniteDuration
+
+import com.fasterxml.jackson.annotation.JsonSubTypes
+import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.fasterxml.jackson.core.JsonFactory
+import com.fasterxml.jackson.core.JsonGenerator
+import com.fasterxml.jackson.core.JsonParser
+import com.fasterxml.jackson.core.StreamReadFeature
+import com.fasterxml.jackson.core.StreamWriteFeature
+import com.fasterxml.jackson.core.`type`.TypeReference
+import com.fasterxml.jackson.databind.DeserializationFeature
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.MapperFeature
+import com.fasterxml.jackson.databind.Module
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.databind.exc.InvalidTypeIdException
+import com.fasterxml.jackson.databind.json.JsonMapper
+import com.fasterxml.jackson.databind.node.IntNode
+import com.fasterxml.jackson.databind.node.ObjectNode
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.fasterxml.jackson.module.scala.JsonScalaEnumeration
+import com.github.ghik.silencer.silent
+import com.typesafe.config.ConfigFactory
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
+
 import akka.actor.ActorRef
 import akka.actor.ActorSystem
 import akka.actor.Address
@@ -28,29 +57,6 @@ import akka.serialization.Serialization
 import akka.serialization.SerializationExtension
 import akka.testkit.TestActors
 import akka.testkit.TestKit
-import com.fasterxml.jackson.annotation.JsonSubTypes
-import com.fasterxml.jackson.annotation.JsonTypeInfo
-import com.fasterxml.jackson.core.JsonFactory
-import com.fasterxml.jackson.databind.MapperFeature
-import com.fasterxml.jackson.databind.DeserializationFeature
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.Module
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.SerializationFeature
-import com.fasterxml.jackson.databind.exc.InvalidTypeIdException
-import com.fasterxml.jackson.databind.node.IntNode
-import com.fasterxml.jackson.databind.node.ObjectNode
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
-import com.typesafe.config.ConfigFactory
-import org.scalatest.BeforeAndAfterAll
-import org.scalatest.Matchers
-import org.scalatest.WordSpecLike
-import com.fasterxml.jackson.core.JsonParser
-import com.fasterxml.jackson.core.JsonGenerator
-import com.fasterxml.jackson.core.StreamReadFeature
-import com.fasterxml.jackson.core.StreamWriteFeature
-import com.fasterxml.jackson.databind.json.JsonMapper
-import com.github.ghik.silencer.silent
 
 object ScalaTestMessages {
   trait TestMessage
@@ -69,6 +75,7 @@ object ScalaTestMessages {
   final case class BooleanCommand(published: Boolean) extends TestMessage
   final case class TimeCommand(timestamp: LocalDateTime, duration: FiniteDuration) extends TestMessage
   final case class InstantCommand(instant: Instant) extends TestMessage
+  final case class UUIDCommand(uuid: UUID) extends TestMessage
   final case class CollectionsCommand(strings: List[String], objects: Vector[SimpleCommand]) extends TestMessage
   final case class CommandWithActorRef(name: String, replyTo: ActorRef) extends TestMessage
   final case class CommandWithTypedActorRef(name: String, replyTo: akka.actor.typed.ActorRef[String])
@@ -93,6 +100,21 @@ object ScalaTestMessages {
 
   final case class OldCommandNotInBindings(name: String)
 
+  // #jackson-scala-enumeration
+  object Planet extends Enumeration {
+    type Planet = Value
+    val Mercury, Venus, Earth, Mars, Krypton = Value
+  }
+
+  // Uses default Jackson serialization format for Scala Enumerations
+  final case class Alien(name: String, planet: Planet.Planet) extends TestMessage
+
+  // Serializes planet values as a JsonString
+  class PlanetType extends TypeReference[Planet.type] {}
+  final case class Superhero(name: String, @JsonScalaEnumeration(classOf[PlanetType]) planet: Planet.Planet)
+      extends TestMessage
+  // #jackson-scala-enumeration
+
 }
 
 class ScalaTestEventMigration extends JacksonMigration {
@@ -103,9 +125,9 @@ class ScalaTestEventMigration extends JacksonMigration {
 
   override def transform(fromVersion: Int, json: JsonNode): JsonNode = {
     val root = json.asInstanceOf[ObjectNode]
-    root.set("field1V2", root.get("field1"))
+    root.set[JsonNode]("field1V2", root.get("field1"))
     root.remove("field1")
-    root.set("field2", IntNode.valueOf(17))
+    root.set[JsonNode]("field2", IntNode.valueOf(17))
     root
   }
 }
@@ -449,13 +471,22 @@ class JacksonJsonSerializerSpec extends JacksonSerializerSpec("jackson-json") {
       }
     }
 
-    "allow deserialization of classes in configured whitelist-class-prefix" in {
+    "allow deserialization of classes in configured allowed-class-prefix" in {
       val json = """{"name":"abc"}"""
 
       val old = SimpleCommand("abc")
       val serializer = serializerFor(old)
 
       val expected = OldCommandNotInBindings("abc")
+
+      deserializeFromJsonString(json, serializer.identifier, serializer.manifest(expected)) should ===(expected)
+    }
+
+    "deserialize Enumerations as String when configured" in {
+      val json = """{"name":"Superman", "planet":"Krypton"}"""
+
+      val expected = Superhero("Superman", Planet.Krypton)
+      val serializer = serializerFor(expected)
 
       deserializeFromJsonString(json, serializer.identifier, serializer.manifest(expected)) should ===(expected)
     }
@@ -476,6 +507,41 @@ class JacksonJsonSerializerSpec extends JacksonSerializerSpec("jackson-json") {
       val msg = SimpleCommand("0" * 1000)
       val bytes = serializeToBinary(msg)
       JacksonSerializer.isGZipped(bytes) should ===(false)
+    }
+
+    "compress large payload with lz4" in withSystem("""
+        akka.serialization.jackson.jackson-json.compression {
+          algorithm = lz4
+          compress-larger-than = 32 KiB
+        }
+      """) { sys =>
+      val conf = JacksonObjectMapperProvider.configForBinding("jackson-json", sys.settings.config)
+      val compressLargerThan = conf.getBytes("compression.compress-larger-than")
+      def check(msg: AnyRef, compressed: Boolean): Unit = {
+        val bytes = serializeToBinary(msg, sys)
+        JacksonSerializer.isLZ4(bytes) should ===(compressed)
+        bytes.length should be < compressLargerThan.toInt
+        checkSerialization(msg, sys)
+      }
+      check(SimpleCommand("0" * (compressLargerThan + 1).toInt), true)
+    }
+
+    "not compress small payload with lz4" in withSystem("""
+        akka.serialization.jackson.jackson-json.compression {
+          algorithm = lz4
+          compress-larger-than = 32 KiB
+        }
+      """) { sys =>
+      val conf = JacksonObjectMapperProvider.configForBinding("jackson-json", sys.settings.config)
+      val compressLargerThan = conf.getBytes("compression.compress-larger-than")
+      def check(msg: AnyRef, compressed: Boolean): Unit = {
+        val bytes = serializeToBinary(msg, sys)
+        JacksonSerializer.isLZ4(bytes) should ===(compressed)
+        bytes.length should be < compressLargerThan.toInt
+        checkSerialization(msg, sys)
+      }
+      check(SimpleCommand("Bob"), false)
+      check(new SimpleCommandNotCaseClass("Bob"), false)
     }
   }
 
@@ -541,6 +607,17 @@ class JacksonJsonSerializerSpec extends JacksonSerializerSpec("jackson-json") {
       """)(sys => checkSerialization(Elephant("Dumbo", 1), sys))
       }
     }
+
+    // issue #28918
+    "cbor compatibility for reading json" in {
+      val msg = SimpleCommand("abc")
+      val jsonSerializer = serializerFor(msg)
+      jsonSerializer.identifier should ===(31)
+      val manifest = jsonSerializer.manifest(msg)
+      val bytes = jsonSerializer.toBinary(msg)
+      val deserialized = serialization().deserialize(bytes, 32, manifest).get
+      deserialized should be(msg)
+    }
   }
 }
 
@@ -561,9 +638,9 @@ abstract class JacksonSerializerSpec(serializerName: String)
         "akka.serialization.jackson.JavaTestMessages$$TestMessage" = $serializerName
       }
     }
-    akka.serialization.jackson.whitelist-class-prefix = ["akka.serialization.jackson.ScalaTestMessages$$OldCommand"]
+    akka.serialization.jackson.allowed-class-prefix = ["akka.serialization.jackson.ScalaTestMessages$$OldCommand"]
     """)))
-    with WordSpecLike
+    with AnyWordSpecLike
     with Matchers
     with BeforeAndAfterAll {
 
@@ -597,7 +674,21 @@ abstract class JacksonSerializerSpec(serializerName: String)
     val serializer = serializerFor(obj, sys)
     val manifest = serializer.manifest(obj)
     val serializerId = serializer.identifier
-    val blob = serializeToBinary(obj)
+    val blob = serializeToBinary(obj, sys)
+
+    // Issue #28918, check that CBOR format is used (not JSON).
+    if (blob.length > 0) {
+      serializer match {
+        case _: JacksonJsonSerializer =>
+          if (!JacksonSerializer.isGZipped(blob) && !JacksonSerializer.isLZ4(blob))
+            new String(blob.take(1), StandardCharsets.UTF_8) should ===("{")
+        case _: JacksonCborSerializer =>
+          new String(blob.take(1), StandardCharsets.UTF_8) should !==("{")
+        case _ =>
+          throw new IllegalArgumentException(s"Unexpected serializer $serializer")
+      }
+    }
+
     val deserialized = deserializeFromBinary(blob, serializerId, manifest, sys)
     deserialized should ===(obj)
   }
@@ -719,6 +810,14 @@ abstract class JacksonSerializerSpec(serializerName: String)
       checkSerialization(BooleanCommand(false))
     }
 
+    "serialize message with Enumeration property (using Jackson legacy format)" in {
+      checkSerialization(Alien("E.T.", Planet.Mars))
+    }
+
+    "serialize message with Enumeration property as a String" in {
+      checkSerialization(Superhero("Kal El", Planet.Krypton))
+    }
+
     "serialize message with Optional property" in {
       checkSerialization(OptionCommand(Some("abc")))
       checkSerialization(OptionCommand(None))
@@ -746,6 +845,11 @@ abstract class JacksonSerializerSpec(serializerName: String)
         val deserialized = javaSerializer.fromBinary(blob, javaSerializer.manifest(javaMsg))
         deserialized should ===(javaMsg)
       }
+    }
+
+    "serialize message with UUID property" in {
+      val uuid = UUID.randomUUID()
+      checkSerialization(UUIDCommand(uuid))
     }
 
     "serialize case object" in {
@@ -796,17 +900,17 @@ abstract class JacksonSerializerSpec(serializerName: String)
       event2.field2 should ===(17)
     }
 
-    "not allow serialization of blacklisted class" in {
+    "not allow serialization of deny listed class" in {
       val serializer = serializerFor(SimpleCommand("ok"))
       val fileHandler = new FileHandler(s"target/tmp-${this.getClass.getName}")
       try {
         intercept[IllegalArgumentException] {
           serializer.manifest(fileHandler)
-        }.getMessage.toLowerCase should include("blacklist")
+        }.getMessage.toLowerCase should include("deny list")
       } finally fileHandler.close()
     }
 
-    "not allow deserialization of blacklisted class" in {
+    "not allow deserialization of deny list class" in {
       withTransportInformation() { () =>
         val msg = SimpleCommand("ok")
         val serializer = serializerFor(msg)
@@ -814,18 +918,18 @@ abstract class JacksonSerializerSpec(serializerName: String)
         intercept[IllegalArgumentException] {
           // maliciously changing manifest
           serializer.fromBinary(blob, classOf[FileHandler].getName)
-        }.getMessage.toLowerCase should include("blacklist")
+        }.getMessage.toLowerCase should include("deny list")
       }
     }
 
-    "not allow serialization of class that is not in serialization-bindings (whitelist)" in {
+    "not allow serialization of class that is not in serialization-bindings (allowed-class-prefix)" in {
       val serializer = serializerFor(SimpleCommand("ok"))
       intercept[IllegalArgumentException] {
         serializer.manifest(Status.Success("bad"))
-      }.getMessage.toLowerCase should include("whitelist")
+      }.getMessage.toLowerCase should include("allowed-class-prefix")
     }
 
-    "not allow deserialization of class that is not in serialization-bindings (whitelist)" in {
+    "not allow deserialization of class that is not in serialization-bindings (allowed-class-prefix)" in {
       withTransportInformation() { () =>
         val msg = SimpleCommand("ok")
         val serializer = serializerFor(msg)
@@ -833,7 +937,7 @@ abstract class JacksonSerializerSpec(serializerName: String)
         intercept[IllegalArgumentException] {
           // maliciously changing manifest
           serializer.fromBinary(blob, classOf[Status.Success].getName)
-        }.getMessage.toLowerCase should include("whitelist")
+        }.getMessage.toLowerCase should include("allowed-class-prefix")
       }
     }
 

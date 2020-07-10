@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2019 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.persistence.query
@@ -32,9 +32,8 @@ object LeveldbPersistenceQueryDocSpec {
   //#tagger
 }
 
-class LeveldbPersistenceQueryDocSpec(config: String) extends AkkaSpec(config) {
-
-  def this() = this("")
+class LeveldbPersistenceQueryDocSpec
+    extends AkkaSpec("akka.persistence.journal.plugin = akka.persistence.journal.leveldb") {
 
   "LeveldbPersistentQuery" must {
     "demonstrate how get ReadJournal" in {
