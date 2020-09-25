@@ -539,6 +539,8 @@ private[akka] class ShardRegion(
 
   val cluster = Cluster(context.system)
 
+  private val verboseDebug = context.system.settings.config.getBoolean("akka.cluster.sharding.verbose-debug-logging")
+
   // sort by age, oldest first
   val ageOrdering = Member.ageOrdering
   var membersByAge: immutable.SortedSet[Member] = immutable.SortedSet.empty(ageOrdering)
@@ -812,7 +814,7 @@ private[akka] class ShardRegion(
       }
 
     case msg: GetClusterShardingStats =>
-      coordinator.fold(sender ! ClusterShardingStats(Map.empty))(_.forward(msg))
+      coordinator.fold(sender() ! ClusterShardingStats(Map.empty))(_.forward(msg))
 
     case GetShardRegionState =>
       replyToRegionStateQuery(sender())
@@ -831,8 +833,17 @@ private[akka] class ShardRegion(
       val shards = regions(ref)
       regionByShard --= shards
       regions -= ref
-      if (log.isDebugEnabled)
-        log.debug("{}: Region [{}] with shards [{}] terminated", typeName, ref, shards.mkString(", "))
+      if (log.isDebugEnabled) {
+        if (verboseDebug)
+          log.debug(
+            "{}: Region [{}] terminated with [{}] shards [{}]",
+            typeName,
+            ref,
+            shards.size,
+            shards.mkString(", "))
+        else
+          log.debug("{}: Region [{}] terminated with [{}] shards", typeName, ref, shards.size)
+      }
     } else if (shardsByRef.contains(ref)) {
       val shardId: ShardId = shardsByRef(ref)
 
@@ -931,12 +942,23 @@ private[akka] class ShardRegion(
         val coordinatorMessage =
           if (cluster.state.unreachable(membersByAge.head)) s"Coordinator [${membersByAge.head}] is unreachable."
           else s"Coordinator [${membersByAge.head}] is reachable."
-        log.warning(
-          "{}: Trying to register to coordinator at [{}], but no acknowledgement. Total [{}] buffered messages. [{}]",
-          typeName,
-          actorSelections.mkString(", "),
-          shardBuffers.totalSize,
-          coordinatorMessage)
+        val bufferSize = shardBuffers.totalSize
+        if (bufferSize > 0) {
+          if (log.isWarningEnabled) {
+            log.warning(
+              "{}: Trying to register to coordinator at [{}], but no acknowledgement. Total [{}] buffered messages. [{}]",
+              typeName,
+              actorSelections.mkString(", "),
+              bufferSize,
+              coordinatorMessage)
+          }
+        } else if (log.isDebugEnabled) {
+          log.debug(
+            "{}: Trying to register to coordinator at [{}], but no acknowledgement. No buffered messages yet. [{}]",
+            typeName,
+            actorSelections.mkString(", "),
+            coordinatorMessage)
+        }
       } else {
         // Members start off as "Removed"
         val partOfCluster = cluster.selfMember.status != MemberStatus.Removed
@@ -946,11 +968,17 @@ private[akka] class ShardRegion(
           else
             "Probably, no seed-nodes configured and manual cluster or bootstrap join not performed?"
 
-        log.warning(
-          "{}: No coordinator found to register. {} Total [{}] buffered messages.",
-          typeName,
-          possibleReason,
-          shardBuffers.totalSize)
+        val bufferSize = shardBuffers.totalSize
+        if (bufferSize > 0) {
+          log.warning(
+            "{}: No coordinator found to register. {} Total [{}] buffered messages.",
+            typeName,
+            possibleReason,
+            bufferSize)
+        } else {
+          log.debug("{}: No coordinator found to register. {} No buffered messages yet.", typeName, possibleReason)
+        }
+
       }
     }
   }
@@ -1087,7 +1115,8 @@ private[akka] class ShardRegion(
               case None => bufferMessage(shardId, msg, snd)
             }
           case Some(shardRegionRef) =>
-            log.debug("{}: Forwarding message for shard [{}] to [{}]", typeName, shardId, shardRegionRef)
+            if (verboseDebug)
+              log.debug("{}: Forwarding message for shard [{}] to [{}]", typeName, shardId, shardRegionRef)
             shardRegionRef.tell(msg, snd)
           case None if shardId == null || shardId == "" =>
             log.warning("{}: Shard must not be empty, dropping message [{}]", typeName, msg.getClass.getName)
@@ -1140,7 +1169,9 @@ private[akka] class ShardRegion(
   }
 
   def sendGracefulShutdownToCoordinator(): Unit = {
-    if (gracefulShutdownInProgress)
+    if (gracefulShutdownInProgress) {
+      log.debug("Sending graceful shutdown to {}", coordinatorSelection)
       coordinatorSelection.foreach(_ ! GracefulShutdownReq(self))
+    }
   }
 }

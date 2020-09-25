@@ -150,6 +150,35 @@ class SourceOrFlow {
     // #merge
   }
 
+  void mergePreferredExample() {
+    // #mergePreferred
+    Source<Integer, NotUsed> sourceA = Source.from(Arrays.asList(1, 2, 3, 4));
+    Source<Integer, NotUsed> sourceB = Source.from(Arrays.asList(10, 20, 30, 40));
+
+    sourceA.mergePreferred(sourceB, false, false).runWith(Sink.foreach(System.out::print), system);
+    // prints 1, 10, ... since both sources have their first element ready and the left source is
+    // preferred
+
+    sourceA.mergePreferred(sourceB, true, false).runWith(Sink.foreach(System.out::print), system);
+    // prints 10, 1, ... since both sources have their first element ready and the right source is
+    // preferred
+    // #mergePreferred
+  }
+
+  void mergePrioritizedExample() {
+    // #mergePrioritized
+    Source<Integer, NotUsed> sourceA = Source.from(Arrays.asList(1, 2, 3, 4));
+    Source<Integer, NotUsed> sourceB = Source.from(Arrays.asList(10, 20, 30, 40));
+
+    sourceA
+        .mergePrioritized(sourceB, 99, 1, false)
+        .runWith(Sink.foreach(System.out::print), system);
+    // prints e.g. 1, 10, 2, 3, 4, 20, 30, 40 since both sources have their first element ready and
+    // the left source has higher priority – if both sources have elements ready, sourceA has a
+    // 99% chance of being picked next while sourceB has a 1% chance
+    // #mergePrioritized
+  }
+
   void mergeSortedExample() {
     // #merge-sorted
     Source<Integer, NotUsed> sourceA = Source.from(Arrays.asList(1, 3, 5, 7));
@@ -425,6 +454,15 @@ class SourceOrFlow {
     // 3
     // -1
     // #dropWhile
+  }
+
+  static void reduceExample() {
+    // #reduceExample
+    Source<Integer, NotUsed> source = Source.range(1, 100).reduce((acc, element) -> acc + element);
+    CompletionStage<Integer> result = source.runWith(Sink.head(), system);
+    result.thenAccept(System.out::println);
+    // 5050
+    // #reduceExample
   }
 
   void watchExample() {

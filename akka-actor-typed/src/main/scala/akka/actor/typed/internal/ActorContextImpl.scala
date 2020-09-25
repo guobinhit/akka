@@ -21,7 +21,7 @@ import akka.actor.typed.internal.adapter.ActorSystemAdapter
 import akka.annotation.InternalApi
 import akka.dispatch.ExecutionContexts
 import akka.pattern.StatusReply
-import akka.util.{ BoxedType, Timeout }
+import akka.util.BoxedType
 import akka.util.JavaDurationConverters._
 import akka.util.OptionVal
 import akka.util.Timeout
@@ -318,7 +318,7 @@ import scala.util.Success
       case OptionVal.Some(t) =>
         throw new IllegalStateException(
           s"Invalid access by thread from the outside of $self. " +
-          s"Current message is processed by $t, but also accessed from from ${Thread.currentThread()}.")
+          s"Current message is processed by $t, but also accessed from ${Thread.currentThread()}.")
     }
   }
 
