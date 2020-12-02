@@ -196,7 +196,8 @@ in one rebalance round. The lower result of `rebalance-relative-limit` and `reba
 
 An alternative allocation strategy is the @apidoc[ExternalShardAllocationStrategy] which allows
 explicit control over where shards are allocated via the @apidoc[ExternalShardAllocation] extension.
-This can be used, for example, to match up Kafka Partition consumption with shard locations.
+
+This can be used, for example, to match up Kafka Partition consumption with shard locations. The video [How to co-locate Kafka Partitions with Akka Cluster Shards](https://akka.io/blog/news/2020/03/18/akka-sharding-kafka-video) explains a setup for it. Alpakka Kafka provides [an extension for Akka Cluster Sharding](https://doc.akka.io/docs/alpakka-kafka/current/cluster-sharding.html).
 
 To use it set it as the allocation strategy on your `Entity`:
 
@@ -463,6 +464,30 @@ rebalanced to other nodes.
 
 See @ref:[How To Startup when Cluster Size Reached](cluster.md#how-to-startup-when-a-cluster-size-is-reached)
 for more information about `min-nr-of-members`.
+
+## Health check
+
+An [Akka Management compatible health check](https://doc.akka.io/docs/akka-management/current/healthchecks.html) is included that returns healthy once the local shard region
+has registered with the coordinator. This health check should be used in cases where you don't want to receive production traffic until the local shard region is ready to retrieve locations
+for shards. For shard regions that aren't critical and therefore should not block this node becoming ready do not include them.
+
+The health check does not fail after an initial successful check. Once a shard region is registered and is operational it stays available for incoming message. 
+
+Cluster sharding enables the health check automatically. To disable:
+
+```ruby
+akka.management.health-checks.readiness-checks {
+  sharding = ""
+}
+```
+
+Monitoring of each shard region is off by default. Add them by defining the entity type names (`EntityTypeKey.name`):
+
+```ruby
+akka.cluster.sharding.healthcheck.names = ["counter-1", "HelloWorld"]
+```
+
+See also additional information about how to make @ref:[smooth rolling updates](../additional/rolling-updates.md#cluster-sharding).
 
 ## Inspecting cluster sharding state
 

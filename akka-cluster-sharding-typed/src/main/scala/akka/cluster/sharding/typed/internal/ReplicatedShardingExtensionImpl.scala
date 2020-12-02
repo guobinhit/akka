@@ -42,12 +42,13 @@ private[akka] final class ReplicatedShardingExtensionImpl(system: ActorSystem[_]
   private def initInternal[M](
       thisReplica: Option[ReplicaId],
       settings: ReplicatedEntityProvider[M]): ReplicatedSharding[M] = {
+    require(settings.replicas.nonEmpty, "Replicas must not be empty")
     val sharding = ClusterSharding(system)
     val initializedReplicas = settings.replicas.map {
       case (replicaSettings, typeName) =>
         // start up a sharding instance per replica id
         logger.infoN(
-          "Starting Replicated Event Sourcing sharding for replica [{}] (ShardType: [{}])",
+          "Starting Replicated Event Sourcing sharding for replica [{}] (ShardType: [{}], typeName [{}])",
           replicaSettings.replicaId.id,
           replicaSettings.entity.typeKey.name)
         val regionOrProxy = sharding.init(replicaSettings.entity)
@@ -58,13 +59,14 @@ private[akka] final class ReplicatedShardingExtensionImpl(system: ActorSystem[_]
           regionOrProxy,
           replicaSettings.entity.dataCenter)
     }
-    val replicaToRegionOrProxy = initializedReplicas.map {
-      case (_, replicaId, _, regionOrProxy, _) => replicaId -> regionOrProxy
-    }.toMap
     if (settings.directReplication) {
+      val replicaToRegionOrProxy = initializedReplicas.map {
+        case (_, replicaId, _, regionOrProxy, _) => replicaId -> regionOrProxy
+      }.toMap
+      val typeNameWithoutReplicaId = settings.replicas.head._2
       logger.infoN("Starting Replicated Event Sourcing Direct Replication")
       system.systemActorOf(
-        ShardingDirectReplication(thisReplica, replicaToRegionOrProxy),
+        ShardingDirectReplication(typeNameWithoutReplicaId, thisReplica, replicaToRegionOrProxy),
         s"directReplication-${counter.incrementAndGet()}")
     }
 

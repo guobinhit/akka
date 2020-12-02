@@ -73,6 +73,11 @@ private[akka] final class ArterySettings private (config: Config) {
   val LogReceive: Boolean = getBoolean("log-received-messages")
   val LogSend: Boolean = getBoolean("log-sent-messages")
 
+  val LogFrameSizeExceeding: Option[Int] = {
+    if (toRootLowerCase(getString("log-frame-size-exceeding")) == "off") None
+    else Some(getBytes("log-frame-size-exceeding").toInt)
+  }
+
   val Transport: Transport = toRootLowerCase(getString("transport")) match {
     case AeronUpd.configName => AeronUpd
     case Tcp.configName      => Tcp
@@ -152,7 +157,18 @@ private[akka] final class ArterySettings private (config: Config) {
     val ShutdownFlushTimeout: FiniteDuration =
       config
         .getMillisDuration("shutdown-flush-timeout")
-        .requiring(interval => interval > Duration.Zero, "shutdown-flush-timeout must be more than zero")
+        .requiring(timeout => timeout > Duration.Zero, "shutdown-flush-timeout must be more than zero")
+    val DeathWatchNotificationFlushTimeout: FiniteDuration = {
+      toRootLowerCase(config.getString("death-watch-notification-flush-timeout")) match {
+        case "off" => Duration.Zero
+        case _ =>
+          config
+            .getMillisDuration("death-watch-notification-flush-timeout")
+            .requiring(
+              interval => interval > Duration.Zero,
+              "death-watch-notification-flush-timeout must be more than zero, or off")
+      }
+    }
     val InboundRestartTimeout: FiniteDuration =
       config
         .getMillisDuration("inbound-restart-timeout")

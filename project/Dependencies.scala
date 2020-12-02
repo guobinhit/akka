@@ -13,13 +13,13 @@ object Dependencies {
 
   lazy val java8CompatVersion = settingKey[String]("The version of scala-java8-compat to use.")
 
-  val junitVersion = "4.13"
+  val junitVersion = "4.13.1"
   val slf4jVersion = "1.7.30"
   // check agrona version when updating this
-  val aeronVersion = "1.30.0"
+  val aeronVersion = "1.31.1"
   // needs to be inline with the aeron version, check
   // https://github.com/real-logic/aeron/blob/1.x.y/build.gradle
-  val agronaVersion = "1.7.2"
+  val agronaVersion = "1.8.0"
   val nettyVersion = "3.10.6.Final"
   val jacksonVersion = "2.10.5"
   val protobufJavaVersion = "3.11.4"
@@ -32,8 +32,8 @@ object Dependencies {
 
   val sslConfigVersion = "0.4.2"
 
-  val scalaTestVersion = "3.1.1"
-  val scalaCheckVersion = "1.14.3"
+  val scalaTestVersion = "3.1.4"
+  val scalaCheckVersion = "1.15.1"
 
   val Versions =
     Seq(
@@ -125,10 +125,10 @@ object Dependencies {
       // The 'scalaTestPlus' projects are independently versioned,
       // but the version of each module starts with the scalatest
       // version it was intended to work with
-      val scalatestJUnit = "org.scalatestplus" %% "junit-4-12" % (scalaTestVersion + ".0") % "test" // ApacheV2
+      val scalatestJUnit = "org.scalatestplus" %% "junit-4-13" % (scalaTestVersion + ".0") % "test" // ApacheV2
       val scalatestTestNG = "org.scalatestplus" %% "testng-6-7" % (scalaTestVersion + ".0") % "test" // ApacheV2
       val scalatestScalaCheck = "org.scalatestplus" %% "scalacheck-1-14" % (scalaTestVersion + ".0") % "test" // ApacheV2
-      val scalatestMockito = "org.scalatestplus" %% "mockito-3-2" % (scalaTestVersion + ".0") % "test" // ApacheV2
+      val scalatestMockito = "org.scalatestplus" %% "mockito-3-3" % (scalaTestVersion + ".0") % "test" // ApacheV2
 
       val pojosr = "com.googlecode.pojosr" % "de.kalpatec.pojosr.framework" % "0.2.1" % "test" // ApacheV2
       val tinybundles = "org.ops4j.pax.tinybundles" % "tinybundles" % "3.0.0" % "test" // ApacheV2
@@ -141,8 +141,8 @@ object Dependencies {
       val dockerClient = "com.spotify" % "docker-client" % "8.16.0" % "test" // ApacheV2
 
       // metrics, measurements, perf testing
-      val metrics = "io.dropwizard.metrics" % "metrics-core" % "4.1.12.1" % "test" // ApacheV2
-      val metricsJvm = "io.dropwizard.metrics" % "metrics-jvm" % "4.1.12.1" % "test" // ApacheV2
+      val metrics = "io.dropwizard.metrics" % "metrics-core" % "4.1.14" % "test" // ApacheV2
+      val metricsJvm = "io.dropwizard.metrics" % "metrics-jvm" % "4.1.14" % "test" // ApacheV2
       val latencyUtils = "org.latencyutils" % "LatencyUtils" % "2.0.3" % "test" // Free BSD
       val hdrHistogram = "org.hdrhistogram" % "HdrHistogram" % "2.1.12" % "test" // CC0
       val metricsAll = Seq(metrics, metricsJvm, latencyUtils, hdrHistogram)

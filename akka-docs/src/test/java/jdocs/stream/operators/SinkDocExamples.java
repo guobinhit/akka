@@ -114,6 +114,23 @@ public class SinkDocExamples {
     // #fold
   }
 
+  static NotUsed cancelledExample() {
+    // #cancelled
+    Source<Integer, NotUsed> source = Source.range(1, 5);
+    NotUsed sum = source.runWith(Sink.cancelled(), system);
+    return sum;
+    // #cancelled
+  }
+
+  static void headOptionExample() {
+    // #headoption
+    Source<Integer, NotUsed> source = Source.empty();
+    CompletionStage<Optional<Integer>> result = source.runWith(Sink.headOption(), system);
+    result.thenAccept(System.out::println);
+    // Optional.empty
+    // #headoption
+  }
+
   static void ignoreExample() {
     // #ignore
     Source<String, NotUsed> lines = readLinesFromFile();
