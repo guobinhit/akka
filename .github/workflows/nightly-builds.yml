@@ -1,0 +1,251 @@
+name: Nightly Builds
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # scacap/action-surefire-report (see https://github.com/ScaCap/action-surefire-report/pull/88/files)
+  checks: write
+  pull-requests: write
+
+jobs:
+
+  akka-cluster-metrics-sigar:
+    name: Akka Cluster Metrics Test with Sigar
+    runs-on: ubuntu-22.04
+    if: github.repository == 'akka/akka'
+    steps:
+
+      - name: Checkout
+        # https://github.com/actions/checkout/releases
+        # v4.1.1
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+        with:
+          fetch-depth: 0
+
+      - name: Cache Coursier cache
+        # https://github.com/coursier/cache-action/releases
+        # v6.4.5
+        uses: coursier/cache-action@1ff273bff02a8787bc9f1877d347948af647956d
+
+      - name: Set up JDK 11
+        # https://github.com/coursier/setup-action/releases
+        # v1.3.5
+        uses: coursier/setup-action@7bde40eee928896f074dbb76d22dd772eed5c65f
+        with:
+          jvm: temurin:1.11
+
+      - name: sbt akka-cluster-metrics/test
+        run: |-
+          cp .jvmopts-ci .jvmopts
+          sbt \
+            -Djava.security.egd=file:/dev/./urandom \
+            -Dakka.test.sigar=true \
+            -Dakka.cluster.assert=on \
+            -Dakka.test.timefactor=2 \
+            -Dakka.actor.testkit.typed.timefactor=2 \
+            -Dakka.test.tags.exclude=gh-exclude,timing \
+            -Dakka.log.timestamps=true \
+            -Dmultinode.XX:MetaspaceSize=128M \
+            -Dmultinode.Xms256M \
+            -Dmultinode.Xmx256M \
+            -Dmultinode.Xlog:gc \
+            -Dmultinode.XX:+AlwaysActAsServerClassMachine \
+            clean akka-cluster-metrics/test
+
+      - name: Test Reports
+        # Makes it easier to spot failures instead of looking at the logs.
+        if: ${{ failure() }}
+        # https://github.com/ScaCap/action-surefire-report/releases/
+        # v1.0.13
+        uses: scacap/action-surefire-report@482f012643ed0560e23ef605a79e8e87ca081648
+        with:
+          report_paths: '**/target/test-reports/TEST-*.xml'
+          fail_if_no_tests: false
+          skip_publishing: true
+
+      - name: Email on failure
+        if: ${{ failure() }}
+        uses: dawidd6/action-send-mail@6063705cefe50cb915fc53bb06d4049cae2953b2
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{secrets.MAIL_USERNAME}}
+          password: ${{secrets.MAIL_PASSWORD}}
+          subject: "Failed: ${{ github.workflow }} / ${{ github.job }}"
+          to: ${{secrets.MAIL_SEND_TO}}
+          from: Akka CI
+          body: |
+            Job ${{ github.job }} in workflow ${{ github.workflow }} of ${{github.repository}} failed!
+            https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
+
+  jdk-nightly-build:
+    name: JDK ${{ matrix.jdkVersion }} / Scala ${{ matrix.scalaVersion }}
+    runs-on: ubuntu-22.04
+    if: github.repository == 'akka/akka'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # leaving out some combinations (note that `build-test-prValidations.yml` doesn't run all test
+          - { scalaVersion: "2.13", jdkVersion: "1.11.0", jvmName: "temurin:1.11.0", extraOpts: '' }
+          - { scalaVersion: "2.13", jdkVersion: "1.17.0", jvmName: "temurin:1.17.0", extraOpts: '' }
+          - { scalaVersion: "2.13", jdkVersion: "1.21.0", jvmName: "temurin:1.21", extraOpts: '' }
+
+          # { scalaVersion: "3.3",  jdkVersion: "1.11.0", jvmName: "temurin:1.11.0", extraOpts: '' }
+          - { scalaVersion: "3.3",  jdkVersion: "1.17.0", jvmName: "temurin:1.17.0", extraOpts: '' }
+    steps:
+      - name: Checkout
+        # https://github.com/actions/checkout/releases
+        # v4.1.1
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+        with:
+          fetch-depth: 0
+
+      - name: Cache Coursier cache
+        # https://github.com/coursier/cache-action/releases
+        # v6.4.5
+        uses: coursier/cache-action@1ff273bff02a8787bc9f1877d347948af647956d
+
+      - name: Set up JDK ${{ matrix.jdkVersion }}
+        # https://github.com/coursier/setup-action/releases
+        # v1.3.5
+        uses: coursier/setup-action@7bde40eee928896f074dbb76d22dd772eed5c65f
+        with:
+          jvm: ${{ matrix.jvmName }}
+
+      - name: Compile and Test
+        # note that this is not running any multi-jvm tests because multi-in-test=false
+        run: |-
+          cp .jvmopts-ci .jvmopts
+          sbt \
+            -Dakka.cluster.assert=on \
+            -Dakka.log.timestamps=true \
+            -Dakka.test.timefactor=2 \
+            -Dakka.actor.testkit.typed.timefactor=2 \
+            -Dakka.test.tags.exclude=gh-exclude,timing \
+            -Dakka.test.multi-in-test=false \
+            ${{ matrix.extraOpts }} \
+            clean "+~ ${{ matrix.scalaVersion }} test" checkTestsHaveRun
+
+      - name: Test Reports
+        # Makes it easier to spot failures instead of looking at the logs.
+        if: ${{ failure() }}
+        # https://github.com/ScaCap/action-surefire-report/releases/
+        # v1.0.13
+        uses: scacap/action-surefire-report@482f012643ed0560e23ef605a79e8e87ca081648
+        with:
+          report_paths: '**/target/test-reports/TEST-*.xml'
+          fail_if_no_tests: false
+
+      # Archive test results so we can do some diagnostics later
+      - name: Upload test results
+        uses: actions/upload-artifact@v3.1.1
+        if: success() || failure()        # run this step even if previous step failed
+        with:
+          name: 'test-results-${{ matrix.jdkVersion }}-${{ matrix.scalaVersion }}'
+          path: '**/target/test-reports/TEST-*.xml'
+
+      - name: Docs
+        # Docs generation requires JDK 11. Checks with `startsWith` helps
+        # the check to be more resilient if the JDK version changes to a
+        # more specific one such as adopt@1.11.0-9.
+        if: ${{ startsWith(matrix.jdkVersion, '1.11') }}
+        run: |-
+          sudo apt-get install graphviz
+          cp .jvmopts-ci .jvmopts
+          sbt \
+            -Dakka.genjavadoc.enabled=true \
+            "+~ ${{ matrix.scalaVersion }} doc"
+
+      - name: Publish
+        # Publish (osgi bundle) not working with JDK 17, issue #31132
+        if: ${{ startsWith(matrix.jdkVersion, '1.11') }}
+        run: |-
+          sudo apt-get install graphviz
+          cp .jvmopts-ci .jvmopts
+          sbt \
+            -Dakka.build.scalaVersion=${{ matrix.scalaVersion }} \
+            "+~ ${{ matrix.scalaVersion }} publishLocal publishM2"
+
+      - name: Email on failure
+        if: ${{ failure() }}
+        uses: dawidd6/action-send-mail@6063705cefe50cb915fc53bb06d4049cae2953b2
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{secrets.MAIL_USERNAME}}
+          password: ${{secrets.MAIL_PASSWORD}}
+          subject: "Failed: ${{ github.workflow }} / ${{ github.job }}"
+          to: ${{secrets.MAIL_SEND_TO}}
+          from: Akka CI
+          body: |
+            Job ${{ github.job }} in workflow ${{ github.workflow }} of ${{github.repository}} failed!
+            https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
+
+  akka-artery-aeron-tests:
+    name: Akka Artery Aeron Tests
+    runs-on: ubuntu-22.04
+    if: github.repository == 'akka/akka'
+    strategy:
+      fail-fast: false
+      matrix:
+        command:
+          - akka-remote/test akka-remote-tests/test
+          - akka-cluster/test akka-cluster-typed/test
+    steps:
+      - name: Checkout
+        # https://github.com/actions/checkout/releases
+        # v4.1.1
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+        with:
+          # we don't know what commit the last tag was it's safer to get entire repo so previousStableVersion resolves
+          fetch-depth: 0
+
+      - name: Cache Coursier cache
+        # https://github.com/coursier/cache-action/releases
+        # v6.4.5
+        uses: coursier/cache-action@1ff273bff02a8787bc9f1877d347948af647956d
+
+      - name: Set up JDK 11
+        # https://github.com/coursier/setup-action/releases
+        # v1.3.5
+        uses: coursier/setup-action@7bde40eee928896f074dbb76d22dd772eed5c65f
+        with:
+          jvm: temurin:1.11
+
+      - name: sbt ${{ matrix.command }}
+        # note that this is not running any multi-jvm tests because multi-in-test=false
+        run: |-
+          cp .jvmopts-ci .jvmopts
+          sbt \
+          -Djava.security.egd=file:/dev/./urandom \
+          -Dakka.remote.artery.transport=aeron-udp \
+          -Dakka.test.timefactor=2 \
+          -Dakka.actor.testkit.typed.timefactor=2 \
+          -Dakka.test.tags.exclude=gh-exclude,gh-exclude-aeron,timing \
+          -Dakka.test.multi-in-test=false \
+          -Dakka.cluster.assert=on \
+          clean ${{ matrix.command }}
+
+      - name: Email on failure
+        if: ${{ failure() }}
+        uses: dawidd6/action-send-mail@6063705cefe50cb915fc53bb06d4049cae2953b2
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{secrets.MAIL_USERNAME}}
+          password: ${{secrets.MAIL_PASSWORD}}
+          subject: "Failed: ${{ github.workflow }} / ${{ github.job }}"
+          to: ${{secrets.MAIL_SEND_TO}}
+          from: Akka CI
+          body: |
+            Job ${{ github.job }} in workflow ${{ github.workflow }} of ${{github.repository}} failed!
+            https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
+

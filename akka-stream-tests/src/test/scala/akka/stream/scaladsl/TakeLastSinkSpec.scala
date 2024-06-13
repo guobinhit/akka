@@ -1,18 +1,17 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
+import scala.annotation.nowarn
 import scala.collection.immutable
 import scala.concurrent.{ Await, Future }
-
-import com.github.ghik.silencer.silent
 
 import akka.stream.{ AbruptTerminationException, ActorMaterializer, ActorMaterializerSettings }
 import akka.stream.testkit.{ StreamSpec, TestPublisher }
 
-@silent
+@nowarn
 class TakeLastSinkSpec extends StreamSpec {
 
   val settings = ActorMaterializerSettings(system).withInputBuffer(initialSize = 2, maxSize = 16)

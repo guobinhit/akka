@@ -1,22 +1,27 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
 
-import akka.testkit.AkkaSpec
-import akka.testkit.TestProbe
-import akka.testkit.WithLogCapturing
+import scala.concurrent.duration._
+
 import com.typesafe.config.ConfigFactory
 import org.scalatest.concurrent.ScalaFutures
 
-import scala.concurrent.duration._
+import akka.cluster.Cluster
+import akka.cluster.MemberStatus
+import akka.testkit.AkkaSpec
+import akka.testkit.TestProbe
+import akka.testkit.WithLogCapturing
 
 object ClusterShardingHealthCheckSpec {
   val config = ConfigFactory.parseString("""
-          akka.loglevel = DEBUG
-          akka.loggers = ["akka.testkit.SilenceAllTestEventListener"]
-            """.stripMargin)
+    akka.loglevel = DEBUG
+    akka.loggers = ["akka.testkit.SilenceAllTestEventListener"]
+    akka.actor.provider = cluster
+    akka.remote.artery.canonical.port = 0
+    """)
 }
 
 class ClusterShardingHealthCheckSpec
@@ -29,7 +34,7 @@ class ClusterShardingHealthCheckSpec
       val shardRegionProbe = TestProbe()
       val check = new ClusterShardingHealthCheck(
         system,
-        new ClusterShardingHealthCheckSettings(Set.empty, 1.second),
+        new ClusterShardingHealthCheckSettings(Set.empty, 1.second, 10.seconds),
         _ => shardRegionProbe.ref)
       check().futureValue shouldEqual true
     }
@@ -37,7 +42,7 @@ class ClusterShardingHealthCheckSpec
       val shardRegionProbe = TestProbe()
       val check = new ClusterShardingHealthCheck(
         system,
-        new ClusterShardingHealthCheckSettings(Set("cat"), 1.second),
+        new ClusterShardingHealthCheckSettings(Set("cat"), 1.second, 10.seconds),
         _ => shardRegionProbe.ref)
       val response = check()
       shardRegionProbe.expectMsg(ShardRegion.GetShardRegionStatus)
@@ -48,7 +53,7 @@ class ClusterShardingHealthCheckSpec
       val shardRegionProbe = TestProbe()
       val check = new ClusterShardingHealthCheck(
         system,
-        new ClusterShardingHealthCheckSettings(Set("cat"), 1.second),
+        new ClusterShardingHealthCheckSettings(Set("cat"), 1.second, 10.seconds),
         _ => shardRegionProbe.ref)
       val response = check()
       shardRegionProbe.expectMsg(ShardRegion.GetShardRegionStatus)
@@ -59,7 +64,7 @@ class ClusterShardingHealthCheckSpec
       val shardRegionProbe = TestProbe()
       val check = new ClusterShardingHealthCheck(
         system,
-        new ClusterShardingHealthCheckSettings(Set("cat", "dog"), 1.second),
+        new ClusterShardingHealthCheckSettings(Set("cat", "dog"), 1.second, 10.seconds),
         _ => shardRegionProbe.ref)
       val response = check()
       shardRegionProbe.expectMsg(ShardRegion.GetShardRegionStatus)
@@ -72,7 +77,7 @@ class ClusterShardingHealthCheckSpec
       val shardRegionProbe = TestProbe()
       val check = new ClusterShardingHealthCheck(
         system,
-        new ClusterShardingHealthCheckSettings(Set("cat"), 100.millis),
+        new ClusterShardingHealthCheckSettings(Set("cat"), 100.millis, 10.seconds),
         _ => shardRegionProbe.ref)
       val response = check()
       shardRegionProbe.expectMsg(ShardRegion.GetShardRegionStatus)
@@ -83,7 +88,7 @@ class ClusterShardingHealthCheckSpec
       val shardRegionProbe = TestProbe()
       val check = new ClusterShardingHealthCheck(
         system,
-        new ClusterShardingHealthCheckSettings(Set("cat"), 1.second),
+        new ClusterShardingHealthCheckSettings(Set("cat"), 1.second, 10.seconds),
         _ => shardRegionProbe.ref)
       val response = check()
       shardRegionProbe.expectMsg(ShardRegion.GetShardRegionStatus)
@@ -93,6 +98,48 @@ class ClusterShardingHealthCheckSpec
       val secondResponse = check()
       shardRegionProbe.expectNoMessage()
       secondResponse.futureValue shouldEqual true
+    }
+
+    "always pass after disabled-after" in {
+      val shardRegionProbe = TestProbe()
+      val disabledAfter = 100.millis
+      val check = new ClusterShardingHealthCheck(
+        system,
+        new ClusterShardingHealthCheckSettings(Set("cat"), 1.second, disabledAfter),
+        _ => shardRegionProbe.ref)
+      // first check will always be performed
+      val response1 = check()
+      shardRegionProbe.expectMsg(ShardRegion.GetShardRegionStatus)
+      shardRegionProbe.reply(new ShardRegion.ShardRegionStatus("cat", false))
+      response1.futureValue shouldEqual false
+
+      Thread.sleep(disabledAfter.toMillis + 100)
+
+      // and it will not start the clock until member up
+      val response2 = check()
+      shardRegionProbe.expectMsg(ShardRegion.GetShardRegionStatus)
+      shardRegionProbe.reply(new ShardRegion.ShardRegionStatus("cat", false))
+      response2.futureValue shouldEqual false
+
+      Thread.sleep(disabledAfter.toMillis + 100)
+
+      Cluster(system).join(Cluster(system).selfAddress)
+      awaitAssert {
+        Cluster(system).selfMember.status shouldEqual MemberStatus.Up
+      }
+
+      // first check after member up will trigger start of clock
+      val response3 = check()
+      shardRegionProbe.expectMsg(ShardRegion.GetShardRegionStatus)
+      shardRegionProbe.reply(new ShardRegion.ShardRegionStatus("cat", false))
+      response3.futureValue shouldEqual false
+
+      Thread.sleep(disabledAfter.toMillis + 100)
+
+      // and now it has exceeded the disabled-after duration
+      val response4 = check()
+      shardRegionProbe.expectNoMessage()
+      response4.futureValue shouldEqual true
     }
   }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.protobuf
@@ -7,11 +7,11 @@ package akka.cluster.protobuf
 import java.io.{ ByteArrayInputStream, ByteArrayOutputStream }
 import java.util.zip.{ GZIPInputStream, GZIPOutputStream }
 
+import scala.annotation.nowarn
 import scala.annotation.tailrec
 import scala.collection.immutable
 import scala.concurrent.duration.Deadline
 
-import com.github.ghik.silencer.silent
 import com.typesafe.config.{ Config, ConfigFactory, ConfigRenderOptions }
 
 import akka.actor.{ Address, ExtendedActorSystem }
@@ -20,7 +20,8 @@ import akka.cluster._
 import akka.cluster.InternalClusterAction._
 import akka.cluster.protobuf.msg.{ ClusterMessages => cm }
 import akka.cluster.routing.{ ClusterRouterPool, ClusterRouterPoolSettings }
-import akka.protobufv3.internal.{ ByteString, MessageLite }
+import akka.protobufv3.internal.MessageLite
+import akka.remote.ByteStringUtils
 import akka.routing.Pool
 import akka.serialization._
 import akka.util.Version
@@ -54,6 +55,7 @@ private[akka] object ClusterMessageSerializer {
   val WelcomeManifest = "W"
   val LeaveManifest = "L"
   val DownManifest = "D"
+  val PrepareForShutdownManifest = "PS"
   val InitJoinManifest = "IJ"
   val InitJoinAckManifest = "IJA"
   val InitJoinNackManifest = "IJN"
@@ -93,6 +95,7 @@ final class ClusterMessageSerializer(val system: ExtendedActorSystem)
     case _: GossipStatus                        => GossipStatusManifest
     case _: GossipEnvelope                      => GossipEnvelopeManifest
     case _: ClusterRouterPool                   => ClusterRouterPoolManifest
+    case ClusterUserAction.PrepareForShutdown   => PrepareForShutdownManifest
     case _ =>
       throw new IllegalArgumentException(s"Can't serialize object of type ${o.getClass} in [${getClass.getName}]")
   }
@@ -226,13 +229,15 @@ final class ClusterMessageSerializer(val system: ExtendedActorSystem)
   private def poolToProto(pool: Pool): cm.Pool = {
     val builder = cm.Pool.newBuilder()
     val serializer = serialization.findSerializerFor(pool)
-    builder.setSerializerId(serializer.identifier).setData(ByteString.copyFrom(serializer.toBinary(pool)))
+    builder
+      .setSerializerId(serializer.identifier)
+      .setData(ByteStringUtils.toProtoByteStringUnsafe(serializer.toBinary(pool)))
     val manifest = Serializers.manifestFor(serializer, pool)
     builder.setManifest(manifest)
     builder.build()
   }
 
-  @silent("deprecated")
+  @nowarn("msg=deprecated")
   private def clusterRouterPoolSettingsToProto(settings: ClusterRouterPoolSettings): cm.ClusterRouterPoolSettings = {
     val builder = cm.ClusterRouterPoolSettings.newBuilder()
     builder
@@ -240,9 +245,6 @@ final class ClusterMessageSerializer(val system: ExtendedActorSystem)
       .setMaxInstancesPerNode(settings.maxInstancesPerNode)
       .setTotalInstances(settings.totalInstances)
       .addAllUseRoles(settings.useRoles.asJava)
-
-    // for backwards compatibility
-    settings.useRole.foreach(builder.setUseRole)
 
     builder.build()
   }
@@ -372,7 +374,9 @@ final class ClusterMessageSerializer(val system: ExtendedActorSystem)
     MemberStatus.Exiting -> cm.MemberStatus.Exiting_VALUE,
     MemberStatus.Down -> cm.MemberStatus.Down_VALUE,
     MemberStatus.Removed -> cm.MemberStatus.Removed_VALUE,
-    MemberStatus.WeaklyUp -> cm.MemberStatus.WeaklyUp_VALUE)
+    MemberStatus.WeaklyUp -> cm.MemberStatus.WeaklyUp_VALUE,
+    MemberStatus.PreparingForShutdown -> cm.MemberStatus.PreparingForShutdown_VALUE,
+    MemberStatus.ReadyForShutdown -> cm.MemberStatus.ReadyForShutdown_VALUE)
 
   private val memberStatusFromInt = memberStatusToInt.map { case (a, b) => (b, a) }
 
@@ -515,7 +519,7 @@ final class ClusterMessageSerializer(val system: ExtendedActorSystem)
       .newBuilder()
       .setFrom(uniqueAddressToProto(envelope.from))
       .setTo(uniqueAddressToProto(envelope.to))
-      .setSerializedGossip(ByteString.copyFrom(compress(gossipToProto(envelope.gossip).build)))
+      .setSerializedGossip(ByteStringUtils.toProtoByteStringUnsafe(compress(gossipToProto(envelope.gossip).build)))
       .build
 
   private def gossipStatusToProto(status: GossipStatus): cm.GossipStatus = {
@@ -526,7 +530,7 @@ final class ClusterMessageSerializer(val system: ExtendedActorSystem)
       .setFrom(uniqueAddressToProto(status.from))
       .addAllAllHashes(allHashes.asJava)
       .setVersion(vectorClockToProto(status.version, hashMapping))
-      .setSeenDigest(ByteString.copyFrom(status.seenDigest))
+      .setSeenDigest(ByteStringUtils.toProtoByteStringUnsafe(status.seenDigest))
       .build()
   }
 

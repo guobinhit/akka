@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.ddata
@@ -7,7 +7,6 @@ package akka.cluster.ddata
 import java.math.BigInteger
 
 import akka.annotation.InternalApi
-import akka.cluster.Cluster
 import akka.cluster.UniqueAddress
 
 object GCounter {
@@ -31,7 +30,7 @@ object GCounter {
  * Implements a 'Growing Counter' CRDT, also called a 'G-Counter'.
  *
  * It is described in the paper
- * <a href="http://hal.upmc.fr/file/index/docid/555588/filename/techreport.pdf">A comprehensive study of Convergent and Commutative Replicated Data Types</a>.
+ * <a href="https://hal.inria.fr/file/index/docid/555588/filename/techreport.pdf">A comprehensive study of Convergent and Commutative Replicated Data Types</a>.
  *
  * A G-Counter is a increment-only counter (inspired by vector clocks) in
  * which only increment and merge are possible. Incrementing the counter
@@ -74,17 +73,11 @@ final class GCounter private[akka] (
    */
   def :+(n: Long)(implicit node: SelfUniqueAddress): GCounter = increment(node.uniqueAddress, n)
 
-  @deprecated("Use `:+` that takes a `SelfUniqueAddress` parameter instead.", since = "2.5.20")
-  def +(n: Long)(implicit node: Cluster): GCounter = increment(node.selfUniqueAddress, n)
-
   /**
    * Increment the counter with the delta `n` specified.
    * The delta `n` must be zero or positive.
    */
   def increment(node: SelfUniqueAddress, n: Long): GCounter = increment(node.uniqueAddress, n)
-
-  @deprecated("Use `increment` that takes a `SelfUniqueAddress` parameter instead.", since = "2.5.20")
-  def increment(node: Cluster, n: Long = 1): GCounter = increment(node.selfUniqueAddress, n)
 
   /**
    * INTERNAL API
@@ -164,4 +157,7 @@ object GCounterKey {
 }
 
 @SerialVersionUID(1L)
-final case class GCounterKey(_id: String) extends Key[GCounter](_id) with ReplicatedDataSerialization
+final case class GCounterKey(_id: String) extends Key[GCounter](_id) with ReplicatedDataSerialization {
+  override def withId(newId: Key.KeyId): GCounterKey =
+    GCounterKey(newId)
+}

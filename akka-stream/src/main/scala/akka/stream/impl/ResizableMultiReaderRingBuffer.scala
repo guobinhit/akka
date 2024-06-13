@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl
@@ -7,7 +7,7 @@ package akka.stream.impl
 import scala.annotation.tailrec
 import scala.util.control.NoStackTrace
 
-import ResizableMultiReaderRingBuffer._
+import ResizableMultiReaderRingBuffer.{ Cursor, Cursors, NothingToReadException }
 
 import akka.annotation.InternalApi
 

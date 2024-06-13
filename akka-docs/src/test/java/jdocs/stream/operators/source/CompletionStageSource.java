@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.stream.operators.source;
@@ -7,7 +7,6 @@ package jdocs.stream.operators.source;
 // #sourceCompletionStageSource
 import akka.NotUsed;
 import akka.stream.javadsl.Source;
-
 import java.util.concurrent.CompletionStage;
 
 public class CompletionStageSource {

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed
@@ -10,12 +10,16 @@ import java.util.ArrayList
 import java.util.Optional
 import java.util.concurrent.CompletionStage
 
+import scala.annotation.{ nowarn, switch }
 import scala.concurrent.{ ExecutionContextExecutor, Future }
 import scala.reflect.ClassTag
+import scala.util.Failure
+import scala.util.Success
 import scala.util.Try
-import com.github.ghik.silencer.silent
+
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+
 import akka.actor.Address
 import akka.actor.typed.internal.adapter.ActorSystemAdapter
 import akka.annotation.InternalApi
@@ -25,9 +29,6 @@ import akka.util.BoxedType
 import akka.util.JavaDurationConverters._
 import akka.util.OptionVal
 import akka.util.Timeout
-
-import scala.util.Failure
-import scala.util.Success
 
 /**
  * INTERNAL API
@@ -95,7 +96,7 @@ import scala.util.Success
 
   private var messageAdapterRef: OptionVal[ActorRef[Any]] = OptionVal.None
   private var _messageAdapters: List[(Class[_], Any => T)] = Nil
-  private var _timer: OptionVal[TimerSchedulerImpl[T]] = OptionVal.None
+  private var _timer: OptionVal[TimerSchedulerCrossDslSupport[T]] = OptionVal.None
 
   // _currentActorThread is on purpose not volatile. Used from `checkCurrentActorThread`.
   // It will always see the right value when accessed from the right thread.
@@ -103,14 +104,16 @@ import scala.util.Success
   private var _currentActorThread: OptionVal[Thread] = OptionVal.None
 
   // context-shared timer needed to allow for nested timer usage
-  def timer: TimerSchedulerImpl[T] = _timer match {
+  def timer: TimerSchedulerCrossDslSupport[T] = _timer match {
     case OptionVal.Some(timer) => timer
-    case OptionVal.None =>
+    case _ =>
       checkCurrentActorThread()
-      val timer = new TimerSchedulerImpl[T](this)
+      val timer = mkTimer()
       _timer = OptionVal.Some(timer)
       timer
   }
+
+  protected[this] def mkTimer(): TimerSchedulerCrossDslSupport[T] = new TimerSchedulerImpl[T](this)
 
   override private[akka] def hasTimer: Boolean = _timer.isDefined
 
@@ -150,7 +153,7 @@ import scala.util.Success
     // lazy init of logging setup
     _logging match {
       case OptionVal.Some(l) => l
-      case OptionVal.None =>
+      case _ =>
         val logClass = LoggerClass.detectLoggerClassFromStack(classOf[Behavior[_]])
         val logger = LoggerFactory.getLogger(logClass.getName)
         val l = LoggingContext(logger, classicActorContext.props.deploy.tags, this)
@@ -189,8 +192,8 @@ import scala.util.Success
     }
   }
 
-  override def setReceiveTimeout(d: java.time.Duration, msg: T): Unit =
-    setReceiveTimeout(d.asScala, msg)
+  override def setReceiveTimeout(duration: java.time.Duration, msg: T): Unit =
+    setReceiveTimeout(duration.asScala, msg)
 
   override def scheduleOnce[U](delay: java.time.Duration, target: ActorRef[U], msg: U): akka.actor.Cancellable =
     scheduleOnce(delay.asScala, target, msg)
@@ -201,6 +204,18 @@ import scala.util.Success
   override def spawnAnonymous[U](behavior: akka.actor.typed.Behavior[U]): akka.actor.typed.ActorRef[U] =
     spawnAnonymous(behavior, Props.empty)
 
+  def delegate(delegator: Behavior[T], msg: T): Behavior[T] = {
+    val started = Behavior.start(delegator, this)
+    val interpreted = msg match {
+      case signal: Signal => Behavior.interpretSignal(started, this, signal)
+      case message        => Behavior.interpretMessage(started, this, message)
+    }
+    (interpreted._tag: @switch) match {
+      case BehaviorTags.SameBehavior      => started
+      case BehaviorTags.UnhandledBehavior => this.onUnhandled(msg); started
+      case _                              => interpreted
+    }
+  }
   // Scala API impl
   override def ask[Req, Res](target: RecipientRef[Req], createRequest: ActorRef[Res] => Req)(
       mapResponse: Try[Res] => T)(implicit responseTimeout: Timeout, classTag: ClassTag[Res]): Unit = {
@@ -214,10 +229,11 @@ import scala.util.Success
       case Success(StatusReply.Success(t: Res)) => mapResponse(Success(t))
       case Success(StatusReply.Error(why))      => mapResponse(Failure(why))
       case fail: Failure[_]                     => mapResponse(fail.asInstanceOf[Failure[Res]])
+      case _                                    => throw new RuntimeException() // won't happen, compiler exhaustiveness check pleaser
     }
 
   // Java API impl
-  @silent("never used") // resClass is just a pretend param
+  @nowarn("msg=never used") // resClass is just a pretend param
   override def ask[Req, Res](
       resClass: Class[Res],
       target: RecipientRef[Req],
@@ -225,7 +241,9 @@ import scala.util.Success
       createRequest: akka.japi.function.Function[ActorRef[Res], Req],
       applyToResponse: akka.japi.function.Function2[Res, Throwable, T]): Unit = {
     import akka.actor.typed.javadsl.AskPattern
-    pipeToSelf(AskPattern.ask(target, (ref) => createRequest(ref), responseTimeout, system.scheduler), applyToResponse)
+    pipeToSelf[Res](
+      AskPattern.ask(target, ref => createRequest(ref), responseTimeout, system.scheduler),
+      applyToResponse)
   }
 
   override def askWithStatus[Req, Res](
@@ -245,6 +263,7 @@ import scala.util.Success
           case StatusReply.Success(value: Res) => applyToResponse(value, null)
           case StatusReply.Error(why)          => applyToResponse(null.asInstanceOf[Res], why)
           case null                            => applyToResponse(null.asInstanceOf[Res], failure)
+          case _                               => throw new RuntimeException() // won't happen, compiler exhaustiveness check pleaser
         })
   }
 
@@ -293,7 +312,7 @@ import scala.util.Success
       _messageAdapters.filterNot { case (cls, _) => cls == boxedMessageClass }
     val ref = messageAdapterRef match {
       case OptionVal.Some(ref) => ref.asInstanceOf[ActorRef[U]]
-      case OptionVal.None      =>
+      case _                   =>
         // AdaptMessage is not really a T, but that is erased
         val ref =
           internalSpawnMessageAdapter[Any](msg => AdaptWithRegisteredMessageAdapter(msg).asInstanceOf[T], "adapter")
@@ -313,12 +332,12 @@ import scala.util.Success
    */
   @InternalApi private[akka] def setCurrentActorThread(): Unit = {
     _currentActorThread match {
-      case OptionVal.None =>
-        _currentActorThread = OptionVal.Some(Thread.currentThread())
       case OptionVal.Some(t) =>
         throw new IllegalStateException(
           s"Invalid access by thread from the outside of $self. " +
           s"Current message is processed by $t, but also accessed from ${Thread.currentThread()}.")
+      case _ =>
+        _currentActorThread = OptionVal.Some(Thread.currentThread())
     }
   }
 
@@ -341,7 +360,7 @@ import scala.util.Success
             s"Unsupported access to ActorContext operation from the outside of $self. " +
             s"Current message is processed by $t, but ActorContext was called from $callerThread.")
         }
-      case OptionVal.None =>
+      case _ =>
         throw new UnsupportedOperationException(
           s"Unsupported access to ActorContext from the outside of $self. " +
           s"No message is currently processed by the actor, but ActorContext was called from $callerThread.")

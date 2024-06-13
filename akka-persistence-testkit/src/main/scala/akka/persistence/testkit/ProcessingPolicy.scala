@@ -1,12 +1,12 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.testkit
 
-import akka.annotation.{ ApiMayChange, InternalApi }
-
 import scala.util.control.NoStackTrace
+
+import akka.annotation.{ ApiMayChange, InternalApi }
 
 /**
  * Policies allow to emulate behavior of the storage (failures and rejections).
@@ -22,10 +22,11 @@ trait ProcessingPolicy[U] {
    * If you need this operation to succeed return [[ProcessingSuccess]],
    * otherwise you should return some of the [[ProcessingFailure]]'s.
    *
+   * @param processId persistenceId or other id of the processing operation
    * @param processingUnit details about current operation to be executed
    * @return needed result of processing the operation
    */
-  def tryProcess(persistenceId: String, processingUnit: U): ProcessingResult
+  def tryProcess(processId: String, processingUnit: U): ProcessingResult
 
 }
 

@@ -1,8 +1,12 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream
+
+import scala.concurrent.{ duration, Await, Promise }
+
+import duration._
 
 import akka.Done
 import akka.stream.impl.UnfoldResourceSource
@@ -11,9 +15,6 @@ import akka.stream.scaladsl._
 import akka.stream.stage.GraphStage
 import akka.stream.testkit.StreamSpec
 import akka.stream.testkit.Utils.TE
-
-import scala.concurrent.{ duration, Await, Promise }
-import duration._
 
 class FusingSpec extends StreamSpec {
 
@@ -110,7 +111,8 @@ class FusingSpec extends StreamSpec {
       val downstream = Flow[Int]
         .prepend(Source.single(1))
         .flatMapPrefix(0) {
-          case Nil => throw TE("I hate mondays")
+          case Nil        => throw TE("I hate mondays")
+          case unexpected => throw new RuntimeException(s"Unexpected: $unexpected")
         }
         .watchTermination()(Keep.right)
         .to(Sink.ignore)

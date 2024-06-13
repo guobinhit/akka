@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl.fusing
@@ -10,6 +10,7 @@ import scala.util.control.NonFatal
 
 import akka.annotation.InternalApi
 import akka.stream._
+import akka.stream.Attributes.SourceLocation
 import akka.stream.impl.Stages.DefaultAttributes
 import akka.stream.scaladsl.{ Flow, Keep, Source }
 import akka.stream.stage.{ GraphStageLogic, GraphStageWithMaterializedValue, InHandler, OutHandler }
@@ -20,11 +21,11 @@ import akka.util.OptionVal
 
   require(n >= 0, s"FlatMapPrefix: n ($n) must be non-negative.")
 
-  val in = Inlet[In](s"${this}.in")
-  val out = Outlet[Out](s"${this}.out")
+  val in = Inlet[In]("FlatMapPrefix.in")
+  val out = Outlet[Out]("FlatMapPrefix.out")
   override val shape: FlowShape[In, Out] = FlowShape(in, out)
 
-  override def initialAttributes: Attributes = DefaultAttributes.flatMapPrefix
+  override def initialAttributes: Attributes = DefaultAttributes.flatMapPrefix and SourceLocation.forLambda(f)
 
   override def createLogicAndMaterializedValue(inheritedAttributes: Attributes): (GraphStageLogic, Future[M]) = {
     val propagateToNestedMaterialization =
@@ -44,14 +45,16 @@ import akka.util.OptionVal
 
       override def postStop(): Unit = {
         //this covers the case when the nested flow was never materialized
-        matPromise.tryFailure(new AbruptStageTerminationException(this))
+        if (!matPromise.isCompleted) {
+          matPromise.failure(new AbruptStageTerminationException(this))
+        }
         super.postStop()
       }
 
       override def onPush(): Unit = {
         subSource match {
           case OptionVal.Some(s) => s.push(grab(in))
-          case OptionVal.None =>
+          case _ =>
             accumulated.append(grab(in))
             if (accumulated.size == n) {
               materializeFlow()
@@ -65,14 +68,14 @@ import akka.util.OptionVal
       override def onUpstreamFinish(): Unit = {
         subSource match {
           case OptionVal.Some(s) => s.complete()
-          case OptionVal.None    => materializeFlow()
+          case _                 => materializeFlow()
         }
       }
 
       override def onUpstreamFailure(ex: Throwable): Unit = {
         subSource match {
           case OptionVal.Some(s) => s.fail(ex)
-          case OptionVal.None    =>
+          case _                 =>
             //flow won't be materialized, so we have to complete the future with a failure indicating this
             matPromise.failure(new NeverMaterializedException(ex))
             super.onUpstreamFailure(ex)
@@ -84,30 +87,41 @@ import akka.util.OptionVal
           case OptionVal.Some(s) =>
             //delegate to subSink
             s.pull()
-          case OptionVal.None if accumulated.size < n =>
-            pull(in)
-          case OptionVal.None if accumulated.size == n =>
-            //corner case for n = 0, can be handled in FlowOps
-            materializeFlow()
+          case _ =>
+            if (accumulated.size < n) pull(in)
+            else if (accumulated.size == n) {
+              //corner case for n = 0, can be handled in FlowOps
+              materializeFlow()
+            } else {
+              throw new IllegalStateException(s"Unexpected accumulated size: ${accumulated.size} (n: $n)")
+            }
         }
       }
 
-      override def onDownstreamFinish(cause: Throwable): Unit = {
+      override def onDownstreamFinish(cause: Throwable): Unit =
         subSink match {
-          case OptionVal.None if propagateToNestedMaterialization => downstreamCause = OptionVal.Some(cause)
-          case OptionVal.None =>
-            matPromise.failure(new NeverMaterializedException(cause))
-            cancelStage(cause)
           case OptionVal.Some(s) => s.cancel(cause)
+          case _ =>
+            if (propagateToNestedMaterialization) {
+              downstreamCause = OptionVal.Some(cause)
+              if (accumulated.size == n) {
+                //corner case for n = 0, can be handled in FlowOps
+                materializeFlow()
+              } else if (!hasBeenPulled(in)) { //if in was already closed, nested flow would have already been materialized
+                pull(in)
+              }
+            } else {
+              matPromise.failure(new NeverMaterializedException(cause))
+              cancelStage(cause)
+            }
         }
-      }
 
       def materializeFlow(): Unit =
         try {
           val prefix = accumulated.toVector
           accumulated.clear()
-          subSource = OptionVal.Some(new SubSourceOutlet[In](s"${this}.subSource"))
-          val OptionVal.Some(theSubSource) = subSource
+          subSource = OptionVal.Some(new SubSourceOutlet[In]("FlatMapPrefix.subSource"))
+          val theSubSource = subSource.get
           theSubSource.setHandler {
             new OutHandler {
               override def onPull(): Unit = {
@@ -123,8 +137,8 @@ import akka.util.OptionVal
               }
             }
           }
-          subSink = OptionVal.Some(new SubSinkInlet[Out](s"${this}.subSink"))
-          val OptionVal.Some(theSubSink) = subSink
+          subSink = OptionVal.Some(new SubSinkInlet[Out]("FlatMapPrefix.subSink"))
+          val theSubSink = subSink.get
           theSubSink.setHandler {
             new InHandler {
               override def onPush(): Unit = {
@@ -143,7 +157,7 @@ import akka.util.OptionVal
           val matVal = try {
             val flow = f(prefix)
             val runnableGraph = Source.fromGraph(theSubSource.source).viaMat(flow)(Keep.right).to(theSubSink.sink)
-            interpreter.subFusingMaterializer.materialize(runnableGraph)
+            interpreter.subFusingMaterializer.materialize(runnableGraph, inheritedAttributes)
           } catch {
             case NonFatal(ex) =>
               matPromise.failure(new NeverMaterializedException(ex))
@@ -156,7 +170,7 @@ import akka.util.OptionVal
           //in case downstream was closed
           downstreamCause match {
             case OptionVal.Some(ex) => theSubSink.cancel(ex)
-            case OptionVal.None     =>
+            case _                  =>
           }
 
           //in case we've materialized due to upstream completion

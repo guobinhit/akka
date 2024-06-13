@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -33,9 +33,6 @@ private[remote] class InboundQuarantineCheck(inboundContext: InboundContext)
       override def onPush(): Unit = {
         val env = grab(in)
         env.association match {
-          case OptionVal.None =>
-            // unknown, handshake not completed
-            push(out, env)
           case OptionVal.Some(association) =>
             if (association.associationState.isQuarantined(env.originUid)) {
               if (log.isDebugEnabled)
@@ -45,13 +42,19 @@ private[remote] class InboundQuarantineCheck(inboundContext: InboundContext)
                   association.remoteAddress,
                   env.originUid)
               // avoid starting outbound stream for heartbeats
-              if (!env.message.isInstanceOf[Quarantined] && !isHeartbeat(env.message))
+              if (!env.message.isInstanceOf[Quarantined] && !isHeartbeat(env.message) &&
+                  !association.associationState.isQuarantinedHarmless(env.originUid)) {
+                log.info("Sending Quarantined to [{}]", association.remoteAddress)
                 inboundContext.sendControl(
                   association.remoteAddress,
                   Quarantined(inboundContext.localAddress, UniqueAddress(association.remoteAddress, env.originUid)))
+              }
               pull(in)
             } else
               push(out, env)
+          case _ =>
+            // unknown, handshake not completed
+            push(out, env)
         }
       }
 

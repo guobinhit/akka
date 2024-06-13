@@ -2,14 +2,27 @@
 
 ## Dependency
 
+The Akka dependencies are available from Akka's library repository. To access them there, you need to configure the URL for this repository.
+
+@@repository [sbt,Maven,Gradle] {
+id="akka-repository"
+name="Akka library repository"
+url="https://repo.akka.io/maven"
+}
+
 This documentation page touches upon @ref[Akka Persistence](persistence.md), so to follow those examples you will want to depend on:
 
 @@dependency[sbt,Maven,Gradle] {
+  bomGroup=com.typesafe.akka bomArtifact=akka-bom_$scala.binary.version$ bomVersionSymbols=AkkaVersion
   symbol1=AkkaVersion
   value1="$akka.version$"
   group="com.typesafe.akka"
   artifact="akka-persistence_$scala.binary.version$"
   version=AkkaVersion
+  group2="com.typesafe.akka"
+  artifact2="akka-persistence-testkit_$scala.binary.version$"
+  version2=AkkaVersion
+  scope2=test
 }
 
 ## Introduction
@@ -47,7 +60,7 @@ differs from how one would go about it in a mutable database setting (e.g. in ty
 
 The system needs to be able to continue to work in the presence of "old" events which were stored under the "old" schema.
 We also want to limit complexity in the business logic layer, exposing a consistent view over all of the events of a given
-type to `PersistentActor` s and @ref:[persistence queries](persistence-query.md). This allows the business logic layer to focus on solving business problems
+type to @scala[@scaladoc[PersistentActor](akka.persistence.PersistentActor)]@java[@javadoc[AbstractPersistentActor](akka.persistence.AbstractPersistentActor)] s and @ref:[persistence queries](persistence-query.md). This allows the business logic layer to focus on solving business problems
 instead of having to explicitly deal with different schemas.
 
 In summary, schema evolution in event sourced systems exposes the following characteristics:
@@ -63,7 +76,7 @@ Before we explain the various techniques that can be used to safely evolve the s
 over time, we first need to define what the actual problem is, and what the typical styles of changes are.
 
 Since events are never deleted, we need to have a way to be able to replay (read) old events, in such way
-that does not force the `PersistentActor` to be aware of all possible versions of an event that it may have
+that does not force the @scala[@scaladoc[PersistentActor](akka.persistence.PersistentActor)]@java[@javadoc[AbstractPersistentActor](akka.persistence.AbstractPersistentActor)] to be aware of all possible versions of an event that it may have
 persisted in the past. Instead, we want the Actors to work on some form of "latest" version of the event and provide some
 means of either converting old "versions" of stored events into this "latest" event type, or constantly evolve the event
 definition - in a backwards compatible way - such that the new deserialization code can still read old events.
@@ -109,13 +122,13 @@ by Martin Kleppmann.
 ### Provided default serializers
 
 Akka Persistence provides [Google Protocol Buffers](https://developers.google.com/protocol-buffers/) based serializers (using @ref:[Akka Serialization](serialization.md))
-for its own message types such as `PersistentRepr`, `AtomicWrite` and snapshots. Journal plugin implementations
+for its own message types such as @apidoc[PersistentRepr], @apidoc[AtomicWrite] and snapshots. Journal plugin implementations
 *may* choose to use those provided serializers, or pick a serializer which suits the underlying database better.
 
 @@@ note
 
 Serialization is **NOT** handled automatically by Akka Persistence itself. Instead, it only provides the above described
-serializers, and in case a `AsyncWriteJournal` plugin implementation chooses to use them directly, the above serialization
+serializers, and in case a @scala[@scaladoc[AsyncWriteJournal](akka.persistence.journal.AsyncWriteJournal)]@java[@javadoc[AsyncWriteJournal](akka.persistence.journal.japi.AsyncWriteJournal)] plugin implementation chooses to use them directly, the above serialization
 scheme will be used.
 
 Please refer to your write journal's documentation to learn more about how it handles serialization!
@@ -136,7 +149,7 @@ Akka Persistence provided serializers wrap the user payload in an envelope conta
 be serialized using the user configured serializer, and if none is provided explicitly, Java serialization will be used for it.**
 
 The blue colored regions of the `PersistentMessage` indicate what is serialized using the generated protocol buffers
-serializers, and the yellow payload indicates the user provided event (by calling @scala[`persist(payload)(...)`]@java[`persist(payload, ...)`]).
+serializers, and the yellow payload indicates the user provided event (by calling @scala[@scaladoc[persist(payload)(...)](akka.persistence.PersistentActor#persist[A](event:A)(handler:A=%3EUnit):Unit)]@java[@javadoc[persist(payload,...)](akka.persistence.AbstractPersistentActorLike#persist(A,akka.japi.Procedure))].
 As you can see, the `PersistentMessage` acts as an envelope around the payload, adding various fields related to the
 origin of the event (`persistenceId`, `sequenceNr` and more).
 
@@ -327,7 +340,7 @@ changes in the message format.
 ### Remove event class and ignore events
 
 **Situation:**
-While investigating app performance you notice that insane amounts of `CustomerBlinked` events are being stored
+While investigating app performance you notice that unreasonable amounts of `CustomerBlinked` events are being stored
 for every customer each time he/she blinks. Upon investigation, you decide that the event does not add any value
 and should be deleted. You still have to be able to replay from a journal which contains those old CustomerBlinked events though.
 
@@ -339,7 +352,7 @@ being delivered to a recovering `PersistentActor` is pretty simple, as one can f
 
 ![persistence-drop-event.png](./images/persistence-drop-event.png)
  
-The `EventAdapter` can drop old events (**O**) by emitting an empty `EventSeq`.
+The @apidoc[journal.EventAdapter] can drop old events (**O**) by emitting an empty @apidoc[journal.EventSeq].
 Other events can be passed through (**E**).
 
 This however does not address the underlying cost of having to deserialize all the events during recovery,
@@ -350,7 +363,7 @@ during a recovery containing lots of such events (without actually having to del
 **Improved solution - deserialize into tombstone:**
 
 In the just described technique we have saved the PersistentActor from receiving un-wanted events by filtering them
-out in the `EventAdapter`, however the event itself still was deserialized and loaded into memory.
+out in the @apidoc[journal.EventAdapter], however the event itself still was deserialized and loaded into memory.
 This has two notable *downsides*:
 
  * first, that the deserialization was actually performed, so we spent some of our time budget on the
@@ -362,7 +375,7 @@ The solution to these problems is to use a serializer that is aware of that even
 this before starting to deserialize the object.
 
 This approach allows us to *remove the original class from our classpath*, which makes for less "old" classes lying around in the project.
-This can for example be implemented by using an `SerializerWithStringManifest`
+This can for example be implemented by using an @apidoc[SerializerWithStringManifest]
 (documented in depth in @ref:[Serializer with String Manifest](serialization.md#string-manifest-serializer)). By looking at the string manifest, the serializer can notice
 that the type is no longer needed, and skip the deserialization all-together:
 
@@ -422,7 +435,7 @@ Scala
 Java
 :  @@snip [PersistenceSchemaEvolutionDocTest.java](/akka-docs/src/test/java/jdocs/persistence/PersistenceSchemaEvolutionDocTest.java) { #detach-models }
 
-The `EventAdapter` takes care of converting from one model to the other one (in both directions),
+The @apidoc[journal.EventAdapter] takes care of converting from one model to the other one (in both directions),
 allowing the models to be completely detached from each other, such that they can be optimised independently
 as long as the mapping logic is able to convert between them:
 
@@ -448,7 +461,7 @@ from the Journal implementation to achieve this.
 An example of a Journal which may implement this pattern is MongoDB, however other databases such as PostgreSQL
 and Cassandra could also do it because of their built-in JSON capabilities.
 
-In this approach, the `EventAdapter` is used as the marshalling layer: it serializes the events to/from JSON.
+In this approach, the @apidoc[journal.EventAdapter] is used as the marshalling layer: it serializes the events to/from JSON.
 The journal plugin notices that the incoming event type is JSON (for example by performing a `match` on the incoming
 event) and stores the incoming object directly.
 
@@ -472,7 +485,7 @@ for your favourite datastore *does* provide this capability.
 
 In fact, an AsyncWriteJournal implementation could natively decide to not use binary serialization at all,
 and *always* serialize the incoming messages as JSON - in which case the `toJournal` implementation of the
-`EventAdapter` would be an identity function, and the `fromJournal` would need to de-serialize messages
+@apidoc[journal.EventAdapter] would be an identity function, and the `fromJournal` would need to de-serialize messages
 from JSON.
 
 @@@ note

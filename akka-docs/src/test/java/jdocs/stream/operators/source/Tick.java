@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.stream.operators.source;
@@ -9,12 +9,11 @@ import akka.actor.Cancellable;
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.ActorSystem;
 import akka.actor.typed.javadsl.AskPattern;
-import java.util.concurrent.CompletionStage;
-import java.time.Duration;
-
 import akka.japi.Pair;
 import akka.stream.javadsl.Flow;
 import akka.stream.javadsl.Source;
+import java.time.Duration;
+import java.util.concurrent.CompletionStage;
 
 public class Tick {
 

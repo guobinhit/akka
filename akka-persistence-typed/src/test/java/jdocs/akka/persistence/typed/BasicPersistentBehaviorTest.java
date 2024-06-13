@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.akka.persistence.typed;
@@ -27,10 +27,7 @@ import akka.persistence.typed.javadsl.RetentionCriteria;
 import akka.persistence.typed.javadsl.SignalHandler;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class BasicPersistentBehaviorTest {
 
@@ -46,8 +43,8 @@ public class BasicPersistentBehaviorTest {
 
       public static class State {}
 
-      public static Behavior<Command> create() {
-        return new MyPersistentBehavior(PersistenceId.ofUniqueId("pid"));
+      public static Behavior<Command> create(PersistenceId persistenceId) {
+        return new MyPersistentBehavior(persistenceId);
       }
 
       private MyPersistentBehavior(PersistenceId persistenceId) {
@@ -130,7 +127,7 @@ public class BasicPersistentBehaviorTest {
           List<String> newItems = new ArrayList<>(items);
           newItems.add(0, data);
           // keep 5 items
-          List<String> latest = newItems.subList(0, Math.min(4, newItems.size() - 1));
+          List<String> latest = newItems.subList(0, Math.min(5, newItems.size()));
           return new State(latest);
         }
       }
@@ -355,7 +352,10 @@ public class BasicPersistentBehaviorTest {
       // #tagging
       @Override
       public Set<String> tagsFor(Event event) {
-        throw new RuntimeException("TODO: inspect the event and return any tags it should have");
+        Set<String> tags = new HashSet<>();
+        tags.add("tag1");
+        tags.add("tag2");
+        return tags;
       }
       // #tagging
       // #supervision
@@ -412,6 +412,13 @@ public class BasicPersistentBehaviorTest {
           throw new RuntimeException("TODO: process the event return the next state");
         };
       }
+
+      // #custom-stash-buffer
+      @Override
+      public Optional<Integer> stashCapacity() {
+        return Optional.of(100);
+      }
+      // #custom-stash-buffer
 
       // #wrapPersistentBehavior
       @Override
@@ -508,6 +515,13 @@ public class BasicPersistentBehaviorTest {
         return event instanceof BookingCompleted;
       }
       // #snapshottingPredicate
+
+      // #snapshottingPredicateDeleteEvents
+      @Override // override deleteEventsOnSnapshot in EventSourcedBehavior
+      public boolean deleteEventsOnSnapshot() {
+        return true;
+      }
+      // #snapshottingPredicateDeleteEvents
 
       // #retentionCriteria
       @Override // override retentionCriteria in EventSourcedBehavior

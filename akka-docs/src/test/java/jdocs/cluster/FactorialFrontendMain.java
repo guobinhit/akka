@@ -1,18 +1,15 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.cluster;
 
-import java.util.concurrent.TimeUnit;
-import scala.concurrent.Await;
-import scala.concurrent.duration.Duration;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-
 import akka.actor.ActorSystem;
 import akka.actor.Props;
 import akka.cluster.Cluster;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import java.util.concurrent.TimeUnit;
 
 public class FactorialFrontendMain {
 

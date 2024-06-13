@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -16,13 +16,13 @@ import akka.Done
 import akka.stream.ActorAttributes
 import akka.stream.Materializer
 import akka.stream.Supervision
+import akka.stream.SystemMaterializer
 import akka.stream.impl.PhasedFusingActorMaterializer
 import akka.stream.impl.StreamSupervisor
 import akka.stream.impl.StreamSupervisor.Children
 import akka.stream.testkit.StreamSpec
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.Utils._
-import akka.stream.testkit.scaladsl.StreamTestKit._
 import akka.testkit.TestLatch
 import akka.testkit.TestProbe
 
@@ -70,7 +70,7 @@ class UnfoldResourceAsyncSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
   import system.dispatcher
 
   "Unfold Resource Async Source" must {
-    "unfold data from a resource" in assertAllStagesStopped {
+    "unfold data from a resource" in {
       val createPromise = Promise[Done]()
       val closePromise = Promise[Done]()
 
@@ -100,7 +100,7 @@ class UnfoldResourceAsyncSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
       probe.expectComplete()
     }
 
-    "close resource successfully right after open" in assertAllStagesStopped {
+    "close resource successfully right after open" in {
       val probe = TestSubscriber.probe[Int]()
       val firstRead = Promise[Done]()
       val resource = new ResourceDummy[Int](1 :: Nil, firstReadFuture = firstRead.future)
@@ -119,7 +119,7 @@ class UnfoldResourceAsyncSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
       resource.closed.futureValue
     }
 
-    "fail when create throws exception" in assertAllStagesStopped {
+    "fail when create throws exception" in {
       val probe = TestSubscriber.probe[Unit]()
       Source
         .unfoldResourceAsync[Unit, Unit](() => throw TE("create failed"), _ => ???, _ => ???)
@@ -129,7 +129,7 @@ class UnfoldResourceAsyncSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
       probe.expectError(TE("create failed"))
     }
 
-    "fail when create returns failed future" in assertAllStagesStopped {
+    "fail when create returns failed future" in {
       val probe = TestSubscriber.probe[Unit]()
       Source
         .unfoldResourceAsync[Unit, Unit](() => Future.failed(TE("create failed")), _ => ???, _ => ???)
@@ -139,7 +139,7 @@ class UnfoldResourceAsyncSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
       probe.expectError(TE("create failed"))
     }
 
-    "fail when close throws exception" in assertAllStagesStopped {
+    "fail when close throws exception" in {
       val probe = TestSubscriber.probe[Unit]()
       Source
         .unfoldResourceAsync[Unit, Unit](
@@ -152,7 +152,7 @@ class UnfoldResourceAsyncSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
       probe.expectError()
     }
 
-    "fail when close returns failed future" in assertAllStagesStopped {
+    "fail when close returns failed future" in {
       val probe = TestSubscriber.probe[Unit]()
       Source
         .unfoldResourceAsync[Unit, Unit](
@@ -165,15 +165,16 @@ class UnfoldResourceAsyncSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
       probe.expectError()
     }
 
-    "continue when Strategy is Resume and read throws" in assertAllStagesStopped {
+    "continue when Strategy is Resume and read throws" in {
       val result = Source
         .unfoldResourceAsync[Int, Iterator[Any]](
           () => Future.successful(List(1, 2, TE("read-error"), 3).iterator),
           iterator =>
             if (iterator.hasNext) {
               iterator.next() match {
-                case n: Int => Future.successful(Some(n))
-                case e: TE  => throw e
+                case n: Int     => Future.successful(Some(n))
+                case e: TE      => throw e
+                case unexpected => throw new RuntimeException(s"Unexpected: $unexpected")
               }
             } else Future.successful(None),
           _ => Future.successful(Done))
@@ -183,15 +184,16 @@ class UnfoldResourceAsyncSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
       result.futureValue should ===(Seq(1, 2, 3))
     }
 
-    "continue when Strategy is Resume and read returns failed future" in assertAllStagesStopped {
+    "continue when Strategy is Resume and read returns failed future" in {
       val result = Source
         .unfoldResourceAsync[Int, Iterator[Any]](
           () => Future.successful(List(1, 2, TE("read-error"), 3).iterator),
           iterator =>
             if (iterator.hasNext) {
               iterator.next() match {
-                case n: Int => Future.successful(Some(n))
-                case e: TE  => Future.failed(e)
+                case n: Int     => Future.successful(Some(n))
+                case e: TE      => Future.failed(e)
+                case unexpected => throw new RuntimeException(s"Unexpected: $unexpected")
               }
             } else Future.successful(None),
           _ => Future.successful(Done))
@@ -201,7 +203,7 @@ class UnfoldResourceAsyncSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
       result.futureValue should ===(Seq(1, 2, 3))
     }
 
-    "close and open stream again when Strategy is Restart and read throws" in assertAllStagesStopped {
+    "close and open stream again when Strategy is Restart and read throws" in {
       @volatile var failed = false
       val startCount = new AtomicInteger(0)
 
@@ -226,7 +228,7 @@ class UnfoldResourceAsyncSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
       startCount.get should ===(2)
     }
 
-    "close and open stream again when Strategy is Restart and read returns failed future" in assertAllStagesStopped {
+    "close and open stream again when Strategy is Restart and read returns failed future" in {
       @volatile var failed = false
       val startCount = new AtomicInteger(0)
 
@@ -251,7 +253,7 @@ class UnfoldResourceAsyncSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
       startCount.get should ===(2)
     }
 
-    "fail stream when restarting and close throws" in assertAllStagesStopped {
+    "fail stream when restarting and close throws" in {
       val out = TestSubscriber.probe[Int]()
       Source
         .unfoldResourceAsync[Int, Iterator[Int]](
@@ -265,7 +267,7 @@ class UnfoldResourceAsyncSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
       out.expectError().getMessage should ===("close-error")
     }
 
-    "fail stream when restarting and close returns failed future" in assertAllStagesStopped {
+    "fail stream when restarting and close returns failed future" in {
       val out = TestSubscriber.probe[Int]()
       Source
         .unfoldResourceAsync[Int, Iterator[Int]](
@@ -279,7 +281,7 @@ class UnfoldResourceAsyncSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
       out.expectError().getMessage should ===("close-error")
     }
 
-    "fail stream when restarting and start throws" in assertAllStagesStopped {
+    "fail stream when restarting and start throws" in {
       val startCounter = new AtomicInteger(0)
       val out = TestSubscriber.probe[Int]()
       Source
@@ -296,7 +298,7 @@ class UnfoldResourceAsyncSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
       out.expectError().getMessage should ===("start-error")
     }
 
-    "fail stream when restarting and start returns failed future" in assertAllStagesStopped {
+    "fail stream when restarting and start returns failed future" in {
       val startCounter = new AtomicInteger(0)
       val out = TestSubscriber.probe[Int]()
       Source
@@ -313,10 +315,7 @@ class UnfoldResourceAsyncSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
       out.expectError().getMessage should ===("start-error")
     }
 
-    "use dedicated blocking-io-dispatcher by default" in assertAllStagesStopped {
-      // use a separate materializer to ensure we know what child is our stream
-      implicit val materializer = Materializer(system)
-
+    "use dedicated blocking-io-dispatcher by default" in {
       Source
         .unfoldResourceAsync[String, Unit](
           () => Promise[Unit]().future, // never complete
@@ -324,7 +323,10 @@ class UnfoldResourceAsyncSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
           _ => ???)
         .runWith(Sink.ignore)
 
-      materializer.asInstanceOf[PhasedFusingActorMaterializer].supervisor.tell(StreamSupervisor.GetChildren, testActor)
+      SystemMaterializer(system).materializer
+        .asInstanceOf[PhasedFusingActorMaterializer]
+        .supervisor
+        .tell(StreamSupervisor.GetChildren, testActor)
       val ref = expectMsgType[Children].children.find(_.path.toString contains "unfoldResourceSourceAsync").get
       assertDispatcher(ref, ActorAttributes.IODispatcher.dispatcher)
     }
@@ -353,7 +355,7 @@ class UnfoldResourceAsyncSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
     }
 
     // these two reproduces different aspects of #24839
-    "close resource when stream is quickly cancelled" in assertAllStagesStopped {
+    "close resource when stream is quickly cancelled" in {
       val closePromise = Promise[Done]()
       Source
         .unfoldResourceAsync[String, Unit](
@@ -382,7 +384,7 @@ class UnfoldResourceAsyncSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
       closed.future.futureValue // will timeout if bug is still here
     }
 
-    "close the resource when reading an element returns a failed future" in assertAllStagesStopped {
+    "close the resource when reading an element returns a failed future" in {
       val closeProbe = TestProbe()
       val probe = TestSubscriber.probe[Unit]()
       Source
@@ -397,7 +399,7 @@ class UnfoldResourceAsyncSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
       closeProbe.expectMsg("closed")
     }
 
-    "close the resource when reading an element throws" in assertAllStagesStopped {
+    "close the resource when reading an element throws" in {
       val closeProbe = TestProbe()
       val probe = TestSubscriber.probe[Unit]()
       Source

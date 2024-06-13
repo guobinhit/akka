@@ -1,16 +1,14 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.crdt
-import akka.annotation.ApiMayChange
 import akka.persistence.typed.ReplicaId
 
 /**
  * Utility class for comparing timestamp replica
  * identifier when implementing last-writer wins.
  */
-@ApiMayChange
 final case class LwwTime(timestamp: Long, originReplica: ReplicaId) {
 
   /**

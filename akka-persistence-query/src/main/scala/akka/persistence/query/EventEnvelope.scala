@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.query
 
 import java.util.Optional
 
-import akka.annotation.InternalApi
-
 import scala.runtime.AbstractFunction4
+
+import akka.annotation.InternalApi
 import akka.util.HashCode
 
 // for binary compatibility (used to be a case class)
@@ -83,8 +83,14 @@ final class EventEnvelope(
     case _ => false
   }
 
-  override def toString: String =
-    s"EventEnvelope($offset,$persistenceId,$sequenceNr,$event,$timestamp,$eventMetadata)"
+  override def toString: String = {
+    val eventStr = event.getClass.getName
+    val metaStr = eventMetadata match {
+      case Some(meta) => meta.getClass.getName
+      case None       => ""
+    }
+    s"EventEnvelope($offset,$persistenceId,$sequenceNr,$eventStr,$timestamp,$metaStr)"
+  }
 
   // for binary compatibility (used to be a case class)
   def copy(

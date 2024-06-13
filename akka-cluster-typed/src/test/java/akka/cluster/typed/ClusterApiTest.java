@@ -1,18 +1,17 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.typed;
 
-import akka.cluster.ClusterEvent;
-import akka.actor.typed.ActorSystem;
 import akka.actor.testkit.typed.javadsl.TestProbe;
+import akka.actor.typed.ActorSystem;
+import akka.cluster.ClusterEvent;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.util.concurrent.TimeUnit;
 import org.junit.Test;
 import org.scalatestplus.junit.JUnitSuite;
-
-import java.util.concurrent.TimeUnit;
 
 public class ClusterApiTest extends JUnitSuite {
 
@@ -21,7 +20,6 @@ public class ClusterApiTest extends JUnitSuite {
     Config config =
         ConfigFactory.parseString(
             "akka.actor.provider = cluster \n"
-                + "akka.remote.classic.netty.tcp.port = 0 \n"
                 + "akka.remote.artery.canonical.port = 0 \n"
                 + "akka.remote.artery.canonical.hostname = 127.0.0.1 \n"
                 + "akka.cluster.jmx.multi-mbeans-in-same-jvm = on \n"

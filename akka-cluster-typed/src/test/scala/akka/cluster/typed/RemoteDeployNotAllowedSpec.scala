@@ -1,10 +1,8 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.typed
-
-import scala.concurrent.duration._
 
 import com.typesafe.config.ConfigFactory
 import org.scalatest.wordspec.AnyWordSpecLike
@@ -17,13 +15,12 @@ import akka.actor.typed.ActorSystem
 import akka.actor.typed.scaladsl.Behaviors
 
 object RemoteDeployNotAllowedSpec {
-  def config = ConfigFactory.parseString(s"""
+  def config = ConfigFactory.parseString("""
     akka {
       loglevel = warning
       actor {
         provider = cluster
       }
-      remote.classic.netty.tcp.port = 0
       remote.artery {
         canonical {
           hostname = 127.0.0.1
@@ -82,6 +79,8 @@ class RemoteDeployNotAllowedSpec
               case ex: Exception => probe.ref ! ex
             }
             Behaviors.same
+
+          case unexpected => throw new RuntimeException(s"Unexpected: $unexpected")
         }
 
       }
@@ -101,7 +100,7 @@ class RemoteDeployNotAllowedSpec
         system2 ! SpawnAnonymous
         probe.expectMessageType[Exception].getMessage should ===("Remote deployment not allowed for typed actors")
       } finally {
-        ActorTestKit.shutdown(system2, 5.seconds)
+        ActorTestKit.shutdown(system2)
       }
     }
   }

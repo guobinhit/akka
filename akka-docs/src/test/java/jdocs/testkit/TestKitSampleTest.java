@@ -1,23 +1,21 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.testkit;
 
 // #fullsample
-import jdocs.AbstractJavaTest;
+import akka.actor.AbstractActor;
+import akka.actor.ActorRef;
+import akka.actor.ActorSystem;
+import akka.actor.Props;
 import akka.testkit.javadsl.TestKit;
+import java.time.Duration;
+import jdocs.AbstractJavaTest;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
-
-import akka.actor.ActorRef;
-import akka.actor.ActorSystem;
-import akka.actor.Props;
-import akka.actor.AbstractActor;
-
-import java.time.Duration;
 
 public class TestKitSampleTest extends AbstractJavaTest {
 

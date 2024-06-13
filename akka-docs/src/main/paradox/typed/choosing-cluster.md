@@ -4,7 +4,7 @@
 An architectural choice you have to make is if you are going to use a microservices architecture or
 a traditional distributed application. This choice will influence how you should use Akka Cluster.
 
-The [stateful or stateful applications: to Akka Cluster or not](https://akka.io/blog/news/2020/06/01/akka-cluster-motivation)
+The [Stateful or Stateless applications: to Akka Cluster or not](https://akka.io/blog/news/2020/06/01/akka-cluster-motivation)
 video is a good starting point to understand the motivation to use Akka Cluster.
 
 ## Microservices
@@ -63,8 +63,7 @@ that are built and deployed independently from each other, but they have a tight
 very risky, such as a shared cluster, shared code and dependencies for service API calls, or a shared
 database schema. There is a false sense of autonomy because of the physical separation of the code and
 deployment units, but you are likely to encounter problems because of changes in the implementation of
-one service leaking into the behavior of others. See Ben Christensen's
-[Don’t Build a Distributed Monolith](https://www.microservices.com/talks/dont-build-a-distributed-monolith/).
+one service leaking into the behavior of others.
 
 Organizations that find themselves in this situation often react by trying to centrally coordinate deployment
 of multiple services, at which point you have lost the principal benefit of microservices while taking on

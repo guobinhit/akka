@@ -1,19 +1,20 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
 import java.util.UUID
 
-import akka.actor.{ ActorRef, ActorSystem, Props }
-import akka.cluster.sharding.ShardRegion.CurrentRegions
-import akka.cluster.{ Cluster, MemberStatus }
-import akka.persistence.PersistentActor
-import akka.testkit.{ AkkaSpec, ImplicitSender, TestProbe }
-import com.typesafe.config.{ Config, ConfigFactory }
-
 import scala.concurrent.Await
 import scala.concurrent.duration._
+
+import com.typesafe.config.{ Config, ConfigFactory }
+
+import akka.actor.{ ActorRef, ActorSystem, Props }
+import akka.cluster.{ Cluster, MemberStatus }
+import akka.cluster.sharding.ShardRegion.CurrentRegions
+import akka.persistence.PersistentActor
+import akka.testkit.{ AkkaSpec, ImplicitSender, TestProbe }
 
 /**
  * Test migration from old persistent shard coordinator with remembered
@@ -25,7 +26,6 @@ object PersistentShardingMigrationSpec {
        akka.loglevel = INFO
        akka.actor.provider = "cluster"
        akka.remote.artery.canonical.port = 0 
-       akka.remote.classic.netty.tcp.port = 0
        akka.cluster.sharding {
         remember-entities = on
         remember-entities-store = "eventsourced"
@@ -99,6 +99,7 @@ object PersistentShardingMigrationSpec {
       // StartEntity is used by remembering entities feature
       probe ! id
       id
+    case _ => throw new IllegalArgumentException()
   }
 }
 

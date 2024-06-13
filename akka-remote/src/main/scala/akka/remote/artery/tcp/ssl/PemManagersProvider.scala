@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery.tcp.ssl
@@ -13,16 +13,16 @@ import java.security.PrivateKey
 import java.security.cert.Certificate
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
-
-import akka.annotation.InternalApi
-import akka.pki.pem.DERPrivateKeyLoader
-import akka.pki.pem.PEMDecoder
 import javax.net.ssl.KeyManager
 import javax.net.ssl.KeyManagerFactory
 import javax.net.ssl.TrustManager
 import javax.net.ssl.TrustManagerFactory
 
 import scala.concurrent.blocking
+
+import akka.annotation.InternalApi
+import akka.pki.pem.DERPrivateKeyLoader
+import akka.pki.pem.PEMDecoder
 
 /**
  * INTERNAL API

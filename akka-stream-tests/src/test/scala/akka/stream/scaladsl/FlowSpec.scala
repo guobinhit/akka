@@ -1,26 +1,27 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
 import java.util.concurrent.ThreadLocalRandom
+import java.util.concurrent.atomic.AtomicLong
 
+import scala.annotation.nowarn
 import scala.collection.immutable
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 
-import com.github.ghik.silencer.silent
 import com.typesafe.config.ConfigFactory
 import org.reactivestreams.{ Publisher, Subscriber }
 
 import akka.NotUsed
-import akka.actor._
 import akka.stream._
 import akka.stream.impl._
+import akka.stream.stage.{ GraphStageLogic, GraphStageWithMaterializedValue, InHandler, OutHandler }
 import akka.stream.testkit._
-import akka.stream.testkit.scaladsl.StreamTestKit._
+import akka.stream.testkit.scaladsl.{ TestSink, TestSource }
 import akka.testkit.TestDuration
 
 object FlowSpec {
@@ -35,7 +36,7 @@ object FlowSpec {
 
 }
 
-@silent // tests type assignments compile
+@nowarn // tests type assignments compile
 class FlowSpec extends StreamSpec(ConfigFactory.parseString("akka.actor.debug.receive=off\nakka.loglevel=INFO")) {
   import FlowSpec._
 
@@ -61,14 +62,14 @@ class FlowSpec extends StreamSpec(ConfigFactory.parseString("akka.actor.debug.re
     for ((name, op) <- List("identity" -> identity, "identity2" -> identity2); n <- List(1, 2, 4)) {
       s"request initial elements from upstream ($name, $n)" in {
         new ChainSetup(op, settings.withInputBuffer(initialSize = n, maxSize = n), toPublisher) {
-          upstream.expectRequest(upstreamSubscription, settings.maxInputBufferSize)
+          upstream.expectRequest(upstreamSubscription, this.settings.maxInputBufferSize)
         }
       }
     }
 
     "request more elements from upstream when downstream requests more elements" in {
       new ChainSetup(identity, settings, toPublisher) {
-        upstream.expectRequest(upstreamSubscription, settings.maxInputBufferSize)
+        upstream.expectRequest(upstreamSubscription, this.settings.maxInputBufferSize)
         downstreamSubscription.request(1)
         upstream.expectNoMessage(100.millis)
         downstreamSubscription.request(2)
@@ -209,6 +210,14 @@ class FlowSpec extends StreamSpec(ConfigFactory.parseString("akka.actor.debug.re
       expectMsg("3")
     }
 
+    "perform contramap operation" in {
+      val flow = Flow[Int].contramap(Integer.parseInt)
+      val sub = Source(List("1", "2", "3")).via(flow).runWith(TestSink())
+      sub.request(3)
+      sub.expectNextN(List(1, 2, 3))
+      sub.expectComplete()
+    }
+
     "perform transformation operation and subscribe Subscriber" in {
       val flow = Flow[Int].map(_.toString)
       val c1 = TestSubscriber.manualProbe[String]()
@@ -224,7 +233,7 @@ class FlowSpec extends StreamSpec(ConfigFactory.parseString("akka.actor.debug.re
       c1.expectComplete()
     }
 
-    "be materializable several times with fanout publisher" in assertAllStagesStopped {
+    "be materializable several times with fanout publisher" in {
       val flow = Source(List(1, 2, 3)).map(_.toString)
       val p1 = flow.runWith(Sink.asPublisher(true))
       val p2 = flow.runWith(Sink.asPublisher(true))
@@ -520,6 +529,81 @@ class FlowSpec extends StreamSpec(ConfigFactory.parseString("akka.actor.debug.re
     "should be created from a function easily" in {
       Source(0 to 9).via(Flow.fromFunction(_ + 1)).runWith(Sink.seq).futureValue should ===(1 to 10)
     }
+  }
+
+  /**
+   * Count elements that passing by this flow
+   * */
+  private class CounterFlow[T] extends GraphStageWithMaterializedValue[FlowShape[T, T], AtomicLong] {
+    private val in = Inlet[T]("ElementCounterFlow.in")
+    private val out = Outlet[T]("ElementCounterFlow.out")
+    val shape = FlowShape(in, out)
+    override def createLogicAndMaterializedValue(inheritedAttributes: Attributes): (GraphStageLogic, AtomicLong) = {
+      val counter = new AtomicLong()
+      val logic = new GraphStageLogic(shape) with InHandler with OutHandler {
+        override def onPush(): Unit = {
+          counter.incrementAndGet()
+          push(out, grab(in))
+        }
+        override def onPull(): Unit = pull(in)
+        setHandlers(in, out, this)
+      }
+      (logic, counter)
+    }
+  }
+
+  "Flow pre-materialization" must {
+    "passing elements to downstream" in {
+      val (counter, flow) = Flow.fromGraph(new CounterFlow[Int]).preMaterialize()
+      val probe = Source(List(1, 2, 3)).via(flow).reduce((a, b) => a + b).runWith(TestSink[Int]())
+      probe.request(1)
+      probe.expectNext(6)
+      probe.request(1)
+      probe.expectComplete()
+      counter.get() should (be(3))
+    }
+
+    "propagate failures to downstream" in {
+      val (queue, source) = Source.queue[Int](1).preMaterialize()
+      val (counter, flow) = Flow.fromGraph(new CounterFlow[Int]).preMaterialize()
+      val probe = source.via(flow).runWith(TestSink[Int]())
+      queue.offer(1)
+      probe.request(1)
+      probe.expectNext(1)
+      queue.fail(new RuntimeException("boom"))
+      probe.expectError().getMessage should ===("boom")
+      counter.get() should (be(1))
+    }
+
+    "disallow materialize multiple times" in {
+      val (counter, flow) = Flow.fromGraph(new CounterFlow[Int]).preMaterialize()
+      val probe1 = Source(List(1, 2, 3)).via(flow).reduce((a, b) => a + b).runWith(TestSink[Int]())
+      probe1.request(1)
+      probe1.expectNext(6)
+      probe1.request(1)
+      probe1.expectComplete()
+      counter.get() should (be(3))
+      val probe2 = Source(List(1, 2, 3)).via(flow).reduce((a, b) => a + b).runWith(TestSink[Int]())
+      probe2.request(1)
+      probe2.expectError()
+    }
+
+    "propagate failure to downstream when materializing" in {
+      a[RuntimeException] shouldBe thrownBy(
+        Flow
+          .fromGraph(new CounterFlow[Int])
+          .mapMaterializedValue(_ => throw new RuntimeException("boom"))
+          .preMaterialize())
+    }
+
+    "propagate cancel to upstream" in {
+      val (counter, flow) = Flow.fromGraph(new CounterFlow[Int]).preMaterialize()
+      val probSource = TestSource[Int]().via(flow).toMat(Sink.cancelled[Int])(Keep.left).run()
+      probSource.ensureSubscription()
+      probSource.expectCancellation()
+      counter.get() should (be(0))
+    }
+
   }
 
   object TestException extends RuntimeException with NoStackTrace

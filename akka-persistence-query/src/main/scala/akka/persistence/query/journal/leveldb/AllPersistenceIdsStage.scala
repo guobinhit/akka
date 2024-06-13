@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.query.journal.leveldb
@@ -30,6 +30,8 @@ final private[akka] class AllPersistenceIdsStage(liveQuery: Boolean, writeJourna
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
     new TimerGraphStageLogicWithLogging(shape) with OutHandler with Buffer[String] {
+      override def doPush(out: Outlet[String], elem: String): Unit = super.push(out, elem)
+
       setHandler(out, this)
       val journal: ActorRef = Persistence(mat.system).journalFor(writeJournalPluginId)
       var initialResponseReceived = false
@@ -55,6 +57,8 @@ final private[akka] class AllPersistenceIdsStage(liveQuery: Boolean, writeJourna
               buffer(persistenceId)
               deliverBuf(out)
             }
+
+          case _ => throw new RuntimeException() // compiler exhaustiveness check pleaser
         }
       }
 

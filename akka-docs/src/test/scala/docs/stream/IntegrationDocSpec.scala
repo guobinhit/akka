@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.stream
@@ -22,6 +22,7 @@ import scala.concurrent.ExecutionContext
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.stream.scaladsl.Flow
+import org.scalacheck.Gen.const
 
 object IntegrationDocSpec {
   import TwitterStreamQuickstartDocSpec._
@@ -139,7 +140,7 @@ class IntegrationDocSpec extends AkkaSpec(IntegrationDocSpec.config) {
 
   "ask" in {
     //#ask
-    implicit val askTimeout = Timeout(5.seconds)
+    implicit val askTimeout: Timeout = 5.seconds
     val words: Source[String, NotUsed] =
       Source(List("hello", "hi"))
 
@@ -202,7 +203,7 @@ class IntegrationDocSpec extends AkkaSpec(IntegrationDocSpec.config) {
     val onErrorMessage = (ex: Throwable) => AckingReceiver.StreamFailure(ex)
 
     val probe = TestProbe()
-    val receiver = system.actorOf(Props(new AckingReceiver(probe.ref, ackWith = AckMessage)))
+    val receiver = system.actorOf(Props(new AckingReceiver(probe.ref)))
     val sink = Sink.actorRefWithBackpressure(
       receiver,
       onInitMessage = InitMessage,
@@ -228,7 +229,7 @@ class IntegrationDocSpec extends AkkaSpec(IntegrationDocSpec.config) {
     final case class StreamFailure(ex: Throwable)
   }
 
-  class AckingReceiver(probe: ActorRef, ackWith: Any) extends Actor with ActorLogging {
+  class AckingReceiver(probe: ActorRef) extends Actor with ActorLogging {
     import AckingReceiver._
 
     def receive: Receive = {
@@ -383,7 +384,7 @@ class IntegrationDocSpec extends AkkaSpec(IntegrationDocSpec.config) {
 
     val akkaTweets: Source[Tweet, NotUsed] = tweets.filter(_.hashtags.contains(akkaTag))
 
-    implicit val timeout = Timeout(3.seconds)
+    implicit val timeout: Timeout = 3.seconds
     val saveTweets: RunnableGraph[NotUsed] =
       akkaTweets.mapAsync(4)(tweet => database ? Save(tweet)).to(Sink.ignore)
     //#save-tweets
@@ -469,7 +470,7 @@ class IntegrationDocSpec extends AkkaSpec(IntegrationDocSpec.config) {
     val elementsToProcess = 5
 
     val queue = Source
-      .queue[Int](bufferSize, OverflowStrategy.backpressure)
+      .queue[Int](bufferSize)
       .throttle(elementsToProcess, 3.second)
       .map(x => x * x)
       .toMat(Sink.foreach(x => println(s"completed $x")))(Keep.left)
@@ -479,7 +480,7 @@ class IntegrationDocSpec extends AkkaSpec(IntegrationDocSpec.config) {
 
     implicit val ec = system.dispatcher
     source
-      .mapAsync(1)(x => {
+      .map(x => {
         queue.offer(x).map {
           case QueueOfferResult.Enqueued    => println(s"enqueued $x")
           case QueueOfferResult.Dropped     => println(s"dropped $x")

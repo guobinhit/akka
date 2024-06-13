@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
@@ -37,12 +37,14 @@ object ClusterShardingRememberEntitiesNewExtractorSpec {
   val extractShardId1: ShardRegion.ExtractShardId = {
     case id: Int                     => (id % shardCount).toString
     case ShardRegion.StartEntity(id) => extractShardId1(id.toInt)
+    case _                           => throw new IllegalArgumentException()
   }
 
   val extractShardId2: ShardRegion.ExtractShardId = {
     // always bump it one shard id
     case id: Int                     => ((id + 1) % shardCount).toString
     case ShardRegion.StartEntity(id) => extractShardId2(id.toInt)
+    case _                           => throw new IllegalArgumentException()
   }
 
 }
@@ -134,7 +136,7 @@ abstract class ClusterShardingRememberEntitiesNewExtractorSpec(
 
   def region(sys: ActorSystem = system) = ClusterSharding(sys).shardRegion(typeName)
 
-  s"Cluster with min-nr-of-members using sharding ($mode)" must {
+  s"Cluster with min-nr-of-members using sharding (${multiNodeConfig.mode})" must {
 
     "start up first cluster and sharding" in within(15.seconds) {
       startPersistenceIfNeeded(startOn = first, setStoreOn = Seq(second, third))

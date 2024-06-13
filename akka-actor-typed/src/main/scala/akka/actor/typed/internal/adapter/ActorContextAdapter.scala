@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed
@@ -11,13 +11,14 @@ import scala.concurrent.duration._
 
 import akka.{ actor => classic }
 import akka.annotation.InternalApi
+import akka.util.OptionVal
 
 @InternalApi
 private[akka] object ActorContextAdapter {
 
   private def toClassicImp[U](context: TypedActorContext[_]): classic.ActorContext =
     context match {
-      case adapter: ActorContextAdapter[_] => adapter.classicContext
+      case adapter: ActorContextAdapter[_] => adapter.classicActorContext
       case _ =>
         throw new UnsupportedOperationException(
           "Only adapted classic ActorContext permissible " +
@@ -25,55 +26,51 @@ private[akka] object ActorContextAdapter {
     }
 
   def toClassic[U](context: scaladsl.ActorContext[_]): classic.ActorContext =
-    context match {
-      case c: TypedActorContext[_] => toClassicImp(c)
-      case _ =>
-        throw new UnsupportedOperationException(
-          "unknown ActorContext type " +
-          s"($context of class ${context.getClass.getName})")
-    }
+    toClassicImp(context)
 
   def toClassic[U](context: javadsl.ActorContext[_]): classic.ActorContext =
-    context match {
-      case c: TypedActorContext[_] => toClassicImp(c)
-      case _ =>
-        throw new UnsupportedOperationException(
-          "unknown ActorContext type " +
-          s"($context of class ${context.getClass.getName})")
-    }
+    toClassicImp(context)
 }
 
 /**
  * INTERNAL API. Wrapping an [[akka.actor.ActorContext]] as an [[TypedActorContext]].
  */
-@InternalApi private[akka] final class ActorContextAdapter[T](
-    val classicContext: classic.ActorContext,
-    adapter: ActorAdapter[T])
-    extends ActorContextImpl[T] {
+@InternalApi private[akka] final class ActorContextAdapter[T](adapter: ActorAdapter[T]) extends ActorContextImpl[T] {
 
   import ActorRefAdapter.toClassic
+  private[akka] def classicActorContext = adapter.context
 
   private[akka] override def currentBehavior: Behavior[T] = adapter.currentBehavior
 
-  final override val self = ActorRefAdapter(classicContext.self)
-  final override val system = ActorSystemAdapter(classicContext.system)
-  private[akka] def classicActorContext = classicContext
+  // optimization to avoid adapter allocation unless used
+  // self documented as thread safe, on purpose not volatile since
+  // lazily created because creating adapter is idempotent
+  private var _self: OptionVal[ActorRef[T]] = OptionVal.None
+  override def self: ActorRef[T] = {
+    if (_self.isEmpty) {
+      _self = OptionVal.Some(ActorRefAdapter(classicActorContext.self))
+    }
+    _self.get
+  }
+
+  override def system = ActorSystemAdapter(classicActorContext.system)
+
   override def children: Iterable[ActorRef[Nothing]] = {
     checkCurrentActorThread()
-    classicContext.children.map(ActorRefAdapter(_))
+    classicActorContext.children.map(ActorRefAdapter(_))
   }
   override def child(name: String): Option[ActorRef[Nothing]] = {
     checkCurrentActorThread()
-    classicContext.child(name).map(ActorRefAdapter(_))
+    classicActorContext.child(name).map(ActorRefAdapter(_))
   }
   override def spawnAnonymous[U](behavior: Behavior[U], props: Props = Props.empty): ActorRef[U] = {
     checkCurrentActorThread()
-    ActorRefFactoryAdapter.spawnAnonymous(classicContext, behavior, props, rethrowTypedFailure = true)
+    ActorRefFactoryAdapter.spawnAnonymous(classicActorContext, behavior, props, rethrowTypedFailure = true)
   }
 
   override def spawn[U](behavior: Behavior[U], name: String, props: Props = Props.empty): ActorRef[U] = {
     checkCurrentActorThread()
-    ActorRefFactoryAdapter.spawn(classicContext, behavior, name, props, rethrowTypedFailure = true)
+    ActorRefFactoryAdapter.spawn(classicActorContext, behavior, name, props, rethrowTypedFailure = true)
   }
 
   override def stop[U](child: ActorRef[U]): Unit = {
@@ -81,12 +78,12 @@ private[akka] object ActorContextAdapter {
     if (child.path.parent == self.path) { // only if a direct child
       toClassic(child) match {
         case f: akka.actor.FunctionRef =>
-          val cell = classicContext.asInstanceOf[akka.actor.ActorCell]
+          val cell = classicActorContext.asInstanceOf[akka.actor.ActorCell]
           cell.removeFunctionRef(f)
         case c =>
-          classicContext.child(child.path.name) match {
+          classicActorContext.child(child.path.name) match {
             case Some(`c`) =>
-              classicContext.stop(c)
+              classicActorContext.stop(c)
             case _ =>
             // child that was already stopped
           }
@@ -107,37 +104,37 @@ private[akka] object ActorContextAdapter {
 
   override def watch[U](other: ActorRef[U]): Unit = {
     checkCurrentActorThread()
-    classicContext.watch(toClassic(other))
+    classicActorContext.watch(toClassic(other))
   }
   override def watchWith[U](other: ActorRef[U], msg: T): Unit = {
     checkCurrentActorThread()
-    classicContext.watchWith(toClassic(other), msg)
+    classicActorContext.watchWith(toClassic(other), msg)
   }
   override def unwatch[U](other: ActorRef[U]): Unit = {
     checkCurrentActorThread()
-    classicContext.unwatch(toClassic(other))
+    classicActorContext.unwatch(toClassic(other))
   }
   var receiveTimeoutMsg: T = null.asInstanceOf[T]
   override def setReceiveTimeout(d: FiniteDuration, msg: T): Unit = {
     checkCurrentActorThread()
     receiveTimeoutMsg = msg
-    classicContext.setReceiveTimeout(d)
+    classicActorContext.setReceiveTimeout(d)
   }
   override def cancelReceiveTimeout(): Unit = {
     checkCurrentActorThread()
 
     receiveTimeoutMsg = null.asInstanceOf[T]
-    classicContext.setReceiveTimeout(Duration.Undefined)
+    classicActorContext.setReceiveTimeout(Duration.Undefined)
   }
-  override def executionContext: ExecutionContextExecutor = classicContext.dispatcher
+  override def executionContext: ExecutionContextExecutor = classicActorContext.dispatcher
   override def scheduleOnce[U](delay: FiniteDuration, target: ActorRef[U], msg: U): classic.Cancellable = {
-    import classicContext.dispatcher
-    classicContext.system.scheduler.scheduleOnce(delay, toClassic(target), msg)
+    classicActorContext.system.scheduler.scheduleOnce(delay, toClassic(target), msg)(classicActorContext.dispatcher)
   }
   override private[akka] def internalSpawnMessageAdapter[U](f: U => T, _name: String): ActorRef[U] = {
-    val cell = classicContext.asInstanceOf[akka.actor.ActorCell]
+    val cell = classicActorContext.asInstanceOf[akka.actor.ActorCell]
     // apply the function inside the actor by wrapping the msg and f, handled by ActorAdapter
-    val ref = cell.addFunctionRef((_, msg) => classicContext.self ! AdaptMessage[U, T](msg.asInstanceOf[U], f), _name)
+    val ref =
+      cell.addFunctionRef((_, msg) => classicActorContext.self ! AdaptMessage[U, T](msg.asInstanceOf[U], f), _name)
     ActorRefAdapter[U](ref)
   }
 

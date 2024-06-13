@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -8,7 +8,7 @@ import scala.concurrent.duration.FiniteDuration
 
 import akka.NotUsed
 import akka.stream.{ Attributes, Inlet, RestartSettings, SinkShape }
-import akka.stream.stage.{ GraphStage, InHandler }
+import akka.stream.stage.{ GraphStage, GraphStageLogic }
 
 /**
  * A RestartSink wraps a [[Sink]] that gets restarted when it completes or fails.
@@ -120,13 +120,11 @@ private final class RestartWithBackoffSink[T](sinkFactory: () => Sink[T, _], res
 
       override protected def startGraph() = {
         val sourceOut = createSubOutlet(in)
-        Source.fromGraph(sourceOut.source).runWith(sinkFactory())(subFusingMaterializer)
+        subFusingMaterializer.materialize(Source.fromGraph(sourceOut.source).to(sinkFactory()), inheritedAttributes)
       }
 
       override protected def backoff() = {
-        setHandler(in, new InHandler {
-          override def onPush() = ()
-        })
+        setHandler(in, GraphStageLogic.EagerTerminateInput)
       }
 
       backoff()

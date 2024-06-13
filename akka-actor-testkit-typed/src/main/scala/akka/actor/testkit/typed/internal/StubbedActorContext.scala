@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.testkit.typed.internal
@@ -11,14 +11,13 @@ import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.FiniteDuration
 
 import org.slf4j.Logger
-import org.slf4j.helpers.MessageFormatter
-import org.slf4j.helpers.SubstituteLoggerFactory
+import org.slf4j.Marker
+import org.slf4j.event.SubstituteLoggingEvent
+import org.slf4j.helpers.{ MessageFormatter, SubstituteLoggerFactory }
 
 import akka.{ actor => classic }
-import akka.actor.{ ActorPath, InvalidMessageException }
-import akka.actor.ActorRefProvider
+import akka.actor.{ ActorPath, ActorRefProvider, InvalidMessageException }
 import akka.actor.testkit.typed.CapturedLogEvent
-import akka.actor.testkit.typed.scaladsl.TestInbox
 import akka.actor.typed._
 import akka.actor.typed.internal._
 import akka.annotation.InternalApi
@@ -63,11 +62,18 @@ private[akka] final class FunctionRef[-T](override val path: ActorPath, send: (T
  * provides only stubs for the effects an Actor can perform and replaces
  * created child Actors by a synchronous Inbox (see `Inbox.sync`).
  */
-@InternalApi private[akka] class StubbedActorContext[T](val path: ActorPath, currentBehaviorProvider: () => Behavior[T])
+@InternalApi private[akka] class StubbedActorContext[T](
+    val system: ActorSystemStub,
+    val path: ActorPath,
+    currentBehaviorProvider: () => Behavior[T])
     extends ActorContextImpl[T] {
 
+  def this(system: ActorSystemStub, name: String, currentBehaviorProvider: () => Behavior[T]) = {
+    this(system, (system.path / name).withUid(rnd().nextInt()), currentBehaviorProvider)
+  }
+
   def this(name: String, currentBehaviorProvider: () => Behavior[T]) = {
-    this((TestInbox.address / name).withUid(rnd().nextInt()), currentBehaviorProvider)
+    this(new ActorSystemStub("StubbedActorContext"), name, currentBehaviorProvider)
   }
 
   /**
@@ -76,7 +82,6 @@ private[akka] final class FunctionRef[-T](override val path: ActorPath, send: (T
   @InternalApi private[akka] val selfInbox = new TestInboxImpl[T](path)
 
   override val self = selfInbox.ref
-  override val system = new ActorSystemStub("StubbedActorContext")
   private var _children = TreeMap.empty[String, BehaviorTestKitImpl[_]]
   private val childName = Iterator.from(0).map(Helpers.base64(_))
   private val substituteLoggerFactory = new SubstituteLoggerFactory
@@ -100,7 +105,7 @@ private[akka] final class FunctionRef[-T](override val path: ActorPath, send: (T
 
   override def spawnAnonymous[U](behavior: Behavior[U], props: Props = Props.empty): ActorRef[U] = {
     checkCurrentActorThread()
-    val btk = new BehaviorTestKitImpl[U]((path / childName.next()).withUid(rnd().nextInt()), behavior)
+    val btk = new BehaviorTestKitImpl[U](system, (path / childName.next()).withUid(rnd().nextInt()), behavior)
     _children += btk.context.self.path.name -> btk
     btk.context.self
   }
@@ -109,7 +114,7 @@ private[akka] final class FunctionRef[-T](override val path: ActorPath, send: (T
     _children.get(name) match {
       case Some(_) => throw classic.InvalidActorNameException(s"actor name $name is already taken")
       case None =>
-        val btk = new BehaviorTestKitImpl[U]((path / name).withUid(rnd().nextInt()), behavior)
+        val btk = new BehaviorTestKitImpl[U](system, (path / name).withUid(rnd().nextInt()), behavior)
         _children += name -> btk
         btk.context.self
     }
@@ -162,7 +167,7 @@ private[akka] final class FunctionRef[-T](override val path: ActorPath, send: (T
 
     val n = if (name != "") s"${childName.next()}-$name" else childName.next()
     val p = (path / n).withUid(rnd().nextInt())
-    val i = new BehaviorTestKitImpl[U](p, BehaviorImpl.ignore)
+    val i = new BehaviorTestKitImpl[U](system, p, BehaviorImpl.ignore)
     _children += p.name -> i
 
     new FunctionRef[U](p, (message, _) => {
@@ -235,9 +240,28 @@ private[akka] final class FunctionRef[-T](override val path: ActorPath, send: (T
           level = evt.getLevel,
           message = MessageFormatter.arrayFormat(evt.getMessage, evt.getArgumentArray).getMessage,
           cause = Option(evt.getThrowable),
-          marker = Option(evt.getMarker))
+          marker = marker(evt))
       }
       .toList
+  }
+
+  /**
+   * SL4FJ changed the API in SubstituteLoggingEvent from getMarker in 1.7 to getMarkers in 2.0.
+   * Using reflection to be able to support both.
+   */
+  private def marker(evt: SubstituteLoggingEvent): Option[Marker] = {
+    try {
+      val slf4j1Method = evt.getClass.getMethod("getMarker")
+      Option(slf4j1Method.invoke(evt).asInstanceOf[Marker])
+    } catch {
+      case _: NoSuchMethodException =>
+        val slf4j2Method = evt.getClass.getMethod("getMarkers")
+        val markers = slf4j2Method.invoke(evt).asInstanceOf[java.util.List[Marker]]
+        if ((markers eq null) || markers.isEmpty)
+          None
+        else
+          Option(markers.get(0))
+    }
   }
 
   /**

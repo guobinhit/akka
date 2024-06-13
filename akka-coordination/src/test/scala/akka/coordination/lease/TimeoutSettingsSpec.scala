@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.coordination.lease
@@ -40,7 +40,7 @@ class TimeoutSettingsSpec extends AnyWordSpec with Matchers {
         """).heartbeatInterval shouldEqual 20.second
     }
 
-    "not allow interval to be greater or equal to half the interval" in {
+    "not allow heartbeat-interval to be greater or equal to half the heartbeat-timeout" in {
       intercept[IllegalArgumentException] {
         conf("""
           heartbeat-timeout=100s

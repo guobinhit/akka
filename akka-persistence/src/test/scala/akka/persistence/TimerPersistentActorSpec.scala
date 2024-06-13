@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence
@@ -79,10 +79,12 @@ object TimerPersistentActorSpec {
 
 }
 
-class TimerPersistentActorSpec extends PersistenceSpec(ConfigFactory.parseString(s"""
+class TimerPersistentActorSpec
+    extends PersistenceSpec(ConfigFactory.parseString("""
     akka.persistence.journal.plugin = "akka.persistence.journal.inmem"
     akka.actor.warn-about-java-serializer-usage = off
-  """)) with ImplicitSender {
+  """))
+    with ImplicitSender {
   import TimerPersistentActorSpec._
 
   system.eventStream.publish(Mute(EventFilter[ActorInitializationException]()))
@@ -101,9 +103,11 @@ class TimerPersistentActorSpec extends PersistenceSpec(ConfigFactory.parseString
     }
 
     "reject wrong order of traits, PersistentActor with Timer" in {
-      val pa = system.actorOf(Props[WrongOrder]())
-      watch(pa)
-      expectTerminated(pa)
+      if (TraitOrder.canBeChecked) {
+        val pa = system.actorOf(Props[WrongOrder]())
+        watch(pa)
+        expectTerminated(pa)
+      }
     }
 
     "handle AutoReceivedMessage's automatically" in {

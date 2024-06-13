@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed
@@ -30,4 +30,10 @@ trait PublishedEvent {
   def event: Any
   def timestamp: Long
   def tags: Set[String]
+
+  /**
+   * If the published event is tagged, return a new published event with the payload unwrapped and the tags dropped,
+   * if it is not tagged return the published event as is.
+   */
+  def withoutTags: PublishedEvent
 }

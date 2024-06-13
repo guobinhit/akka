@@ -1,20 +1,20 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
 
+import scala.annotation.nowarn
 import scala.concurrent.duration._
 
-import com.github.ghik.silencer.silent
 import com.typesafe.config.ConfigFactory
 
 import akka.actor._
 import akka.actor.ActorIdentity
 import akka.actor.Identify
 import akka.remote.{ RARP, RemotingMultiNodeSpec }
+import akka.remote.testkit.Direction
 import akka.remote.testkit.MultiNodeConfig
-import akka.remote.transport.ThrottlerTransportAdapter.Direction
 import akka.testkit._
 
 object SurviveNetworkPartitionSpec extends MultiNodeConfig {
@@ -25,7 +25,6 @@ object SurviveNetworkPartitionSpec extends MultiNodeConfig {
     debugConfig(on = false)
       .withFallback(ConfigFactory.parseString("""
       akka.loglevel = INFO
-      akka.remote.artery.enabled = on
       akka.remote.artery.advanced.give-up-system-message-after = 4s
       akka.remote.use-unsafe-remote-features-outside-cluster = on
       """))
@@ -37,7 +36,7 @@ object SurviveNetworkPartitionSpec extends MultiNodeConfig {
 class SurviveNetworkPartitionSpecMultiJvmNode1 extends SurviveNetworkPartitionSpec
 class SurviveNetworkPartitionSpecMultiJvmNode2 extends SurviveNetworkPartitionSpec
 
-@silent("deprecated")
+@nowarn("msg=deprecated")
 abstract class SurviveNetworkPartitionSpec extends RemotingMultiNodeSpec(SurviveNetworkPartitionSpec) {
 
   import SurviveNetworkPartitionSpec._

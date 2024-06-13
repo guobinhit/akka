@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.singleton
@@ -73,11 +73,6 @@ object ClusterSingletonProxySpec {
       cluster.jmx.enabled = off
       actor.provider = "cluster"
       remote {
-        classic.log-remote-lifecycle-events = off
-        classic.netty.tcp {
-          hostname = "127.0.0.1"
-          port = 0
-        }
         artery.canonical {
           hostname  = "127.0.0.1"
           port = 0

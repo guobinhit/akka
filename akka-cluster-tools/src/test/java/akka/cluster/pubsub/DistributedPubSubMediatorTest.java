@@ -1,22 +1,19 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.pubsub;
 
-import com.typesafe.config.ConfigFactory;
-
-import akka.testkit.AkkaJUnitActorSystemResource;
-
-import org.junit.ClassRule;
-import org.junit.Test;
-
+import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import akka.actor.Props;
-import akka.actor.AbstractActor;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
+import akka.testkit.AkkaJUnitActorSystemResource;
+import com.typesafe.config.ConfigFactory;
+import org.junit.ClassRule;
+import org.junit.Test;
 import org.scalatestplus.junit.JUnitSuite;
 
 public class DistributedPubSubMediatorTest extends JUnitSuite {
@@ -26,9 +23,7 @@ public class DistributedPubSubMediatorTest extends JUnitSuite {
       new AkkaJUnitActorSystemResource(
           "DistributedPubSubMediatorTest",
           ConfigFactory.parseString(
-              "akka.actor.provider = \"cluster\"\n"
-                  + "akka.remote.classic.netty.tcp.port=0\n"
-                  + "akka.remote.artery.canonical.port=0"));
+              "akka.actor.provider = \"cluster\"\n" + "akka.remote.artery.canonical.port=0"));
 
   private final ActorSystem system = actorSystemResource.getSystem();
 

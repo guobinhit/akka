@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
@@ -24,12 +24,14 @@ object ClusterShardingGetStateSpec {
 
   val extractShardId: ShardRegion.ExtractShardId = {
     case PingPongActor.Ping(id) => (id % numberOfShards).toString
+    case _                      => throw new IllegalArgumentException()
   }
 
   val shardTypeName = "Ping"
 }
 
-object ClusterShardingGetStateSpecConfig extends MultiNodeClusterShardingConfig(additionalConfig = s"""
+object ClusterShardingGetStateSpecConfig
+    extends MultiNodeClusterShardingConfig(additionalConfig = """
     akka.cluster.sharding {
       coordinator-failure-backoff = 3s
       shard-failure-backoff = 3s

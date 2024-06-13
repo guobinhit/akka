@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
@@ -63,7 +63,7 @@ object ClusterShardingCustomShardAllocationSpec {
 abstract class ClusterShardingCustomShardAllocationSpecConfig(mode: String)
     extends MultiNodeClusterShardingConfig(
       mode,
-      additionalConfig = s"""
+      additionalConfig = """
       akka.cluster.sharding.rebalance-interval = 1 s
       akka.persistence.journal.leveldb-shared.store.native = off
       """) {
@@ -115,7 +115,7 @@ abstract class ClusterShardingCustomShardAllocationSpec(multiNodeConfig: Cluster
 
   lazy val allocator = system.actorOf(Props[Allocator](), "allocator")
 
-  s"Cluster sharding ($mode) with custom allocation strategy" must {
+  s"Cluster sharding (${multiNodeConfig.mode}) with custom allocation strategy" must {
 
     "use specified region" in within(30.seconds) {
       startPersistenceIfNeeded(startOn = first, setStoreOn = Seq(first, second))

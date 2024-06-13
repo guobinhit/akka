@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.testkit.typed.internal
@@ -16,6 +16,8 @@ import scala.concurrent.duration._
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 
+import akka.actor.ActorRefProvider
+import akka.actor.ExtendedActorSystem
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.TestKitSettings
 import akka.actor.testkit.typed.javadsl.{ TestProbe => JavaTestProbe }
@@ -26,6 +28,7 @@ import akka.actor.typed.ActorSystem
 import akka.actor.typed.Behavior
 import akka.actor.typed.Signal
 import akka.actor.typed.Terminated
+import akka.actor.typed.internal.InternalRecipientRef
 import akka.actor.typed.scaladsl.Behaviors
 import akka.annotation.InternalApi
 import akka.japi.function.Creator
@@ -63,7 +66,8 @@ private[akka] object TestProbeImpl {
 @InternalApi
 private[akka] final class TestProbeImpl[M](name: String, system: ActorSystem[_])
     extends JavaTestProbe[M]
-    with ScalaTestProbe[M] {
+    with ScalaTestProbe[M]
+    with InternalRecipientRef[M] {
 
   import TestProbeImpl._
 
@@ -86,7 +90,7 @@ private[akka] final class TestProbeImpl[M](name: String, system: ActorSystem[_])
 
   override def ref: ActorRef[M] = testActor
 
-  override def remainingOrDefault: FiniteDuration = remainingOr(settings.SingleExpectDefaultTimeout.dilated)
+  override def remainingOrDefault: FiniteDuration = remainingOr(settings.SingleExpectDefaultTimeout)
 
   override def getRemainingOrDefault: JDuration = remainingOrDefault.asJava
 
@@ -101,6 +105,7 @@ private[akka] final class TestProbeImpl[M](name: String, system: ActorSystem[_])
     case x if x eq Duration.Undefined => duration
     case x if !x.isFinite             => throw new IllegalArgumentException("`end` cannot be infinite")
     case f: FiniteDuration            => f - now
+    case _                            => throw new RuntimeException() // compiler exhaustiveness check pleaser
   }
 
   override def getRemainingOr(duration: JDuration): JDuration =
@@ -199,7 +204,7 @@ private[akka] final class TestProbeImpl[M](name: String, system: ActorSystem[_])
     expectNoMessage(max.asScala)
 
   override def expectNoMessage(): Unit =
-    expectNoMessage_internal(settings.ExpectNoMessageDefaultTimeout.dilated)
+    expectNoMessage_internal(settings.ExpectNoMessageDefaultTimeout)
 
   private def expectNoMessage_internal(max: FiniteDuration): Unit = {
     val o = receiveOne_internal(max)
@@ -262,8 +267,15 @@ private[akka] final class TestProbeImpl[M](name: String, system: ActorSystem[_])
   override def fishForMessage(max: FiniteDuration, hint: String)(fisher: M => FishingOutcome): immutable.Seq[M] =
     fishForMessage_internal(max.dilated, hint, fisher)
 
+  override def fishForMessagePF(max: FiniteDuration, hint: String)(
+      fisher: PartialFunction[M, FishingOutcome]): immutable.Seq[M] =
+    fishForMessage(max, hint)(fisher)
+
   override def fishForMessage(max: FiniteDuration)(fisher: M => FishingOutcome): immutable.Seq[M] =
     fishForMessage(max, "")(fisher)
+
+  override def fishForMessagePF(max: FiniteDuration)(fisher: PartialFunction[M, FishingOutcome]): immutable.Seq[M] =
+    fishForMessage(max)(fisher)
 
   override def fishForMessage(max: JDuration, fisher: java.util.function.Function[M, FishingOutcome]): JList[M] =
     fishForMessage(max, "", fisher)
@@ -389,6 +401,15 @@ private[akka] final class TestProbeImpl[M](name: String, system: ActorSystem[_])
   override def stop(): Unit = {
     testActor.asInstanceOf[ActorRef[AnyRef]] ! Stop
   }
+
+  def tell(m: M) = testActor.tell(m)
+
+  // impl InternalRecipientRef
+  def provider: ActorRefProvider =
+    system.classicSystem.asInstanceOf[ExtendedActorSystem].provider
+
+  // impl InternalRecipientRef
+  def isTerminated: Boolean = false
 
   override private[akka] def asJava: JavaTestProbe[M] = this
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -7,6 +7,7 @@ package akka.remote.artery
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
 import scala.util.control.NonFatal
+
 import akka.Done
 import akka.actor.{ Actor, ActorLogging, Props }
 import akka.annotation.InternalApi

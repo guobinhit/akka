@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.javadsl
@@ -9,7 +9,9 @@ import java.util.Optional
 import java.util.concurrent.CompletionStage
 
 import scala.concurrent.ExecutionContextExecutor
+
 import org.slf4j.Logger
+
 import akka.actor.ClassicActorContextProvider
 import akka.actor.typed._
 import akka.annotation.DoNotInherit
@@ -145,6 +147,16 @@ trait ActorContext[T] extends TypedActorContext[T] with ClassicActorContextProvi
    * than the ordinary actor message processing thread, such as [[java.util.concurrent.CompletionStage]] callbacks.
    */
   def spawn[U](behavior: Behavior[U], name: String, props: Props): ActorRef[U]
+
+  /**
+   * Delegate message and signal's execution by given [[akka.actor.typed.Behavior]]
+   * using [[Behavior.interpretMessage]] or [[Behavior.interpretSignal]]
+   *
+   * note: if given [[akka.actor.typed.Behavior]] resulting [[Behaviors.same]] that will cause context switching to the given behavior
+   * and if result is [[Behaviors.unhandled]] that will trigger the [[akka.actor.typed.scaladsl.ActorContext.onUnhandled]]
+   * then switching to the given behavior.
+   */
+  def delegate(delegator: Behavior[T], msg: T): Behavior[T]
 
   /**
    * Force the child Actor under the given name to terminate after it finishes

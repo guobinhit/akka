@@ -1,14 +1,15 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.delivery
 
+import java.io.NotSerializableException
 import java.nio.charset.StandardCharsets
 
+import scala.concurrent.duration._
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.duration._
 
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
@@ -140,6 +141,7 @@ class TestSerializer extends SerializerWithStringManifest {
   override def toBinary(o: AnyRef): Array[Byte] =
     o match {
       case TestConsumer.Job(payload) => payload.getBytes(StandardCharsets.UTF_8)
+      case unexpected                => throw new NotSerializableException(s"Unexpected: $unexpected")
     }
 
   override def fromBinary(bytes: Array[Byte], manifest: String): AnyRef =

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.query.journal.leveldb.scaladsl
@@ -39,6 +39,7 @@ import akka.util.ByteString
  * absolute path corresponding to the identifier, which is `"akka.persistence.query.journal.leveldb"`
  * for the default [[LeveldbReadJournal#Identifier]]. See `reference.conf`.
  */
+@deprecated("Use another journal implementation", "2.6.15")
 class LeveldbReadJournal(system: ExtendedActorSystem, config: Config)
     extends ReadJournal
     with PersistenceIdsQuery

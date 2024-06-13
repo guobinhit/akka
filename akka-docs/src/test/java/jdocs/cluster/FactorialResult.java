@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.cluster;
 
-import java.math.BigInteger;
 import java.io.Serializable;
+import java.math.BigInteger;
 
 public class FactorialResult implements Serializable {
   private static final long serialVersionUID = 1L;

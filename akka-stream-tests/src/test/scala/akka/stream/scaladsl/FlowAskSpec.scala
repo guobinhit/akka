@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -20,9 +20,9 @@ import akka.stream.ActorAttributes.supervisionStrategy
 import akka.stream.Supervision
 import akka.stream.Supervision.resumingDecider
 import akka.stream.testkit._
-import akka.stream.testkit.scaladsl.StreamTestKit._
 import akka.testkit.TestActors
 import akka.testkit.TestProbe
+import akka.util.Timeout
 
 object FlowAskSpec {
   case class Reply(payload: Int)
@@ -81,7 +81,7 @@ class FlowAskSpec extends StreamSpec {
 
   "A Flow with ask" must {
 
-    implicit val timeout = akka.util.Timeout(10.seconds)
+    implicit val timeout: Timeout = akka.util.Timeout(10.seconds)
 
     val replyOnInts =
       system.actorOf(Props(classOf[Replier]).withDispatcher("akka.test.stream-dispatcher"), "replyOnInts")
@@ -105,7 +105,7 @@ class FlowAskSpec extends StreamSpec {
       system.actorOf(Props(new FailOnAllExcept(n)).withDispatcher("akka.test.stream-dispatcher"), s"failureReplier-$n")
     val failAllExcept6 = replierFailAllExceptOn(6)
 
-    "produce asked elements" in assertAllStagesStopped {
+    "produce asked elements" in {
       val c = TestSubscriber.manualProbe[Reply]()
       Source(1 to 3).ask[Reply](4)(replyOnInts).runWith(Sink.fromSubscriber(c))
       val sub = c.expectSubscription()
@@ -117,7 +117,7 @@ class FlowAskSpec extends StreamSpec {
       c.expectNext(Reply(3))
       c.expectComplete()
     }
-    "produce asked elements (simple ask)" in assertAllStagesStopped {
+    "produce asked elements (simple ask)" in {
       val c = TestSubscriber.manualProbe[Reply]()
       Source(1 to 3).ask[Reply](replyOnInts).runWith(Sink.fromSubscriber(c))
       val sub = c.expectSubscription()
@@ -129,7 +129,7 @@ class FlowAskSpec extends StreamSpec {
       c.expectNext(Reply(3))
       c.expectComplete()
     }
-    "produce asked elements, when replies are akka.actor.Status.Success" in assertAllStagesStopped {
+    "produce asked elements, when replies are akka.actor.Status.Success" in {
       val c = TestSubscriber.manualProbe[Reply]()
       Source(1 to 3).ask[Reply](4)(statusReplier).runWith(Sink.fromSubscriber(c))
       val sub = c.expectSubscription()
@@ -151,7 +151,7 @@ class FlowAskSpec extends StreamSpec {
       c.expectComplete()
     }
 
-    "signal ask timeout failure" in assertAllStagesStopped {
+    "signal ask timeout failure" in {
       val c = TestSubscriber.manualProbe[Reply]()
       Source(1 to 5)
         .map(s => s"$s + nope")
@@ -162,7 +162,7 @@ class FlowAskSpec extends StreamSpec {
       c.expectError().getMessage should startWith("Ask timed out on [Actor[akka://FlowAskSpec/user/dontReply#")
     }
 
-    "signal ask failure" in assertAllStagesStopped {
+    "signal ask failure" in {
       val c = TestSubscriber.manualProbe[Reply]()
       val ref = failsOn1
       Source(1 to 5).ask[Reply](4)(ref).to(Sink.fromSubscriber(c)).run()
@@ -171,7 +171,7 @@ class FlowAskSpec extends StreamSpec {
       c.expectError().getMessage should be("Booming for 1!")
     }
 
-    "signal failure when target actor is terminated" in assertAllStagesStopped {
+    "signal failure when target actor is terminated" in {
       val r = system.actorOf(Props(classOf[Replier]).withDispatcher("akka.test.stream-dispatcher"), "wanna-fail")
       val done = Source.maybe[Int].ask[Reply](4)(r).runWith(Sink.ignore)
 
@@ -182,7 +182,7 @@ class FlowAskSpec extends StreamSpec {
         "Actor watched by [ask()] has terminated! Was: Actor[akka://FlowAskSpec/user/wanna-fail#")
     }
 
-    "a failure mid-stream must skip element with resume strategy" in assertAllStagesStopped {
+    "a failure mid-stream must skip element with resume strategy" in {
       val p = TestProbe()
 
       val input = "a" :: "b" :: "c" :: "d" :: "e" :: "f" :: Nil
@@ -217,7 +217,7 @@ class FlowAskSpec extends StreamSpec {
       elements.futureValue should ===(List("a", "b", /* no c */ "d", "e", "f"))
     }
 
-    "resume after ask failure" in assertAllStagesStopped {
+    "resume after ask failure" in {
       val c = TestSubscriber.manualProbe[Reply]()
       val ref = failsOn3
       Source(1 to 5)
@@ -231,7 +231,7 @@ class FlowAskSpec extends StreamSpec {
       c.expectComplete()
     }
 
-    "resume after multiple failures" in assertAllStagesStopped {
+    "resume after multiple failures" in {
       Await.result(
         Source(1 to 6)
           .ask[Reply](2)(failAllExcept6)
@@ -240,7 +240,7 @@ class FlowAskSpec extends StreamSpec {
         3.seconds) should ===(Reply(6))
     }
 
-    "should handle cancel properly" in assertAllStagesStopped {
+    "should handle cancel properly" in {
       val pub = TestPublisher.manualProbe[Int]()
       val sub = TestSubscriber.manualProbe[Reply]()
 

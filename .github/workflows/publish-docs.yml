@@ -1,0 +1,63 @@
+name: Publish docs
+
+on:
+  push:
+    branches:
+      - main
+      # for testing the GH Action without merging to main,
+      # in some cases
+      - test-publish-snapshots
+      - docs/v*
+    tags: ["*"]
+
+permissions:
+  contents: read
+
+jobs:
+  documentation:
+    name: Documentation
+    runs-on: ubuntu-22.04
+    if: github.repository == 'akka/akka'
+    steps:
+      - name: Checkout
+        # https://github.com/actions/checkout/releases
+        # v4.1.1
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+        with:
+          # we don't know what commit the last tag was it's safer to get entire repo so previousStableVersion resolves
+          fetch-depth: 0
+
+      - name: Set up JDK 11
+        # https://github.com/coursier/setup-action/releases
+        # v1.3.5
+        uses: coursier/setup-action@7bde40eee928896f074dbb76d22dd772eed5c65f
+        with:
+          jvm: temurin:1.11
+
+      - name: Publish
+        run: |-
+          scripts/prepare-downloads.sh
+          eval "$(ssh-agent -s)"
+          echo $AKKA_RSYNC_GUSTAV | base64 -d > .github/id_rsa
+          chmod 600 .github/id_rsa
+          ssh-add .github/id_rsa
+          # using Scala 2.13 here to avoid the infamous problem with missing AskSupport in classpath
+          sbt -Dakka.genjavadoc.enabled=true "+~ 2.13 publishRsync"
+        env:
+          AKKA_RSYNC_GUSTAV: ${{ secrets.AKKA_RSYNC_GUSTAV }}
+
+      - name: Email on failure
+        if: ${{ failure() }}
+        uses: dawidd6/action-send-mail@6063705cefe50cb915fc53bb06d4049cae2953b2
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{secrets.MAIL_USERNAME}}
+          password: ${{secrets.MAIL_PASSWORD}}
+          subject: "Failed: ${{ github.workflow }} / ${{ github.job }}"
+          to: ${{secrets.MAIL_SEND_TO}}
+          from: Akka CI
+          body: |
+            Job ${{ github.job }} in workflow ${{ github.workflow }} of ${{github.repository}} failed!
+            https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}

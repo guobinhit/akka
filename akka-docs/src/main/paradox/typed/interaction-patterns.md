@@ -4,9 +4,18 @@ You are viewing the documentation for the new actor APIs, to view the Akka Class
 
 ## Dependency
 
+The Akka dependencies are available from Akka's library repository. To access them there, you need to configure the URL for this repository.
+
+@@repository [sbt,Maven,Gradle] {
+id="akka-repository"
+name="Akka library repository"
+url="https://repo.akka.io/maven"
+}
+
 To use Akka Actor Typed, you must add the following dependency in your project:
 
 @@dependency[sbt,Maven,Gradle] {
+  bomGroup=com.typesafe.akka bomArtifact=akka-bom_$scala.binary.version$ bomVersionSymbols=AkkaVersion
   symbol1=AkkaVersion
   value1="$akka.version$"
   group=com.typesafe.akka
@@ -16,13 +25,13 @@ To use Akka Actor Typed, you must add the following dependency in your project:
 
 ## Introduction
 
-Interacting with an Actor in Akka is done through an @scala[`ActorRef[T]`]@java[`ActorRef<T>`] where `T` is the type of messages the actor accepts, also known as the "protocol". This ensures that only the right kind of messages can be sent to an actor and also that no one else but the Actor itself can access the Actor instance internals.
+Interacting with an Actor in Akka is done through an @scala[@scaladoc[ActorRef[T]](akka.actor.typed.ActorRef)]@java[@javadoc[ActorRef<T>](akka.actor.typed.ActorRef)] where `T` is the type of messages the actor accepts, also known as the "protocol". This ensures that only the right kind of messages can be sent to an actor and also that no one else but the Actor itself can access the Actor instance internals.
 
 Message exchange with Actors follow a few common patterns, let's go through each one of them. 
 
 ## Fire and Forget
 
-The fundamental way to interact with an actor is through @scala["tell", which is so common that it has a special symbolic method name: `actorRef ! message`]@java[`actorRef.tell(message)`]. Sending a message with tell can safely be done from any thread.
+The fundamental way to interact with an actor is through @scala["tell", which is so common that it has a special symbolic method name: `actorRef` @scaladoc[!](akka.actor.typed.ActorRef#tell(msg:T):Unit) `message`]@java[@javadoc[actorRef.tell(message)](akka.actor.typed.ActorRef#tell(T))]. Sending a message with tell can safely be done from any thread.
 
 Tell is asynchronous which means that the method returns right away. After the statement is executed there is no guarantee that the message has been processed by the recipient yet. It also means there is no way to know if the message was received, the processing succeeded or failed.
 
@@ -56,7 +65,7 @@ Java
 
 **Problems:**
 
- * If the inflow of messages is higher than the actor can process the inbox will fill up and can in the worst case cause the JVM crash with an `OutOfMemoryError`
+ * If the inflow of messages is higher than the actor can process the inbox will fill up and can in the worst case cause the JVM crash with an @javadoc[OutOfMemoryError](java.lang.OutOfMemoryError)
  * If the message gets lost, the sender will not know
 
 ## Request-Response
@@ -78,7 +87,7 @@ Java
 :  @@snip [InteractionPatternsTest.java](/akka-actor-typed-tests/src/test/java/jdocs/akka/typed/InteractionPatternsTest.java) { #request-response-protocol }
 
 
-The sender would use its own @scala[`ActorRef[Response]`]@java[`ActorRef<Response>`], which it can access through @scala[`ActorContext.self`]@java[`ActorContext.getSelf()`], for the `replyTo`. 
+The sender would use its own @scala[`ActorRef[Response]`]@java[`ActorRef<Response>`], which it can access through @scala[@scaladoc[ActorContext.self](akka.actor.typed.scaladsl.ActorContext#self:akka.actor.typed.ActorRef[T])]@java[@javadoc[ActorContext.getSelf()](akka.actor.typed.javadsl.ActorContext#getSelf())], for the `replyTo`. 
 
 Scala
 :  @@snip [InteractionPatternsSpec.scala](/akka-actor-typed-tests/src/test/scala/docs/akka/typed/InteractionPatternsSpec.scala) { #request-response-send }
@@ -108,10 +117,24 @@ Java
    response, it is not possible to tie an interaction to some specific context without introducing a new,
    separate, actor (see @ref:[ask](#request-response-with-ask-between-two-actors) or @ref:[per session child actor](#per-session-child-actor))
 
+@@@ div { .group-scala }
+
+### Request response with Scala 3
+
+Scala 3 introduces union types, allowing for ad hoc combinations of types, this can be leveraged for response message
+types instead of the message adapters. The behavior is internally declared as union of its own protocol and any response
+messages it may accept.
+
+The public protocol that the actor accepts by returning `Behavior[Command]` stays the same by use of `.narrow`:
+
+Scala
+:  @@snip [InteractionPatternsSpec.scala](/akka-actor-typed-tests/src/test/scala-3/docs/akka/typed/InteractionPatternsScala3Spec.scala) { #request-response-send }
+
+@@@
 
 ## Adapted Response
 
-Most often the sending actor does not, and should not, support receiving the response messages of another actor. In such cases we need to provide an `ActorRef` of the right type and adapt the response message to a type that the sending actor can handle.
+Most often the sending actor does not, and should not, support receiving the response messages of another actor. In such cases we need to provide an @apidoc[akka.actor.typed.ActorRef] of the right type and adapt the response message to a type that the sending actor can handle.
 
 **Example:**
 
@@ -133,9 +156,9 @@ A message adapter will be used if the message class matches the given class or
 is a subclass thereof. The registered adapters are tried in reverse order of
 their registration order, i.e. the last registered first.
 
-A message adapter (and the returned `ActorRef`) has the same lifecycle as
+A message adapter (and the returned @apidoc[akka.actor.typed.ActorRef]) has the same lifecycle as
 the receiving actor. It's recommended to register the adapters in a top level
-`Behaviors.setup` or constructor of `AbstractBehavior` but it's possible to
+@apidoc[Behaviors.setup](typed.*.Behaviors$) {scala="#setup[T](factory:akka.actor.typed.scaladsl.ActorContext[T]=%3Eakka.actor.typed.Behavior[T]):akka.actor.typed.Behavior[T]" java="#setup(akka.japi.function.Function)"} or constructor of @apidoc[akka.actor.typed.*.AbstractBehavior] but it's possible to
 register them later if needed.
 
 The adapter function is running in the receiving actor and can safely access its state, but if it throws an exception the actor is stopped.
@@ -155,10 +178,25 @@ The adapter function is running in the receiving actor and can safely access its
    response, it is not possible to tie an interaction to some specific context without introducing a new,
    separate, actor
 
- 
+@@@ div { .group-scala }
+
+### Responses with Scala 3
+
+Scala 3 introduces union types, allowing for ad hoc combinations of types, this can be leveraged for response message
+types instead of the message adapters. The behavior is internally declared as union of its own protocol and any response
+messages it may accept.
+
+The public protocol that the actor accepts by returning `Behavior[Command]` stays the same by use of `.narrow`:
+
+Scala
+:  @@snip [InteractionPatternsSpec.scala](/akka-actor-typed-tests/src/test/scala-3/docs/akka/typed/InteractionPatternsScala3Spec.scala) { #adapted-response }
+
+@@@ 
+
+
 ## Request-Response with ask between two actors
  
-In an interaction where there is a 1:1 mapping between a request and a response we can use `ask` on the `ActorContext` to interact with another actor.
+In an interaction where there is a 1:1 mapping between a request and a response we can use `ask` on the @apidoc[akka.actor.typed.*.ActorContext] to interact with another actor.
 
 The interaction has two steps, first we need to construct the outgoing message, to do that we need an @scala[`ActorRef[Response]`]@java[`ActorRef<Response>`] to put as recipient in the outgoing message. 
 The second step is to transform the successful `Response` or failure into a message that is part of the protocol of the sending actor.
@@ -194,10 +232,10 @@ The response adapting function is running in the receiving actor and can safely 
 <a id="outside-ask"></a>
 ## Request-Response with ask from outside an Actor
 
-Sometimes you need to interact with actors from the outside of the actor system, this can be done with fire-and-forget as described above or through another version of `ask` that returns a @scala[`Future[Response]`]@java[`CompletionStage<Response>`] that is either completed with a successful response or failed with a `TimeoutException` if there was no response within the specified timeout.
+Sometimes you need to interact with actors from the outside of the actor system, this can be done with fire-and-forget as described above or through another version of `ask` that returns a @scala[@scaladoc[Future[Response]](scala.concurrent.Future)]@java[@javadoc[CompletionStage<Response>](java.util.concurrent.CompletionStage)] that is either completed with a successful response or failed with a @javadoc[TimeoutException](java.util.concurrent.TimeoutException) if there was no response within the specified timeout.
  
-@scala[To do this we use `ask` (or the symbolic `?`) implicitly added to `ActorRef` by `akka.actor.typed.scaladsl.AskPattern._`
-to send a message to an actor and get a `Future[Response]` back. `ask` takes implicit `Timeout` and `ActorSystem` parameters.]
+@scala[To do this we use `ask` (or the symbolic `?`) implicitly added to @scaladoc[ActorRef](akka.actor.typed.ActorRef) by `akka.actor.typed.scaladsl.AskPattern._`
+to send a message to an actor and get a `Future[Response]` back. `ask` takes implicit @scaladoc[Timeout](akka.util.Timeout) and @scaladoc[ActorSystem](akka.actor.typed.ActorSystem) parameters.]
 @java[To do this we use `akka.actor.typed.javadsl.AskPattern.ask` to send a message to an actor and get a 
 `CompletionState[Response]` back.]
 
@@ -213,7 +251,7 @@ Java
 
 Note that validation errors are also explicit in the message protocol. The `GiveMeCookies` request can reply
 with `Cookies` or `InvalidRequest`. The requestor has to decide how to handle an `InvalidRequest` reply. Sometimes
-it should be treated as a failed @scala[`Future`]@java[`Future`] and for that the reply can be mapped on the
+it should be treated as a failed @scala[@scaladoc[Future](scala.concurrent.Future)]@java[@javadoc[CompletionStage](java.util.concurrent.CompletionStage)] and for that the reply can be mapped on the
 requestor side. See also the [Generic response wrapper](#generic-response-wrapper) for replies that are either a success or an error.
 
 Scala
@@ -228,7 +266,7 @@ Java
 
 **Problems:**
 
- * It is easy to accidentally close over and unsafely mutable state with the callbacks on the returned @scala[`Future`]@java[`CompletionStage`] as those will be executed on a different thread
+ * It is easy to accidentally close over and unsafely mutable state with the callbacks on the returned @scala[@scaladoc[Future](scala.concurrent.Future)]@java[@javadoc[CompletionStage](java.util.concurrent.CompletionStage)] as those will be executed on a different thread
  * There can only be a single response to one `ask` (see @ref:[per session child Actor](#per-session-child-actor))
  * When `ask` times out, the receiving actor does not know and may still process it to completion, or even start processing it after the fact
 
@@ -239,12 +277,12 @@ Having to define two response classes and a shared supertype for every request t
 where you also have to make sure the messages can be serialized to be sent over the network.
 
 To help with this a generic status-response type is included in Akka: @apidoc[StatusReply], everywhere where `ask` can be used
-there is also a second method `askWithStatus` which, given that the response is a `StatusReply` will unwrap successful responses
+there is also a second method @apidoc[askWithStatus](typed.*.ActorFlow$) {scala="#askWithStatus[I,Q,A](parallelism:Int)(ref:akka.actor.typed.ActorRef[Q])(makeMessage:(I,akka.actor.typed.ActorRef[akka.pattern.StatusReply[A]])=%3EQ)(implicittimeout:akka.util.Timeout):akka.stream.scaladsl.Flow[I,A,akka.NotUsed]" java="#askWithStatus(int,akka.actor.typed.ActorRef,java.time.Duration,java.util.function.BiFunction)"} which, given that the response is a `StatusReply` will unwrap successful responses
 and help with handling validation errors. Akka includes pre-built serializers for the type, so in the normal use case a clustered 
 application only needs to provide a serializer for the successful result.
 
 For the case where the successful reply does not contain an actual value but is more of an acknowledgment there is a pre defined
-@scala[`StatusReply.Ack`]@java[`StatusReply.ack()`] of type @scala[`StatusReply[Done]`]@java[`StatusReply<Done>`].
+@scala[@scaladoc[StatusReply.Ack](akka.pattern.StatusReply$#Ack:akka.pattern.StatusReply[akka.Done])]@java[@javadoc[StatusReply.ack()](akka.pattern.StatusReply$#ack())] of type @scala[`StatusReply[Done]`]@java[`StatusReply<Done>`].
 
 Errors are preferably sent as a text describing what is wrong, but using exceptions to attach a type is also possible.
 
@@ -267,7 +305,7 @@ Scala
 Java
 :  @@snip [InteractionPatternsTest.java](/akka-actor-typed-tests/src/test/java/jdocs/akka/typed/InteractionPatternsAskWithStatusTest.java) { #standalone-ask-with-status }
 
-Note that validation errors are also explicit in the message protocol, but encoded as the wrapper type, constructed using @scala[`StatusReply.Error(text)`]@java[`StatusReply.error(text)`]:
+Note that validation errors are also explicit in the message protocol, but encoded as the wrapper type, constructed using @scala[@scaladoc[StatusReply.Error(text)](akka.pattern.StatusReply$$Error$#apply[T](errorMessage:String):akka.pattern.StatusReply[T])]@java[@javadoc[StatusReply.error(text)](akka.pattern.StatusReply$#error(java.lang.String))]:
 
 Scala
 :  @@snip [InteractionPatternsSpec.scala](/akka-actor-typed-tests/src/test/scala/docs/akka/typed/InteractionPatternsSpec.scala) { #standalone-ask-with-status-fail-future }
@@ -278,9 +316,9 @@ Java
 
 ## Ignoring replies
 
-In some situations an actor has a response for a particular request message but you are not interested in the response. In this case you can pass @scala[`system.ignoreRef`]@java[`system.ignoreRef()`] turning the request-response into a fire-and-forget.
+In some situations an actor has a response for a particular request message but you are not interested in the response. In this case you can pass @scala[@scaladoc[system.ignoreRef](akka.actor.typed.ActorSystem#ignoreRef[U]:akka.actor.typed.ActorRef[U])]@java[@javadoc[system.ignoreRef()](akka.actor.typed.ActorSystem#ignoreRef())] turning the request-response into a fire-and-forget.
 
-@scala[`system.ignoreRef`]@java[`system.ignoreRef()`], as the name indicates, returns an `ActorRef` that ignores any message sent to it.
+@scala[`system.ignoreRef`]@java[`system.ignoreRef()`], as the name indicates, returns an @apidoc[akka.actor.typed.ActorRef] that ignores any message sent to it.
 
 With the same protocol as the @ref[request response](#request-response) above, if the sender would prefer to ignore the reply it could pass @scala[`system.ignoreRef`]@java[`system.ignoreRef()`] for the `replyTo`, which it can access through @scala[`ActorContext.system.ignoreRef`]@java[`ActorContext.getSystem().ignoreRef()`]. 
 
@@ -296,23 +334,23 @@ Java
 
 **Problems:**
 
-The returned `ActorRef` ignores all messages sent to it, therefore it should be used carefully.
+The returned @apidoc[akka.actor.typed.ActorRef] ignores all messages sent to it, therefore it should be used carefully.
  
  * Passing it around inadvertently as if it was a normal `ActorRef` may result in broken actor-to-actor interactions.
- * Using it when performing an `ask` from outside the Actor System will cause the @scala[`Future`]@java[`CompletionStage`] returned by the `ask` to timeout since it will never complete.
- * Finally, it's legal to `watch` it, but since it's of a special kind, it never terminates and therefore you will never receive a `Terminated` signal from it.
+ * Using it when performing an `ask` from outside the Actor System will cause the @scala[@scaladoc[Future](scala.concurrent.Future)]@java[@javadoc[CompletionStage](java.util.concurrent.CompletionStage)] returned by the `ask` to timeout since it will never complete.
+ * Finally, it's legal to @apidoc[watch](typed.*.ActorContext) {scala="#watch[U](other:akka.actor.typed.ActorRef[U]):Unit" java="#watch(akka.actor.typed.ActorRef)"} it, but since it's of a special kind, it never terminates and therefore you will never receive a @apidoc[akka.actor.typed.Terminated] signal from it.
 
 ## Send Future result to self
 
 When using an API that returns a @scala[`Future`]@java[`CompletionStage`] from an actor it's common that you would
 like to use the value of the response in the actor when the @scala[`Future`]@java[`CompletionStage`] is completed. For
-this purpose the `ActorContext` provides a `pipeToSelf` method.
+this purpose the `ActorContext` provides a @apidoc[pipeToSelf](typed.*.ActorContext) {scala="#pipeToSelf[Value](future:scala.concurrent.Future[Value])(mapResult:scala.util.Try[Value]=%3ET):Unit" java="#pipeToSelf(java.util.concurrent.CompletionStage,akka.japi.function.Function2)"} method.
 
 **Example:**
 
 ![pipe-to-self.png](./images/pipe-to-self.png)
 
-An actor, `CustomerRepository`, is invoking a method on `CustomerDataAccess` that returns a @scala[`Future`]@java[`CompletionStage`].
+An actor, `CustomerRepository`, is invoking a method on `CustomerDataAccess` that returns a @scala[@scaladoc[Future](scala.concurrent.Future)]@java[@javadoc[CompletionStage](java.util.concurrent.CompletionStage)].
 
 Scala
 :  @@snip [InteractionPatternsSpec.scala](/akka-actor-typed-tests/src/test/scala/docs/akka/typed/InteractionPatternsSpec.scala) { #pipeToSelf }
@@ -343,9 +381,9 @@ In some cases a complete response to a request can only be created and sent back
 
 Note that this is essentially how `ask` is implemented, if all you need is a single response with a timeout it is better to use `ask`.
 
-The child is created with the context it needs to do the work, including an `ActorRef` that it can respond to. When the complete result is there the child responds with the result and stops itself.
+The child is created with the context it needs to do the work, including an @apidoc[akka.actor.typed.ActorRef] that it can respond to. When the complete result is there the child responds with the result and stops itself.
 
-As the protocol of the session actor is not a public API but rather an implementation detail of the parent actor, it may not always make sense to have an explicit protocol and adapt the messages of the actors that the session actor interacts with. For this use case it is possible to express that the actor can receive any message (@scala[`Any`]@java[`Object`]).
+As the protocol of the session actor is not a public API but rather an implementation detail of the parent actor, it may not always make sense to have an explicit protocol and adapt the messages of the actors that the session actor interacts with. For this use case it is possible to express that the actor can receive any message (@scala[@scaladoc[Any](scala.Any)]@java[@javadoc[Object](java.lang.Object)]).
 
 **Example:**
 
@@ -376,7 +414,7 @@ This is similar to above @ref:[Per session child Actor](#per-session-child-actor
 end up repeating the same way of aggregating replies and want to extract that to a reusable actor.
 
 There are many variations of this pattern and that is the reason this is provided as a documentation
-example rather than a built in `Behavior` in Akka. It is intended to be adjusted to your specific needs.
+example rather than a built in @apidoc[akka.actor.typed.Behavior] in Akka. It is intended to be adjusted to your specific needs.
 
 **Example:**
 
@@ -426,10 +464,10 @@ where multiple destination actors can perform the same piece of work, and where 
 more slowly than expected. In this case, sending the same work request (also known as a "backup request")
 to another actor results in decreased response time - because it's less probable that multiple actors
 are under heavy load simultaneously. This technique is explained in depth in Jeff Dean's presentation on
-[Achieving Rapid Response Times in Large Online Services](http://static.googleusercontent.com/media/research.google.com/en//people/jeff/Berkeley-Latency-Mar2012.pdf).
+[Achieving Rapid Response Times in Large Online Services](https://static.googleusercontent.com/media/research.google.com/en//people/jeff/Berkeley-Latency-Mar2012.pdf).
 
 There are many variations of this pattern and that is the reason this is provided as a documentation
-example rather than a built in `Behavior` in Akka. It is intended to be adjusted to your specific needs.
+example rather than a built in @apidoc[akka.actor.typed.Behavior] in Akka. It is intended to be adjusted to your specific needs.
 
 **Example:**
 
@@ -473,21 +511,21 @@ Java
 
 There are a few things worth noting here:
 
-* To get access to the timers you start with `Behaviors.withTimers` that will pass a `TimerScheduler` instance to the function. 
-This can be used with any type of `Behavior`, including `receive`, `receiveMessage`, but also `setup` or any other behavior.
+* To get access to the timers you start with @apidoc[Behaviors.withTimers](typed.*.Behaviors$) {scala="#withTimers[T](factory:akka.actor.typed.scaladsl.TimerScheduler[T]=%3eakka.actor.typed.Behavior[T]):akka.actor.typed.Behavior[T]" java="#withTimers(akka.japi.function.Function)"} that will pass a @apidoc[akka.actor.typed.*.TimerScheduler] instance to the function. 
+This can be used with any type of @apidoc[akka.actor.typed.Behavior], including @apidoc[receive](typed.*.Behaviors$) {scala="#receive[T](onMessage:(akka.actor.typed.scaladsl.ActorContext[T],T)=%3Eakka.actor.typed.Behavior[T]):akka.actor.typed.scaladsl.Behaviors.Receive[T]" java="#receive(akka.japi.function.Function2,akka.japi.function.Function2)"}, @apidoc[receiveMessage](typed.*.Behaviors$) {scala="#receiveMessage[T](onMessage:T=%3Eakka.actor.typed.Behavior[T]):akka.actor.typed.scaladsl.Behaviors.Receive[T]" java="#receiveMessage(akka.japi.Function)"}, but also @apidoc[setup](typed.*.Behaviors$) {scala="#setup[T](factory:akka.actor.typed.scaladsl.ActorContext[T]=%3Eakka.actor.typed.Behavior[T]):akka.actor.typed.Behavior[T]" java="#setup(akka.japi.function.Function)"} or any other behavior.
 * Each timer has a key and if a new timer with the same key is started, the previous is cancelled. It is guaranteed that a message from the previous timer is not received, even if it was already enqueued in the mailbox when the new timer was started.
 * Both periodic and single message timers are supported. 
 * The `TimerScheduler` is mutable in itself, because it performs and manages the side effects of registering the scheduled tasks.
 * The `TimerScheduler` is bound to the lifecycle of the actor that owns it and is cancelled automatically when the actor is stopped.
-* `Behaviors.withTimers` can also be used inside `Behaviors.supervise` and it will automatically cancel the started timers correctly when the actor is restarted, so that the new incarnation will not receive scheduled messages from a previous incarnation.
+* `Behaviors.withTimers` can also be used inside @apidoc[Behaviors.supervise](typed.*.Behaviors$) {scala="#supervise[T](wrapped:akka.actor.typed.Behavior[T]):akka.actor.typed.scaladsl.Behaviors.Supervise[T]" java="#supervise(akka.actor.typed.Behavior)"} and it will automatically cancel the started timers correctly when the actor is restarted, so that the new incarnation will not receive scheduled messages from a previous incarnation.
 
 ### Schedule periodically
 
 Scheduling of recurring messages can have two different characteristics:
 
 * fixed-delay - The delay between sending subsequent messages will always be (at least) the given `delay`.
-  Use `startTimerWithFixedDelay`.
-* fixed-rate - The frequency of execution over time will meet the given `interval`. Use `startTimerAtFixedRate`.
+  Use @apidoc[startTimerWithFixedDelay](akka.actor.TimerScheduler) {scala="#startTimerWithFixedDelay(key:Any,msg:Any,initialDelay:scala.concurrent.duration.FiniteDuration,delay:scala.concurrent.duration.FiniteDuration):Unit" java="#startTimerWithFixedDelay(java.lang.Object,java.lang.Object,java.time.Duration,java.time.Duration)"}.
+* fixed-rate - The frequency of execution over time will meet the given `interval`. Use @apidoc[startTimerAtFixedRate](akka.actor.TimerScheduler) {scala="#startTimerAtFixedRate(key:Any,msg:Any,interval:scala.concurrent.duration.FiniteDuration):Unit" java="#startTimerAtFixedRate(java.lang.Object,java.lang.Object,java.time.Duration,java.time.Duration)"}.
 
 If you are uncertain of which one to use you should pick `startTimerWithFixedDelay`.
 
@@ -528,7 +566,7 @@ When @ref:[Akka Cluster](cluster.md) is used to @ref:[shard actors](cluster-shar
 take into account that an actor may move or get passivated.
 
 The normal pattern for expecting a reply is to include an @apidoc[akka.actor.typed.ActorRef] in the message, typically a message adapter. This can be used
-for a sharded actor but if @scala[`ctx.self`]@java[`ctx.getSelf()`] is sent and the sharded actor is moved or passivated then the reply
+for a sharded actor but if @scala[@scaladoc[ctx.self](akka.actor.typed.scaladsl.ActorContext#self:akka.actor.typed.ActorRef[T])]@java[@javadoc[ctx.getSelf()](akka.actor.typed.javadsl.ActorContext#getSelf())] is sent and the sharded actor is moved or passivated then the reply
 will sent to dead letters.
 
 An alternative is to send the `entityId` in the message and have the reply sent via sharding.
@@ -543,5 +581,15 @@ Scala
 Java
 :  @@snip [sharded.response](/akka-cluster-sharding-typed/src/test/java/jdocs/akka/cluster/sharding/typed/ShardingReplyCompileOnlyTest.java) { #sharded-response }
 
-A disadvantage is that a message adapter can't be used so the response has to be in the protocol of the actor being responded to. Additionally the `EntityTypeKey`
+A disadvantage is that a message adapter can't be used so the response has to be in the protocol of the actor being responded to. Additionally the @apidoc[typed.*.EntityTypeKey]
 could be included in the message if it is not known statically.
+
+As an "alternative to the alternative", an @apidoc[typed.*.EntityRef] can be included in the messages.  The `EntityRef` transparently wraps messages in a @apidoc[typed.ShardingEnvelope] and 
+sends them via sharding.  If the target sharded entity has been passivated, it will be delivered to a new incarnation of that entity; if the target sharded entity
+has been moved to a different cluster node, it will be routed to that new node.  If using this approach, be aware that at this time, @ref:[a custom serializer is required](cluster-sharding.md#a-note-about-entityref-and-serialization).
+
+As with directly including the `entityId` and `EntityTypeKey` in the message, `EntityRef`s do not support message adaptation: the response has to be in the protocol
+of the entity being responded to.
+
+In some cases, it may be useful to define messages with a @apidoc[akka.actor.typed.RecipientRef] which is a common supertype of @apidoc[typed.ActorRef] and `EntityRef`.  At this time,
+serializing a `RecipientRef` requires a custom serializer.

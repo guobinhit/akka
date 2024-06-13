@@ -1,6 +1,6 @@
 # Introduction to Akka
 
-Welcome to Akka, a set of open-source libraries for designing scalable, resilient systems that span processor cores and networks. Akka allows you to focus on meeting business needs instead of writing low-level code to provide reliable behavior, fault tolerance, and high performance.
+Welcome to Akka, a set of libraries for designing scalable, resilient systems that span processor cores and networks. Akka allows you to focus on meeting business needs instead of writing low-level code to provide reliable behavior, fault tolerance, and high performance.
 
 Many common practices and accepted programming models do not address important challenges
 inherent in designing systems for modern computer architectures. To be
@@ -31,8 +31,8 @@ efficiently.
 ## How to get started
 
 If this is your first experience with Akka, we recommend that you start by
-running a simple Hello World project. See the @scala[[Quickstart Guide](https://developer.lightbend.com/guides/akka-quickstart-scala/)] @java[[Quickstart Guide](https://developer.lightbend.com/guides/akka-quickstart-java/)] for
-instructions on downloading and running the Hello World example. The *Quickstart* guide walks you through example code that introduces how to define actor systems, actors, and messages as well as how to use the test module and logging. Within 30 minutes, you should be able to run the Hello World example and learn how it is constructed.
+running a simple Hello World project. See the @ref[first Hello World example](../actors.md#first-example) for
+instructions on downloading and running the Hello World example. That example walks you through example code that introduces how to define actor systems, actors, and messages. Within 10 minutes, you should be able to run the Hello World example and learn how it is constructed.
 
 This *Getting Started* guide provides the next level of information. It covers why the actor model fits the needs of modern distributed systems and includes a tutorial that will help further your knowledge of Akka. Topics include:
 

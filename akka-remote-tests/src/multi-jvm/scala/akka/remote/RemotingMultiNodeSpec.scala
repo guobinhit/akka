@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote
@@ -14,7 +14,7 @@ import akka.testkit.{ DefaultTimeout, ImplicitSender }
 object RemotingMultiNodeSpec {
 
   def commonConfig =
-    ConfigFactory.parseString(s"""
+    ConfigFactory.parseString("""
         akka.actor.warn-about-java-serializer-usage = off
       """).withFallback(ArterySpecSupport.tlsConfig) // TLS only used if transport=tls-tcp
 

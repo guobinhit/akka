@@ -1,17 +1,17 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
+
+import scala.collection.immutable
+import scala.concurrent.Await
+import scala.concurrent.duration._
 
 import akka.NotUsed
 import akka.stream._
 import akka.stream.testkit._
 import akka.stream.testkit.scaladsl.StreamTestKit._
-
-import scala.collection.immutable
-import scala.concurrent.Await
-import scala.concurrent.duration._
 
 class GraphMergeSequenceSpec extends TwoStreamsSetup {
 

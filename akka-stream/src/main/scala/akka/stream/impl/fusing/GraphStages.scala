@@ -1,24 +1,32 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl.fusing
 
-import java.util.concurrent.atomic.{ AtomicBoolean, AtomicReference }
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 import scala.annotation.unchecked.uncheckedVariance
-import scala.concurrent.{ Future, Promise }
+import scala.collection.immutable
+import scala.concurrent.Future
+import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
+import scala.util.control.NonFatal
 
 import akka.Done
 import akka.actor.Cancellable
 import akka.annotation.InternalApi
 import akka.dispatch.ExecutionContexts
 import akka.event.Logging
-import akka.stream.{ Shape, _ }
+import akka.stream._
+import akka.stream.ActorAttributes.SupervisionStrategy
 import akka.stream.FlowMonitorState._
-import akka.stream.impl.{ LinearTraversalBuilder, ReactiveStreamsCompliance }
+import akka.stream.Shape
+import akka.stream.impl.ContextPropagation
+import akka.stream.impl.LinearTraversalBuilder
+import akka.stream.impl.ReactiveStreamsCompliance
 import akka.stream.impl.Stages.DefaultAttributes
 import akka.stream.impl.StreamLayout._
 import akka.stream.scaladsl._
@@ -77,16 +85,19 @@ import akka.stream.stage._
   /**
    * INTERNAL API
    */
-  @InternalApi private[akka] final class Detacher[T] extends SimpleLinearGraphStage[T] {
+  @InternalApi private[akka] object Detacher extends SimpleLinearGraphStage[Any] {
     override def initialAttributes = DefaultAttributes.detacher
 
     override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
       new GraphStageLogic(shape) with InHandler with OutHandler {
+        private val contextPropagation = ContextPropagation()
 
         def onPush(): Unit = {
           if (isAvailable(out)) {
             push(out, grab(in))
             tryPull(in)
+          } else {
+            contextPropagation.suspendContext()
           }
         }
 
@@ -96,6 +107,7 @@ import akka.stream.stage._
 
         def onPull(): Unit = {
           if (isAvailable(in)) {
+            contextPropagation.resumeContext()
             push(out, grab(in))
             if (isClosed(in)) completeStage()
             else pull(in)
@@ -110,8 +122,7 @@ import akka.stream.stage._
     override def toString = "Detacher"
   }
 
-  private val _detacher = new Detacher[Any]
-  def detacher[T]: GraphStage[FlowShape[T, T]] = _detacher.asInstanceOf[GraphStage[FlowShape[T, T]]]
+  def detacher[T]: GraphStage[FlowShape[T, T]] = Detacher.asInstanceOf[SimpleLinearGraphStage[T]]
 
   private object TerminationWatcher extends GraphStageWithMaterializedValue[FlowShape[Any, Any], Future[Done]] {
     val in = Inlet[Any]("terminationWatcher.in")
@@ -281,6 +292,51 @@ import akka.stream.stage._
     override def toString: String = "SingleSource"
   }
 
+  final class IterableSource[T](val elements: immutable.Iterable[T]) extends GraphStage[SourceShape[T]] {
+    ReactiveStreamsCompliance.requireNonNullElement(elements)
+    override protected def initialAttributes: Attributes = DefaultAttributes.iterableSource
+    private val out = Outlet[T]("IterableSource.out")
+    override val shape: SourceShape[T] = SourceShape(out)
+    override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
+      new GraphStageLogic(shape) with OutHandler {
+        private lazy val decider = inheritedAttributes.mandatoryAttribute[SupervisionStrategy].decider
+        private var currentIterator: Iterator[T] = _
+
+        override def onPull(): Unit =
+          try {
+            if (currentIterator eq null) {
+              currentIterator = elements.iterator
+            }
+            tryPushNextOrComplete()
+          } catch {
+            case NonFatal(ex) =>
+              decider(ex) match {
+                case Supervision.Stop   => failStage(ex)
+                case Supervision.Resume => tryPushNextOrComplete()
+                case Supervision.Restart =>
+                  currentIterator = elements.iterator
+                  tryPushNextOrComplete()
+              }
+          }
+
+        private def tryPushNextOrComplete(): Unit =
+          if (currentIterator.hasNext) {
+            if (isAvailable(out)) {
+              push(out, currentIterator.next())
+              if (!currentIterator.hasNext) {
+                completeStage()
+              }
+            }
+          } else {
+            completeStage()
+          }
+
+        setHandler(out, this)
+      }
+
+    override def toString: String = "IterableSource"
+  }
+
   final class FutureFlattenSource[T, M](futureSource: Future[Graph[SourceShape[T], M]])
       extends GraphStageWithMaterializedValue[SourceShape[T], Future[M]] {
     ReactiveStreamsCompliance.requireNonNullElement(futureSource)
@@ -339,9 +395,6 @@ import akka.stream.stage._
           sinkIn.cancel(cause)
           super.onDownstreamFinish(cause)
         }
-
-        override def postStop(): Unit =
-          if (!sinkIn.isClosed) sinkIn.cancel()
 
         def onFutureSourceCompleted(result: Try[Graph[SourceShape[T], M]]): Unit = {
           result
@@ -441,6 +494,53 @@ import akka.stream.stage._
 
         setHandler(in, this)
 
+      }
+
+      (logic, promise.future)
+    }
+  }
+
+  @InternalApi
+  private[akka] object NeverSource extends GraphStage[SourceShape[Nothing]] {
+    private val out = Outlet[Nothing]("NeverSource.out")
+    val shape: SourceShape[Nothing] = SourceShape(out)
+    override def initialAttributes: Attributes = DefaultAttributes.neverSource
+    override def createLogic(inheritedAttributes: Attributes): GraphStageLogic with OutHandler =
+      new GraphStageLogic(shape) with OutHandler {
+        override def onPull(): Unit = ()
+        setHandler(out, this)
+      }
+  }
+
+  @InternalApi
+  private[akka] object NeverSink extends GraphStageWithMaterializedValue[SinkShape[Any], Future[Done]] {
+    private val in = Inlet[Any]("NeverSink.in")
+    val shape: SinkShape[Any] = SinkShape(in)
+
+    override def initialAttributes: Attributes = DefaultAttributes.neverSink
+
+    override def createLogicAndMaterializedValue(inheritedAttributes: Attributes): (GraphStageLogic, Future[Done]) = {
+      val promise = Promise[Done]()
+      val logic = new GraphStageLogic(shape) with InHandler {
+
+        override def onPush(): Unit =
+          promise.tryFailure(new IllegalStateException("NeverSink should not receive any push."))
+
+        override def onUpstreamFinish(): Unit = {
+          super.onUpstreamFinish()
+          promise.trySuccess(Done)
+        }
+
+        override def onUpstreamFailure(ex: Throwable): Unit = {
+          super.onUpstreamFailure(ex)
+          promise.tryFailure(ex)
+        }
+
+        override def postStop(): Unit = {
+          if (!promise.isCompleted) promise.tryFailure(new AbruptStageTerminationException(this))
+        }
+
+        setHandler(in, this)
       }
 
       (logic, promise.future)

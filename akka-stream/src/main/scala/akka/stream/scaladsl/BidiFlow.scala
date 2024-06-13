@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -59,24 +59,48 @@ final class BidiFlow[-I1, +O1, -I2, +O2, +Mat](
    * flow into the materialized value of the resulting BidiFlow.
    */
   def atopMat[OO1, II2, Mat2, M](bidi: Graph[BidiShape[O1, OO1, II2, I2], Mat2])(
-      combine: (Mat, Mat2) => M): BidiFlow[I1, OO1, II2, O2, M] = {
-    val newBidi1Shape = shape.deepCopy()
-    val newBidi2Shape = bidi.shape.deepCopy()
+      combine: (Mat, Mat2) => M): BidiFlow[I1, OO1, II2, O2, M] =
+    if (this eq BidiFlow.identity) {
+      // optimizations possible since we know that identity matval is NotUsed
+      if (combine eq Keep.right)
+        BidiFlow.fromGraph(bidi).asInstanceOf[BidiFlow[I1, OO1, II2, O2, M]]
+      else if ((combine eq Keep.left) || (combine eq Keep.none))
+        BidiFlow.fromGraph(bidi).mapMaterializedValue(_ => NotUsed).asInstanceOf[BidiFlow[I1, OO1, II2, O2, M]]
+      else {
+        BidiFlow
+          .fromGraph(bidi)
+          .mapMaterializedValue(mat2 => combine(NotUsed.asInstanceOf[Mat], mat2))
+          .asInstanceOf[BidiFlow[I1, OO1, II2, O2, M]]
+      }
+    } else if (bidi eq BidiFlow.identity) {
+      // optimizations possible since we know that identity matval is NotUsed
+      if (combine eq Keep.left)
+        this.asInstanceOf[BidiFlow[I1, OO1, II2, O2, M]]
+      else if ((combine eq Keep.right) || (combine eq Keep.none))
+        this.mapMaterializedValue(_ => NotUsed).asInstanceOf[BidiFlow[I1, OO1, II2, O2, M]]
+      else {
+        this
+          .mapMaterializedValue(mat => combine(mat, NotUsed.asInstanceOf[Mat2]))
+          .asInstanceOf[BidiFlow[I1, OO1, II2, O2, M]]
+      }
+    } else {
+      val newBidi1Shape = shape.deepCopy()
+      val newBidi2Shape = bidi.shape.deepCopy()
 
-    // We MUST add the current module as an explicit submodule. The composite builder otherwise *grows* the
-    // existing module, which is not good if there are islands present (the new module will "join" the island).
-    val newTraversalBuilder =
-      TraversalBuilder
-        .empty()
-        .add(traversalBuilder, newBidi1Shape, Keep.right)
-        .add(bidi.traversalBuilder, newBidi2Shape, combine)
-        .wire(newBidi1Shape.out1, newBidi2Shape.in1)
-        .wire(newBidi2Shape.out2, newBidi1Shape.in2)
+      // We MUST add the current module as an explicit submodule. The composite builder otherwise *grows* the
+      // existing module, which is not good if there are islands present (the new module will "join" the island).
+      val newTraversalBuilder =
+        TraversalBuilder
+          .empty()
+          .add(traversalBuilder, newBidi1Shape, Keep.right)
+          .add(bidi.traversalBuilder, newBidi2Shape, combine)
+          .wire(newBidi1Shape.out1, newBidi2Shape.in1)
+          .wire(newBidi2Shape.out2, newBidi1Shape.in2)
 
-    new BidiFlow(
-      newTraversalBuilder,
-      BidiShape(newBidi1Shape.in1, newBidi2Shape.out1, newBidi2Shape.in2, newBidi1Shape.out2))
-  }
+      new BidiFlow(
+        newTraversalBuilder,
+        BidiShape(newBidi1Shape.in1, newBidi2Shape.out1, newBidi2Shape.in2, newBidi1Shape.out2))
+    }
 
   /**
    * Add the given Flow as the final step in a bidirectional transformation
@@ -195,6 +219,8 @@ final class BidiFlow[-I1, +O1, -I2, +O2, +Mat](
   override def async(dispatcher: String, inputBufferSize: Int): BidiFlow[I1, O1, I2, O2, Mat] =
     super.async(dispatcher, inputBufferSize).asInstanceOf[BidiFlow[I1, O1, I2, O2, Mat]]
 
+  override def getAttributes: Attributes = traversalBuilder.attributes
+
 }
 
 object BidiFlow {
@@ -209,8 +235,8 @@ object BidiFlow {
    */
   def fromGraph[I1, O1, I2, O2, Mat](graph: Graph[BidiShape[I1, O1, I2, O2], Mat]): BidiFlow[I1, O1, I2, O2, Mat] =
     graph match {
-      case bidi: BidiFlow[I1, O1, I2, O2, Mat]         => bidi
-      case bidi: javadsl.BidiFlow[I1, O1, I2, O2, Mat] => bidi.asScala
+      case bidi: BidiFlow[I1, O1, I2, O2, Mat]                    => bidi
+      case bidi: javadsl.BidiFlow[I1, O1, I2, O2, Mat] @unchecked => bidi.asScala
       case other =>
         new BidiFlow(other.traversalBuilder, other.shape)
     }
@@ -279,7 +305,7 @@ object BidiFlow {
 
   /**
    * If the time between two processed elements *in any direction* exceed the provided timeout, the stream is failed
-   * with a [[scala.concurrent.TimeoutException]].
+   * with a [[akka.stream.StreamIdleTimeoutException]].
    *
    * There is a difference between this operator and having two idleTimeout Flows assembled into a BidiStage.
    * If the timeout is configured to be 1 seconds, then this operator will not fail even though there are elements flowing

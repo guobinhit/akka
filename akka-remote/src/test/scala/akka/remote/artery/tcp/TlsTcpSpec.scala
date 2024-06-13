@@ -1,11 +1,20 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
 package tcp
 
 import java.security.NoSuchAlgorithmException
+import javax.net.ssl.SSLEngine
+import javax.net.ssl.SSLSession
+
+import scala.concurrent.duration._
+import scala.util.{ Failure, Success }
+
+import com.typesafe.config.Config
+import com.typesafe.config.ConfigFactory
+import org.scalatest.matchers.should.Matchers
 
 import akka.actor.{ ActorIdentity, ActorPath, ActorRef, Identify, RootActorPath }
 import akka.actor.setup.ActorSystemSetup
@@ -14,14 +23,6 @@ import akka.testkit.EventFilter
 import akka.testkit.ImplicitSender
 import akka.testkit.TestActors
 import akka.testkit.TestProbe
-import com.typesafe.config.Config
-import com.typesafe.config.ConfigFactory
-import javax.net.ssl.SSLEngine
-import javax.net.ssl.SSLSession
-import org.scalatest.matchers.should.Matchers
-
-import scala.concurrent.duration._
-import scala.util.{ Failure, Success }
 
 class TlsTcpWithDefaultConfigSpec extends TlsTcpSpec(ConfigFactory.empty())
 
@@ -64,7 +65,7 @@ object TlsTcpSpec {
   def resourcePath(name: String): String = getClass.getClassLoader.getResource(name).getPath
 
   lazy val config: Config = {
-    ConfigFactory.parseString(s"""
+    ConfigFactory.parseString("""
       akka.remote.artery {
         transport = tls-tcp
         large-message-destinations = [ "/user/large" ]

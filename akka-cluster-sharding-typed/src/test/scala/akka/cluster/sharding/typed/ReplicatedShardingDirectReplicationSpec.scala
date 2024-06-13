@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding.typed
 
 import org.scalatest.wordspec.AnyWordSpecLike
+
 import akka.Done
 import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
@@ -12,9 +13,9 @@ import akka.actor.typed.eventstream.EventStream
 import akka.persistence.typed
 import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.PublishedEvent
-import akka.persistence.typed.internal.{ PublishedEventImpl, ReplicatedPublishedEventMetaData, VersionVector }
 import akka.persistence.typed.ReplicaId
 import akka.persistence.typed.ReplicationId
+import akka.persistence.typed.internal.{ PublishedEventImpl, ReplicatedPublishedEventMetaData, VersionVector }
 
 class ReplicatedShardingDirectReplicationSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike with LogCapturing {
 
@@ -43,7 +44,8 @@ class ReplicatedShardingDirectReplicationSpec extends ScalaTestWithActorTestKit 
         1L,
         "event",
         System.currentTimeMillis(),
-        Some(new ReplicatedPublishedEventMetaData(ReplicaId("ReplicaA"), VersionVector.empty)))
+        Some(new ReplicatedPublishedEventMetaData(ReplicaId("ReplicaA"), VersionVector.empty)),
+        None)
       system.eventStream ! EventStream.Publish(event)
 
       replicaBProbe.receiveMessage().message should equal(event)
@@ -69,13 +71,14 @@ class ReplicatedShardingDirectReplicationSpec extends ScalaTestWithActorTestKit 
         1L,
         "event",
         System.currentTimeMillis(),
-        Some(new ReplicatedPublishedEventMetaData(ReplicaId("ReplicaA"), VersionVector.empty)))
+        Some(new ReplicatedPublishedEventMetaData(ReplicaId("ReplicaA"), VersionVector.empty)),
+        None)
       system.eventStream ! EventStream.Publish(event)
 
       replicaAProbe.expectNoMessage()
     }
 
-    "ignore messages not from replicated event sourcing" in {
+    "ignore messages not from Replicated Event Sourcing" in {
       val replicaAProbe = createTestProbe[ShardingEnvelope[PublishedEvent]]()
 
       val replicationActor = spawn(
@@ -93,7 +96,8 @@ class ReplicatedShardingDirectReplicationSpec extends ScalaTestWithActorTestKit 
         1L,
         "event",
         System.currentTimeMillis(),
-        Some(new ReplicatedPublishedEventMetaData(ReplicaId("ReplicaA"), VersionVector.empty)))
+        Some(new ReplicatedPublishedEventMetaData(ReplicaId("ReplicaA"), VersionVector.empty)),
+        None)
       system.eventStream ! EventStream.Publish(event)
 
       replicaAProbe.expectNoMessage()

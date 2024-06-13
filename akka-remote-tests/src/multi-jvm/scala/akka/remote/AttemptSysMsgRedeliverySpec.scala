@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote
@@ -15,37 +15,29 @@ import akka.actor.ActorRef
 import akka.actor.Identify
 import akka.actor.PoisonPill
 import akka.actor.Props
-import akka.remote.transport.ThrottlerTransportAdapter.Direction
+import akka.remote.testkit.Direction
 import akka.testkit._
 
-class AttemptSysMsgRedeliveryMultiJvmSpec(artery: Boolean) extends MultiNodeConfig {
+object AttemptSysMsgRedeliveryMultiJvmSpec extends MultiNodeConfig {
 
   val first = role("first")
   val second = role("second")
   val third = role("third")
 
-  commonConfig(debugConfig(on = false).withFallback(ConfigFactory.parseString(s"""
-      akka.remote.artery.enabled = $artery
+  commonConfig(
+    debugConfig(on = false)
+      .withFallback(ConfigFactory.parseString("""
       akka.remote.use-unsafe-remote-features-outside-cluster = on
-      """)).withFallback(RemotingMultiNodeSpec.commonConfig))
+      """))
+      .withFallback(RemotingMultiNodeSpec.commonConfig))
 
   testTransport(on = true)
 
 }
 
-class AttemptSysMsgRedeliveryMultiJvmNode1
-    extends AttemptSysMsgRedeliverySpec(new AttemptSysMsgRedeliveryMultiJvmSpec(artery = false))
-class AttemptSysMsgRedeliveryMultiJvmNode2
-    extends AttemptSysMsgRedeliverySpec(new AttemptSysMsgRedeliveryMultiJvmSpec(artery = false))
-class AttemptSysMsgRedeliveryMultiJvmNode3
-    extends AttemptSysMsgRedeliverySpec(new AttemptSysMsgRedeliveryMultiJvmSpec(artery = false))
-
-class ArteryAttemptSysMsgRedeliveryMultiJvmNode1
-    extends AttemptSysMsgRedeliverySpec(new AttemptSysMsgRedeliveryMultiJvmSpec(artery = true))
-class ArteryAttemptSysMsgRedeliveryMultiJvmNode2
-    extends AttemptSysMsgRedeliverySpec(new AttemptSysMsgRedeliveryMultiJvmSpec(artery = true))
-class ArteryAttemptSysMsgRedeliveryMultiJvmNode3
-    extends AttemptSysMsgRedeliverySpec(new AttemptSysMsgRedeliveryMultiJvmSpec(artery = true))
+class AttemptSysMsgRedeliveryMultiJvmNode1 extends AttemptSysMsgRedeliverySpec
+class AttemptSysMsgRedeliveryMultiJvmNode2 extends AttemptSysMsgRedeliverySpec
+class AttemptSysMsgRedeliveryMultiJvmNode3 extends AttemptSysMsgRedeliverySpec
 
 object AttemptSysMsgRedeliverySpec {
   class Echo extends Actor {
@@ -55,10 +47,9 @@ object AttemptSysMsgRedeliverySpec {
   }
 }
 
-abstract class AttemptSysMsgRedeliverySpec(multiNodeConfig: AttemptSysMsgRedeliveryMultiJvmSpec)
-    extends RemotingMultiNodeSpec(multiNodeConfig) {
+abstract class AttemptSysMsgRedeliverySpec extends RemotingMultiNodeSpec(AttemptSysMsgRedeliveryMultiJvmSpec) {
+  import AttemptSysMsgRedeliveryMultiJvmSpec._
   import AttemptSysMsgRedeliverySpec._
-  import multiNodeConfig._
 
   def initialParticipants = roles.size
 

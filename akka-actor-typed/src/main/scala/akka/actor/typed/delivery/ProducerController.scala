@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.delivery
@@ -21,8 +21,8 @@ import akka.actor.typed.delivery.internal.ProducerControllerImpl
 import akka.actor.typed.scaladsl.Behaviors
 import akka.annotation.ApiMayChange
 import akka.annotation.InternalApi
-import akka.util.Helpers.toRootLowerCase
 import akka.util.Helpers.Requiring
+import akka.util.Helpers.toRootLowerCase
 import akka.util.JavaDurationConverters._
 
 /**

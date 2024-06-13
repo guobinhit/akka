@@ -7,9 +7,18 @@ You are viewing the documentation for the new actor APIs, to view the Akka Class
 
 ## Module info
 
+The Akka dependencies are available from Akka's library repository. To access them there, you need to configure the URL for this repository.
+
+@@repository [sbt,Maven,Gradle] {
+id="akka-repository"
+name="Akka library repository"
+url="https://repo.akka.io/maven"
+}
+
 To use Akka Cluster Sharding, you must add the following dependency in your project:
 
 @@dependency[sbt,Maven,Gradle] {
+  bomGroup=com.typesafe.akka bomArtifact=akka-bom_$scala.binary.version$ bomVersionSymbols=AkkaVersion
   symbol1=AkkaVersion
   value1="$akka.version$"
   group=com.typesafe.akka
@@ -57,7 +66,7 @@ See @ref:[Downing](cluster.md#downing).
 
 ## Basic example
 
-Sharding is accessed via the `ClusterSharding` extension
+Sharding is accessed via the @apidoc[typed.*.ClusterSharding] extension
 
 Scala
 :  @@snip [ShardingCompileOnlySpec.scala](/akka-cluster-sharding-typed/src/test/scala/docs/akka/cluster/sharding/typed/ShardingCompileOnlySpec.scala) { #sharding-extension }
@@ -65,7 +74,7 @@ Scala
 Java
 :  @@snip [ShardingCompileOnlyTest.java](/akka-cluster-sharding-typed/src/test/java/jdocs/akka/cluster/sharding/typed/ShardingCompileOnlyTest.java) { #import #sharding-extension }
 
-It is common for sharding to be used with persistence however any `Behavior` can be used with sharding e.g. a basic counter:
+It is common for sharding to be used with persistence however any @apidoc[typed.Behavior] can be used with sharding e.g. a basic counter:
 
 Scala
 :  @@snip [ShardingCompileOnlySpec.scala](/akka-cluster-sharding-typed/src/test/scala/docs/akka/cluster/sharding/typed/ShardingCompileOnlySpec.scala) { #counter }
@@ -83,8 +92,8 @@ Scala
 Java
 :  @@snip [ShardingCompileOnlyTest.java](/akka-cluster-sharding-typed/src/test/java/jdocs/akka/cluster/sharding/typed/ShardingCompileOnlyTest.java) { #init }
 
-Messages to a specific entity are then sent via an `EntityRef`.
-It is also possible to wrap methods in a `ShardingEnvelope` or define extractor functions and send messages directly to the shard region.
+Messages to a specific entity are then sent via an @apidoc[typed.*.EntityRef].  The `entityId` and the name of the Entity's key can be retrieved from the `EntityRef`.
+It is also possible to wrap methods in a @apidoc[typed.ShardingEnvelope] or define extractor functions and send messages directly to the shard region.
 
 Scala
 :  @@snip [ShardingCompileOnlySpec.scala](/akka-cluster-sharding-typed/src/test/scala/docs/akka/cluster/sharding/typed/ShardingCompileOnlySpec.scala) { #send }
@@ -92,9 +101,11 @@ Scala
 Java
 :  @@snip [ShardingCompileOnlyTest.java](/akka-cluster-sharding-typed/src/test/java/jdocs/akka/cluster/sharding/typed/ShardingCompileOnlyTest.java) { #send }
 
-Cluster sharding `init` should be called on every node for each entity type. Which nodes entity actors are created on
+Cluster sharding @apidoc[init](typed.*.ClusterSharding) {scala="#init[M,E](entity:akka.cluster.sharding.typed.scaladsl.Entity[M,E]):akka.actor.typed.ActorRef[E]" java="#init(akka.cluster.sharding.typed.javadsl.Entity)"} should be called on every node for each entity type. Which nodes entity actors are created on
 can be controlled with @ref:[roles](cluster.md#node-roles). `init` will create a `ShardRegion` or a proxy depending on whether the node's role matches
 the entity's role. 
+
+The behavior factory lambda passed to the init method is defined on each node and only used locally, this means it is safe to use it for injecting for example a node local @apidoc[typed.ActorRef] that each sharded actor should have access to or some object that is not possible to serialize.
 
 Specifying the role:
 
@@ -104,14 +115,23 @@ Scala
 Java
 :  @@snip [ShardingCompileOnlyTest.java](/akka-cluster-sharding-typed/src/test/java/jdocs/akka/cluster/sharding/typed/ShardingCompileOnlyTest.java) { #roles }
 
+### A note about EntityRef and serialization
 
+If including @apidoc[typed.*.EntityRef]'s in messages or the `State`/`Event`s of an @apidoc[typed.*.EventSourcedBehavior], those `EntityRef`s will need to be serialized.
+The @scala[`entityId`, `typeKey`, and (in multi-DC use-cases) `dataCenter` of an `EntityRef`]@java[`getEntityId`, `getTypeKey`, and (in multi-DC use-cases) `getDataCenter` methods of an `EntityRef`]
+provide exactly the information needed upon deserialization to regenerate an `EntityRef` equivalent to the one serialized, given an expected
+type of messages to send to the entity.
+
+At this time, serialization of `EntityRef`s requires a @ref:[custom serializer](../serialization.md#customization), as the specific
+@apidoc[EntityTypeKey](typed.*.EntityTypeKey) (including the type of message which the desired entity type accepts) should not simply be encoded in the serialized
+representation but looked up on the deserializing side.
 
 ## Persistence example
 
 When using sharding, entities can be moved to different nodes in the cluster. Persistence can be used to recover the state of
 an actor after it has moved.
 
-Akka Persistence is based on the single-writer principle, for a particular `PersistenceId` only one persistent actor
+Akka Persistence is based on the single-writer principle, for a particular @apidoc[typed.PersistenceId] only one persistent actor
 instance should be active. If multiple instances were to persist events at the same time, the events would be
 interleaved and might not be interpreted correctly on replay. Cluster Sharding is typically used together with
 persistence to ensure that there is only one active entity for each `PersistenceId` (`entityId`).
@@ -132,8 +152,8 @@ Scala
 Java
 :  @@snip [HelloWorldPersistentEntityExample.java](/akka-cluster-sharding-typed/src/test/java/jdocs/akka/cluster/sharding/typed/HelloWorldPersistentEntityExample.java) { #persistent-entity-usage-import #persistent-entity-usage }
 
-Note how an unique @apidoc[akka.persistence.typed.PersistenceId] can be constructed from the `EntityTypeKey` and the `entityId`
-provided by the @apidoc[typed.*.EntityContext] in the factory function for the `Behavior`. This is a typical way
+Note how an unique @apidoc[akka.persistence.typed.PersistenceId] can be constructed from the @apidoc[typed.*.EntityTypeKey] and the `entityId`
+provided by the @apidoc[typed.*.EntityContext] in the factory function for the @apidoc[typed.Behavior]. This is a typical way
 of defining the `PersistenceId` but other formats are possible, as described in the
 @ref:[PersistenceId section](persistence.md#persistenceid).
 
@@ -199,7 +219,7 @@ explicit control over where shards are allocated via the @apidoc[ExternalShardAl
 
 This can be used, for example, to match up Kafka Partition consumption with shard locations. The video [How to co-locate Kafka Partitions with Akka Cluster Shards](https://akka.io/blog/news/2020/03/18/akka-sharding-kafka-video) explains a setup for it. Alpakka Kafka provides [an extension for Akka Cluster Sharding](https://doc.akka.io/docs/alpakka-kafka/current/cluster-sharding.html).
 
-To use it set it as the allocation strategy on your `Entity`:
+To use it set it as the allocation strategy on your @apidoc[typed.*.Entity]:
 
 Scala
 : @@snip [ExternalShardAllocationCompileOnlySpec](/akka-cluster-sharding-typed/src/test/scala/docs/akka/cluster/sharding/typed/ExternalShardAllocationCompileOnlySpec.scala) { #entity }
@@ -218,20 +238,58 @@ Java
 Any new or moved shard allocations will be moved on the next rebalance.
 
 The communication from the client to the shard allocation strategy is via @ref[Distributed Data](./distributed-data.md).
-It uses a single `LWWMap` that can support 10s of thousands of shards. Later versions could use multiple keys to 
+It uses a single @apidoc[akka.cluster.ddata.LWWMap] that can support 10s of thousands of shards. Later versions could use multiple keys to 
 support a greater number of shards.
 
 #### Example project for external allocation strategy
 
-@extref[Kafka to Cluster Sharding](samples:akka-samples-kafka-to-sharding)
+[akka-sample-kafka-to-sharding-scala.zip](../attachments/akka-sample-kafka-to-sharding-scala.zip)
 is an example project that can be downloaded, and with instructions of how to run, that demonstrates how to use
 external sharding to co-locate Kafka partition consumption with shards.
+
+### Colocate Shards
+
+When using the default shard allocation strategy the shards for different entity types are allocated independent of
+each other, i.e. the same shard identifier for the different entity types may be allocated to different nodes.
+Colocating shards can be useful if it's known that certain entities interact or share resources with some other
+entities and that can be defined by using the same shard identifier.
+
+To colocate such shards you can use the @apidoc[akka.cluster.sharding.ConsistentHashingShardAllocationStrategy].
+
+Let's look at an example where the purpose is to colocate `Device` entities with the `Building` entity they belong to.
+To use the same shard identifier we need to use a custom @apidoc[akka.cluster.sharding.typed.ShardingMessageExtractor]
+for the `Device` and `Building` entities:
+
+Scala
+: @@snip [ConsistentHashingShardAllocationCompileOnlySpec](/akka-cluster-sharding-typed/src/test/scala/docs/akka/cluster/sharding/typed/ConsistentHashingShardAllocationCompileOnlySpec.scala) { #building #device }
+
+Java
+: @@snip [ConsistentHashingShardAllocationCompileOnlyTest](/akka-cluster-sharding-typed/src/test/java/jdocs/akka/cluster/sharding/typed/ConsistentHashingShardAllocationCompileOnlyTest.java) { #building #device }
+
+Set the allocation strategy and message extractor on your @apidoc[typed.*.Entity]:
+
+Scala
+: @@snip [ConsistentHashingShardAllocationCompileOnlySpec](/akka-cluster-sharding-typed/src/test/scala/docs/akka/cluster/sharding/typed/ConsistentHashingShardAllocationCompileOnlySpec.scala) { #init }
+
+Java
+: @@snip [ConsistentHashingShardAllocationCompileOnlyTest](/akka-cluster-sharding-typed/src/test/java/jdocs/akka/cluster/sharding/typed/ConsistentHashingShardAllocationCompileOnlyTest.java) { #init }
+
+@@@ note
+Create a new instance of the `ConsistentHashingShardAllocationStrategy` for each entity type, i.e. a `ConsistentHashingShardAllocationStrategy` instance must not be shared between different entity types.
+@@@
+
+The allocation strategy is using [Consistent Hashing](https://tom-e-white.com/2007/11/consistent-hashing.html)
+of the Cluster membership ring to assign a shard to a node. When adding or removing nodes it will rebalance
+according to the new consistent hashing, but that means that only a few shards will be rebalanced and others
+remain on the same location. When there are changes to the Cluster membership the shards may be on different
+nodes for a while, but eventually, when the membership is stable, the shards with the same identifier will
+end up on the same node.
 
 ### Custom shard allocation
 
 An optional custom shard allocation strategy can be passed into the optional parameter when initializing an entity type 
-or explicitly using the `withAllocationStrategy` function.
-See the API documentation of @scala[`akka.cluster.sharding.ShardAllocationStrategy`]@java[`akka.cluster.sharding.AbstractShardAllocationStrategy`] for details of how to implement a custom `ShardAllocationStrategy`.
+or explicitly using the @apidoc[withAllocationStrategy](typed.*.Entity) {scala="#withAllocationStrategy(newAllocationStrategy:akka.cluster.sharding.ShardCoordinator.ShardAllocationStrategy):akka.cluster.sharding.typed.scaladsl.Entity[M,E]" java="#withAllocationStrategy(akka.cluster.sharding.ShardCoordinator.ShardAllocationStrategy)"} function.
+See the API documentation of @scala[@scaladoc[ShardAllocationStrategy](akka.cluster.sharding.ShardCoordinator.ShardAllocationStrategy)]@java[@javadoc[AbstractShardAllocationStrategy](akka.cluster.sharding.ShardCoordinator.AbstractShardAllocationStrategy)] for details of how to implement a custom `ShardAllocationStrategy`.
 
 ## How it works
 
@@ -242,11 +300,11 @@ See @ref:[Cluster Sharding concepts](cluster-sharding-concepts.md).
 
 If the state of the entities are persistent you may stop entities that are not used to
 reduce memory consumption. This is done by the application specific implementation of
-the entity actors for example by defining receive timeout (`context.setReceiveTimeout`).
+the entity actors for example by defining receive timeout (@apidoc[context.setReceiveTimeout](typed.*.ActorContext) {scala="#setReceiveTimeout(timeout:scala.concurrent.duration.FiniteDuration,msg:T):Unit" java="#setReceiveTimeout(java.time.Duration,T)"}).
 If a message is already enqueued to the entity when it stops itself the enqueued message
 in the mailbox will be dropped. To support graceful passivation without losing such
-messages the entity actor can send `ClusterSharding.Passivate` to the
-@scala[`ActorRef[ShardCommand]`]@java[`ActorRef<ShardCommand>`] that was passed in to
+messages the entity actor can send @apidoc[typed.*.ClusterSharding.Passivate] to the
+@apidoc[typed.ActorRef]@scala[[@scaladoc[ShardCommand](akka.cluster.sharding.typed.scaladsl.ClusterSharding.ShardCommand)]]@java[<@javadoc[ShardCommand](akka.cluster.sharding.typed.javadsl.ClusterSharding.ShardCommand)>] that was passed in to
 the factory method when creating the entity. The optional `stopMessage` message
 will be sent back to the entity, which is then supposed to stop itself, otherwise it will
 be stopped automatically. Incoming messages will be buffered by the `Shard` between reception
@@ -272,15 +330,240 @@ the entity when it's supposed to stop itself due to rebalance or passivation. If
 it will be stopped automatically without receiving a specific message. It can be useful to define a custom stop
 message if the entity needs to perform some asynchronous cleanup or interactions before stopping.
 
-### Automatic Passivation
+The stop message is only sent locally, from the shard to the entity so does not require an entity id to end up in the right actor. When using a custom @apidoc[typed.ShardingMessageExtractor] without envelopes, the extractor will still have to handle the stop message type to please the compiler, even though it will never actually be passed to the extractor.
 
-The entities are automatically passivated if they haven't received a message within the duration configured in
-`akka.cluster.sharding.passivate-idle-entity-after` 
-or by explicitly setting the `passivateIdleEntityAfter` flag on `ClusterShardingSettings` to a suitable
-time to keep the actor alive. Note that only messages sent through sharding are counted, so direct messages
-to the `ActorRef` or messages that the actor sends to itself are not counted in this activity.
-Passivation can be disabled by setting `akka.cluster.sharding.passivate-idle-entity-after = off`.
-It is disabled automatically if @ref:[Remembering Entities](#remembering-entities) is enabled.
+## Automatic Passivation
+
+Entities are automatically passivated based on a passivation strategy. The default passivation strategy is to
+[passivate idle entities](#idle-entity-passivation) when they haven't received a message within a specified interval,
+and this is the current default strategy to maintain compatibility with earlier versions. It's recommended to switch to
+a [passivation strategy with an active entity limit](#active-entity-limits) and a pre-configured default strategy is
+provided. Active entity limits and idle entity timeouts can also be used together.
+
+@@@ note
+
+The automatic passivation strategies, except [passivate idle entities](#idle-entity-passivation)
+are marked as @ref:[may change](../common/may-change.md) in the sense of being the subject of final development.
+This means that the configuration or semantics can change without warning or deprecation period. The passivation
+strategies can be used in production, but we reserve the right to adjust the configuration after additional
+testing and feedback.
+
+@@@
+
+Automatic passivation can be disabled by setting `akka.cluster.sharding.passivation.strategy = none`. It is disabled
+automatically if @ref:[Remembering Entities](#remembering-entities) is enabled.
+
+@@@ note
+
+Only messages sent through Cluster Sharding are counted as entity activity for automatic passivation. Messages sent
+directly to the @apidoc[typed.ActorRef], including messages that the actor sends to itself, are not counted as entity activity.
+
+@@@
+
+### Idle entity passivation
+
+Idle entities can be automatically passivated when they have not received a message for a specified length of time.
+This is currently the default strategy, for compatibility, and is enabled automatically with a timeout of 2 minutes.
+Specify a different idle timeout with configuration:
+
+@@snip [passivation idle timeout](/akka-cluster-sharding/src/test/scala/akka/cluster/sharding/ClusterShardingSettingsSpec.scala) { #passivation-idle-timeout type=conf }
+
+Or specify the idle timeout as a duration using the @apidoc[withPassivationStrategy](typed.ClusterShardingSettings) {scala="#withPassivationStrategy(settings:akka.cluster.sharding.typed.ClusterShardingSettings.PassivationStrategySettings):akka.cluster.sharding.typed.ClusterShardingSettings" java="#withPassivationStrategy(akka.cluster.sharding.typed.ClusterShardingSettings.PassivationStrategySettings)"} method on `ClusterShardingSettings`.
+
+Idle entity timeouts can be enabled and configured for any passivation strategy.
+
+### Active entity limits
+
+Automatic passivation strategies can limit the number of active entities. Limit-based passivation strategies use a
+replacement policy to determine which active entities should be passivated when the active entity limit is exceeded.
+The configurable limit is for a whole shard region and is divided evenly among the active shards in each region.
+
+A recommended passivation strategy, which will become the new default passivation strategy in future versions of Akka
+Cluster Sharding, can be enabled with configuration:
+
+@@snip [passivation new default strategy](/akka-cluster-sharding/src/test/scala/akka/cluster/sharding/ClusterShardingSettingsSpec.scala) { #passivation-new-default-strategy type=conf }
+
+This default strategy uses a [composite passivation strategy](#composite-passivation-strategies) which combines
+recency-based and frequency-based tracking: the main area is configured with a [segmented least recently used
+policy](#segmented-least-recently-used-policy) with a frequency-biased [admission filter](#admission-filter), fronted
+by a recency-biased [admission window](#admission-window-policy) with [adaptive sizing](#admission-window-optimizer)
+enabled.
+
+The active entity limit for the default strategy can be configured:
+
+@@snip [passivation new default strategy configured](/akka-cluster-sharding/src/test/scala/akka/cluster/sharding/ClusterShardingSettingsSpec.scala) { #passivation-new-default-strategy-configured type=conf }
+
+Or using the @apidoc[withActiveEntityLimit](typed.ClusterShardingSettings.PassivationStrategySettings) {scala="#withActiveEntityLimit(limit:Int):akka.cluster.sharding.typed.ClusterShardingSettings.PassivationStrategySettings" java="#withActiveEntityLimit(int)"} method on `ClusterShardingSettings.PassivationStrategySettings`.
+
+An [idle entity timeout](#idle-entity-passivation) can also be enabled and configured for this strategy:
+
+@@snip [passivation new default strategy with idle](/akka-cluster-sharding/src/test/scala/akka/cluster/sharding/ClusterShardingSettingsSpec.scala) { #passivation-new-default-strategy-with-idle type=conf }
+
+Or using the @apidoc[withIdleEntityPassivation](typed.ClusterShardingSettings.PassivationStrategySettings) {scala="#withIdleEntityPassivation(settings:akka.cluster.sharding.typed.ClusterShardingSettings.PassivationStrategySettings.IdleSettings):akka.cluster.sharding.typed.ClusterShardingSettings.PassivationStrategySettings" java="#withIdleEntityPassivation(akka.cluster.sharding.typed.ClusterShardingSettings.PassivationStrategySettings.IdleSettings)"} method on `ClusterShardingSettings.PassivationStrategySettings`.
+
+If the default strategy is not appropriate for particular workloads and access patterns, a [custom passivation
+strategy](#custom-passivation-strategies) can be created with configurable replacement policies, active entity limits,
+and idle entity timeouts.
+
+### Custom passivation strategies
+
+To configure a custom passivation strategy, create a configuration section for the strategy under
+`akka.cluster.sharding.passivation` and select this strategy using the `strategy` setting. The strategy needs a
+_replacement policy_ to be chosen, an _active entity limit_ to be set, and can optionally [passivate idle
+entities](#idle-entity-passivation). For example, a custom strategy can be configured to use the [least recently used
+policy](#least-recently-used-policy):
+
+@@snip [custom passivation strategy](/akka-cluster-sharding/src/test/scala/akka/cluster/sharding/ClusterShardingSettingsSpec.scala) { #custom-passivation-strategy type=conf }
+
+The active entity limit and replacement policy can also be configured using the `withPassivationStrategy` method on
+`ClusterShardingSettings`, passing custom `ClusterShardingSettings.PassivationStrategySettings`.
+
+### Least recently used policy
+
+The **least recently used** policy passivates those entities that have the least recent activity when the number of
+active entities passes the specified limit.
+
+**When to use**: the least recently used policy should be used when access patterns are recency biased, where entities
+that were recently accessed are likely to be accessed again. See the [segmented least recently used
+policy](#segmented-least-recently-used-policy) for a variation that also distinguishes frequency of access.
+
+Configure a passivation strategy to use the least recently used policy:
+
+@@snip [LRU policy](/akka-cluster-sharding/src/test/scala/akka/cluster/sharding/ClusterShardingSettingsSpec.scala) { #lru-policy type=conf }
+
+Or using the @apidoc[withLeastRecentlyUsedReplacement](typed.ClusterShardingSettings.PassivationStrategySettings) {scala="#withLeastRecentlyUsedReplacement():akka.cluster.sharding.typed.ClusterShardingSettings.PassivationStrategySettings" java="#withLeastRecentlyUsedReplacement()"} method on `ClusterShardingSettings.PassivationStrategySettings`.
+
+#### Segmented least recently used policy
+
+A variation of the least recently used policy can be enabled that divides the active entity space into multiple
+segments to introduce frequency information into the passivation strategy. Higher-level segments contain entities that
+have been accessed more often. The first segment is for entities that have only been accessed once, the second segment
+for entities that have been accessed at least twice, and so on. When an entity is accessed again, it will be promoted
+to the most recent position of the next-level or highest-level segment. The higher-level segments are limited, where
+the total limit is either evenly divided among segments, or proportions of the segments can be configured. When a
+higher-level segment exceeds its limit, the least recently used active entity tracked in that segment will be demoted
+to the level below. Only the least recently used entities in the lowest level will be candidates for passivation. The
+higher levels are considered "protected", where entities will have additional opportunities to be accessed before being
+considered for passivation.
+
+**When to use**: the segmented least recently used policy can be used for workloads where some entities are more
+popular than others, to prioritize those entities that are accessed more frequently.
+
+To configure a segmented least recently used (SLRU) policy, with two levels and a protected segment limited to 80% of
+the total limit:
+
+@@snip [SLRU policy](/akka-cluster-sharding/src/test/scala/akka/cluster/sharding/ClusterShardingSettingsSpec.scala) { #slru-policy type=conf }
+
+Or to configure a 4-level segmented least recently used (S4LRU) policy, with 4 evenly divided levels:
+
+@@snip [S4LRU policy](/akka-cluster-sharding/src/test/scala/akka/cluster/sharding/ClusterShardingSettingsSpec.scala) { #s4lru-policy type=conf }
+
+Or using custom `ClusterShardingSettings.PassivationStrategySettings.LeastRecentlyUsedSettings`.
+
+### Most recently used policy
+
+The **most recently used** policy passivates those entities that have the most recent activity when the number of
+active entities passes the specified limit.
+
+**When to use**: the most recently used policy is most useful when the older an entity is, the more likely that entity
+will be accessed again; as seen in cyclic access patterns.
+
+Configure a passivation strategy to use the most recently used policy:
+
+@@snip [MRU policy](/akka-cluster-sharding/src/test/scala/akka/cluster/sharding/ClusterShardingSettingsSpec.scala) { #mru-policy type=conf }
+
+Or using the @apidoc[withMostRecentlyUsedReplacement](typed.ClusterShardingSettings.PassivationStrategySettings) {scala="#withMostRecentlyUsedReplacement():akka.cluster.sharding.typed.ClusterShardingSettings.PassivationStrategySettings" java="#withMostRecentlyUsedReplacement()"} method on `ClusterShardingSettings.PassivationStrategySettings`.
+
+### Least frequently used policy
+
+The **least frequently used** policy passivates those entities that have the least frequent activity when the number of
+active entities passes the specified limit.
+
+**When to use**: the least frequently used policy should be used when access patterns are frequency biased, where some
+entities are much more popular than others and should be prioritized. See the [least frequently used with dynamic aging
+policy](#least-frequently-used-with-dynamic-aging-policy) for a variation that also handles shifts in popularity.
+
+Configure automatic passivation to use the least frequently used policy:
+
+@@snip [LFU policy](/akka-cluster-sharding/src/test/scala/akka/cluster/sharding/ClusterShardingSettingsSpec.scala) { #lfu-policy type=conf }
+
+Or using the @apidoc[withLeastFrequentlyUsedReplacement](typed.ClusterShardingSettings.PassivationStrategySettings) {scala="#withLeastFrequentlyUsedReplacement():akka.cluster.sharding.typed.ClusterShardingSettings.PassivationStrategySettings" java="#withLeastFrequentlyUsedReplacement()"} method on `ClusterShardingSettings.PassivationStrategySettings`.
+
+#### Least frequently used with dynamic aging policy
+
+A variation of the least frequently used policy can be enabled that uses "dynamic aging" to adapt to shifts in the set
+of popular entities, which is useful for smaller active entity limits and when shifts in popularity are common. If
+entities were frequently accessed in the past but then become unpopular, they can still remain active for a long time
+given their high frequency counts. Dynamic aging effectively increases the frequencies for recently accessed entities
+so they can more easily become higher priority over entities that are no longer accessed.
+
+**When to use**: the least frequently used with dynamic aging policy can be used when workloads are frequency biased
+(there are some entities that are much more popular), but which entities are most popular changes over time. Shifts in
+popularity can have more impact on a least frequently used policy if the active entity limit is small.
+
+Configure dynamic aging with the least frequently used policy:
+
+@@snip [LFUDA policy](/akka-cluster-sharding/src/test/scala/akka/cluster/sharding/ClusterShardingSettingsSpec.scala) { #lfuda-policy type=conf }
+
+Or using custom `ClusterShardingSettings.PassivationStrategySettings.LeastFrequentlyUsedSettings`.
+
+### Composite passivation strategies
+
+Passivation strategies can be combined using an admission window and admission filter. The admission window tracks
+newly activated entities. Entities are replaced in the admission window using one of the replacement policies, such as
+the least recently used replacement policy. When an entity is replaced in the window area it has an opportunity to
+enter the main entity tracking area, based on the admission filter. The admission filter determines whether an entity
+that has left the window area should be admitted into the main area, or otherwise be passivated. A frequency sketch is
+the default admission filter and estimates the access frequency of entities over the lifespan of the cluster sharding
+node, selecting the entity that is estimated to be accessed more frequently. Composite passivation strategies with an
+admission window and admission filter are implementing the _Window-TinyLFU_ caching algorithm.
+
+#### Admission window policy
+
+The admission window tracks newly activated entities. When an entity is replaced in the window area, it has an
+opportunity to enter the main entity tracking area, based on the [admission filter](#admission-filter). The admission
+window can be enabled by selecting a policy (while the regular replacement policy is for the main area):
+
+@@snip [admission window policy](/akka-cluster-sharding/src/test/scala/akka/cluster/sharding/ClusterShardingSettingsSpec.scala) { #admission-window-policy type=conf }
+
+The proportion of the active entity limit used for the admission window can be configured (the default is 1%):
+
+@@snip [admission window proportion](/akka-cluster-sharding/src/test/scala/akka/cluster/sharding/ClusterShardingSettingsSpec.scala) { #admission-window-proportion type=conf }
+
+The proportion for the admission window can also be adapted and optimized dynamically, by enabling an [admission window
+optimizer](#admission-window-optimizer).
+
+#### Admission window optimizer
+
+The proportion of the active entity limit used for the admission window can be adapted dynamically using an optimizer.
+The window area will usually retain entities that are accessed again in a short time (recency-biased), while the main
+area can track entities that are accessed more frequently over longer times (frequency-biased). If access patterns for
+entities are changeable, then the adaptive sizing of the window allows the passivation strategy to adapt between
+recency-biased and frequency-biased workloads.
+
+The optimizer currently available uses a simple hill-climbing algorithm, which searches for a window proportion that
+provides an optimal active rate (where entities are already active when accessed, the _cache hit rate_). Enable
+adaptive window sizing by configuring the `hill-climbing` window optimizer:
+
+@@snip [admission window optimizer](/akka-cluster-sharding/src/test/scala/akka/cluster/sharding/ClusterShardingSettingsSpec.scala) { #admission-window-optimizer type=conf }
+
+See the `reference.conf` for parameters that can be tuned for the hill climbing admission window optimizer.
+
+#### Admission filter
+
+An admission filter can be enabled, which determines whether an entity that has left the window area (or a newly
+activated entity if there is no admission window) should be admitted into the main entity tracking area, or otherwise
+be passivated. If no admission filter is configured, then entities will always be admitted into the main area.
+
+A frequency sketch is the default admission filter and estimates the access frequency of entities over the lifespan of
+the cluster sharding node, selecting the entity that is estimated to be accessed more frequently. The frequency sketch
+automatically ages entries, using the approach from the _TinyLFU_ cache admission algorithm. Enable an admission filter
+by configuring the `frequency-sketch` admission filter:
+
+@@snip [admission policy](/akka-cluster-sharding/src/test/scala/akka/cluster/sharding/ClusterShardingSettingsSpec.scala) { #admission-policy type=conf }
+
+See the `reference.conf` for parameters that can be tuned for the frequency sketch admission filter.
+
 
 ## Sharding State 
 
@@ -311,10 +594,10 @@ akka.cluster.sharding.state-store-mode = ddata
 ```
 
 The state of the `ShardCoordinator` is replicated across the cluster but is not stored to disk.
-@ref:[Distributed Data](distributed-data.md) handles the `ShardCoordinator`'s state with `WriteMajorityPlus`/`ReadMajorityPlus` consistency.
+@ref:[Distributed Data](distributed-data.md) handles the `ShardCoordinator`'s state with @apidoc[WriteMajorityPlus](Replicator.WriteMajorityPlus) / @apidoc[ReadMajorityPlus](Replicator.ReadMajorityPlus) consistency.
 When all nodes in the cluster have been stopped, the state is no longer needed and dropped.
 
-Cluster Sharding uses its own Distributed Data `Replicator` per node. 
+Cluster Sharding uses its own Distributed Data @apidoc[ddata.Replicator] per node. 
 If using roles with sharding there is one `Replicator` per role, which enables a subset of
 all nodes for some entity types and another subset for other entity types. Each replicator has a name
 that contains the node role and therefore the role configuration must be the same on all nodes in the
@@ -346,13 +629,13 @@ used for new projects and existing projects should migrate as soon as possible.
 Remembering entities automatically restarts entities after a rebalance or entity crash. 
 Without remembered entities restarts happen on the arrival of a message.
 
-Enabling remembered entities disables @ref:[Automatic Passivation](#passivation).
+Enabling remembered entities disables @ref:[Automatic Passivation](#automatic-passivation).
 
 The state of the entities themselves is not restored unless they have been made persistent,
 for example with @ref:[Event Sourcing](persistence.md).
 
 To enable remember entities set `rememberEntities` flag to true in
-`ClusterShardingSettings` when starting a shard region (or its proxy) for a given `entity` type or configure
+@apidoc[typed.ClusterShardingSettings] when starting a shard region (or its proxy) for a given `entity` type or configure
 `akka.cluster.sharding.remember-entities = on`.
 
 Starting and stopping entities has an overhead but this is limited by batching operations to the
@@ -364,8 +647,8 @@ When `rememberEntities` is enabled, whenever a `Shard` is rebalanced onto anothe
 node or recovers after a crash, it will recreate all the entities which were previously
 running in that `Shard`. 
 
-To permanently stop entities send a `ClusterSharding.Passivate` to the
-@scala[`ActorRef[ShardCommand]`]@java[`ActorRef<ShardCommand>`] that was passed in to
+To permanently stop entities send a @apidoc[ClusterSharding.Passivate](typed.*.ClusterSharding.Passivate) to the
+@apidoc[typed.ActorRef]@scala[[@scaladoc[ShardCommand](akka.cluster.sharding.typed.scaladsl.ClusterSharding.ShardCommand)]]@java[<@javadoc[ShardCommand](akka.cluster.sharding.typed.javadsl.ClusterSharding.ShardCommand)>] that was passed in to
 the factory method when creating the entity.
 Otherwise, the entity will be automatically restarted after the entity restart backoff specified in the configuration.
 
@@ -396,6 +679,13 @@ Reasons for disabling:
 * Running in an environment without access to disk between restarts e.g. Kubernetes without persistent volumes
 
 For supporting remembered entities in an environment without disk storage use `eventsourced` mode instead.
+
+@@@ note { title="Java 17" }
+
+When using `remember-entities-store=ddata` the remember entities store is persisted to disk by LMDB.
+When running with Java 17 you have to add JVM flags `--add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED`.
+
+@@@
 
 #### Event sourced mode
 
@@ -467,7 +757,7 @@ for more information about `min-nr-of-members`.
 
 ## Health check
 
-An [Akka Management compatible health check](https://doc.akka.io/docs/akka-management/current/healthchecks.html) is included that returns healthy once the local shard region
+An @extref:[Akka Management compatible health check](akka-management:healthchecks.html) is included that returns healthy once the local shard region
 has registered with the coordinator. This health check should be used in cases where you don't want to receive production traffic until the local shard region is ready to retrieve locations
 for shards. For shard regions that aren't critical and therefore should not block this node becoming ready do not include them.
 
@@ -487,6 +777,8 @@ Monitoring of each shard region is off by default. Add them by defining the enti
 akka.cluster.sharding.healthcheck.names = ["counter-1", "HelloWorld"]
 ```
 
+The health check is disabled (always returns success true) after a duration of failing checks after the Cluster member is up. Otherwise, it would stall a Kubernetes rolling update when adding a new entity type in the new version.
+
 See also additional information about how to make @ref:[smooth rolling updates](../additional/rolling-updates.md#cluster-sharding).
 
 ## Inspecting cluster sharding state
@@ -494,8 +786,8 @@ See also additional information about how to make @ref:[smooth rolling updates](
 Two requests to inspect the cluster state are available:
 
 @apidoc[akka.cluster.sharding.typed.GetShardRegionState] which will reply with a 
-@apidoc[ShardRegion.CurrentShardRegionState] that contains the identifiers of the shards running in
-a Region and what entities are alive for each of them.
+@scala[@scaladoc[ShardRegion.CurrentShardRegionState](akka.cluster.sharding.ShardRegion.CurrentShardRegionState)]@java[@javadoc[ShardRegion.CurrentShardRegionState](akka.cluster.sharding.ShardRegion$)]
+that contains the identifiers of the shards running in a Region and what entities are alive for each of them.
 
 Scala
 :  @@snip [ShardingCompileOnlySpec.scala](/akka-cluster-sharding-typed/src/test/scala/docs/akka/cluster/sharding/typed/ShardingCompileOnlySpec.scala) { #get-shard-region-state }
@@ -504,8 +796,8 @@ Java
 :  @@snip [ShardingCompileOnlyTest.java](/akka-cluster-sharding-typed/src/test/java/jdocs/akka/cluster/sharding/typed/ShardingCompileOnlyTest.java) { #get-shard-region-state }
 
 @apidoc[akka.cluster.sharding.typed.GetClusterShardingStats] which will query all the regions in the cluster and reply with a
-@apidoc[ShardRegion.ClusterShardingStats] containing the identifiers of the shards running in each region and a count
-of entities that are alive in each shard.
+@scala[@scaladoc[ShardRegion.ClusterShardingStats](akka.cluster.sharding.ShardRegion.ClusterShardingStats)]@java[@javadoc[ShardRegion.ClusterShardingStats](akka.cluster.sharding.ShardRegion$)]
+containing the identifiers of the shards running in each region and a count of entities that are alive in each shard.
 
 Scala
 :  @@snip [ShardingCompileOnlySpec.scala](/akka-cluster-sharding-typed/src/test/scala/docs/akka/cluster/sharding/typed/ShardingCompileOnlySpec.scala) { #get-cluster-sharding-stats }
@@ -546,7 +838,7 @@ The Cluster Sharding `ShardCoordinator` stores locations of the shards.
 This data is safely be removed when restarting the whole Akka Cluster.
 Note that this does not include application data.
 
-There is a utility program `akka.cluster.sharding.RemoveInternalClusterShardingData`
+There is a utility program @apidoc[akka.cluster.sharding.RemoveInternalClusterShardingData$]
 that removes this data.
 
 @@@ warning
@@ -582,8 +874,8 @@ different persistenceId.
 
 ## Configuration
 
-The `ClusterSharding` extension can be configured with the following properties. These configuration
-properties are read by the `ClusterShardingSettings` when created with an ActorSystem parameter.
+The @apidoc[typed.*.ClusterSharding] extension can be configured with the following properties. These configuration
+properties are read by the @apidoc[typed.ClusterShardingSettings] when created with an ActorSystem parameter.
 It is also possible to amend the `ClusterShardingSettings` or create it from another config section
 with the same layout as below. 
 
@@ -598,8 +890,8 @@ as described in @ref:[Shard allocation](#shard-allocation).
 
 ## Example project
 
-@java[@extref[Sharding example project](samples:akka-samples-cluster-sharding-java)]
-@scala[@extref[Sharding example project](samples:akka-samples-cluster-sharding-scala)]
+@java[[Sharding example project](../attachments/akka-sample-sharding-java.zip)]
+@scala[[Sharding example project](../attachments/akka-sample-sharding-scala.zip)]
 is an example project that can be downloaded, and with instructions of how to run.
 
 This project contains a KillrWeather sample illustrating how to use Cluster Sharding.

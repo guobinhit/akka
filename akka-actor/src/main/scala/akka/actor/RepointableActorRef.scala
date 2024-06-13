@@ -1,19 +1,17 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor
 
 import java.util.{ LinkedList => JLinkedList }
 import java.util.concurrent.locks.ReentrantLock
-
+import scala.annotation.nowarn
 import scala.annotation.tailrec
 import scala.collection.immutable
 import scala.util.control.NonFatal
-
-import com.github.ghik.silencer.silent
-
 import akka.actor.dungeon.ChildrenContainer
+import akka.annotation.InternalApi
 import akka.dispatch._
 import akka.dispatch.sysmsg._
 import akka.event.Logging.Warning
@@ -26,7 +24,10 @@ import akka.util.{ unused, Unsafe }
  * response to the Supervise() message, which will replace the contained Cell
  * with a fully functional one, transfer all messages from dummy to real queue
  * and swap out the cell ref.
+ *
+ * INTERNAL API
  */
+@InternalApi
 private[akka] class RepointableActorRef(
     val system: ActorSystemImpl,
     val props: Props,
@@ -49,8 +50,12 @@ private[akka] class RepointableActorRef(
    * processing the very first message (i.e. before Cell.start()). Hence there
    * are two refs here, one for each function, and they are switched just so.
    */
-  @silent @volatile private var _cellDoNotCallMeDirectly: Cell = _
-  @silent @volatile private var _lookupDoNotCallMeDirectly: Cell = _
+  @nowarn @volatile private var _cellDoNotCallMeDirectly: Cell = _
+  @nowarn @volatile private var _lookupDoNotCallMeDirectly: Cell = _
+  @nowarn private def _preventPrivateUnusedErasure = {
+    _cellDoNotCallMeDirectly
+    _lookupDoNotCallMeDirectly
+  }
 
   def underlying: Cell = Unsafe.instance.getObjectVolatile(this, cellOffset).asInstanceOf[Cell]
   def lookup = Unsafe.instance.getObjectVolatile(this, lookupOffset).asInstanceOf[Cell]
@@ -175,7 +180,7 @@ private[akka] class RepointableActorRef(
 
   def children: immutable.Iterable[ActorRef] = lookup.childrenRefs.children
 
-  def !(message: Any)(implicit sender: ActorRef = Actor.noSender) = underlying.sendMessage(message, sender)
+  def !(message: Any)(implicit sender: ActorRef = Actor.noSender): Unit = underlying.sendMessage(message, sender)
 
   def sendSystemMessage(message: SystemMessage) = underlying.sendSystemMessage(message)
 
@@ -183,6 +188,10 @@ private[akka] class RepointableActorRef(
   protected def writeReplace(): AnyRef = SerializedActorRef(this)
 }
 
+/**
+ * INTERNAL API
+ */
+@InternalApi
 private[akka] class UnstartedCell(
     val systemImpl: ActorSystemImpl,
     val self: RepointableActorRef,

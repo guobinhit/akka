@@ -1,19 +1,19 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
+import scala.annotation.nowarn
 import scala.collection.immutable.Seq
 import scala.concurrent.Future
 
-import com.github.ghik.silencer.silent
 import org.reactivestreams.Publisher
 
 import akka.NotUsed
 import akka.stream.testkit.StreamSpec
 
-@silent // unused vars are used in shouldNot compile tests
+@nowarn // unused vars are used in shouldNot compile tests
 class FlowCompileSpec extends StreamSpec {
 
   val intSeq = Source(Seq(1, 2, 3))

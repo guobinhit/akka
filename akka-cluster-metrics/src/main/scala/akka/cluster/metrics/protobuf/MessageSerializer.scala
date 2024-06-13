@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.metrics.protobuf
@@ -16,7 +16,8 @@ import akka.actor.{ Address, ExtendedActorSystem }
 import akka.cluster.metrics._
 import akka.cluster.metrics.protobuf.msg.{ ClusterMetricsMessages => cm }
 import akka.dispatch.Dispatchers
-import akka.protobufv3.internal.{ ByteString, MessageLite }
+import akka.protobufv3.internal.MessageLite
+import akka.remote.ByteStringUtils
 import akka.serialization.{ BaseSerializer, SerializationExtension, SerializerWithStringManifest, Serializers }
 import akka.util.ClassLoaderObjectInputStream
 import akka.util.ccompat._
@@ -122,7 +123,9 @@ class MessageSerializer(val system: ExtendedActorSystem) extends SerializerWithS
     val builder = cm.MetricsSelector.newBuilder()
     val serializer = serialization.findSerializerFor(selector)
 
-    builder.setData(ByteString.copyFrom(serializer.toBinary(selector))).setSerializerId(serializer.identifier)
+    builder
+      .setData(ByteStringUtils.toProtoByteStringUnsafe(serializer.toBinary(selector)))
+      .setSerializerId(serializer.identifier)
 
     val manifest = Serializers.manifestFor(serializer, selector)
     builder.setManifest(manifest)
@@ -198,7 +201,10 @@ class MessageSerializer(val system: ExtendedActorSystem) extends SerializerWithS
           val out = new ObjectOutputStream(bos)
           out.writeObject(number)
           out.close()
-          Number.newBuilder().setType(NumberType.Serialized).setSerialized(ByteString.copyFrom(bos.toByteArray))
+          Number
+            .newBuilder()
+            .setType(NumberType.Serialized)
+            .setSerialized(ByteStringUtils.toProtoByteStringUnsafe(bos.toByteArray))
       }
     }
 

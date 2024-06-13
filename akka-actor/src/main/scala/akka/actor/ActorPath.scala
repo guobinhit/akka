@@ -1,15 +1,14 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor
 import java.lang.{ StringBuilder => JStringBuilder }
 import java.net.MalformedURLException
 
-import scala.annotation.{ switch, tailrec }
+import scala.annotation.nowarn
+import scala.annotation.tailrec
 import scala.collection.immutable
-
-import com.github.ghik.silencer.silent
 
 import akka.japi.Util.immutableSeq
 
@@ -46,7 +45,7 @@ object ActorPaths {
   /**
    * This method is used to validate a path element (Actor Name).
    * Since Actors form a tree, it is addressable using an URL, therefore an Actor Name has to conform to:
-   * <a href="http://www.ietf.org/rfc/rfc2396.txt">RFC-2396</a>.
+   * <a href="https://www.ietf.org/rfc/rfc2396.txt">RFC-2396</a>.
    *
    * User defined Actor names may not start from a `$` sign - these are reserved for system names.
    */
@@ -87,7 +86,9 @@ object ActorPath {
   final def validatePathElement(element: String, fullPath: String): Unit = {
     def fullPathMsg = if (fullPath ne null) s""" (in path [$fullPath])""" else ""
 
-    (findInvalidPathElementCharPosition(element): @switch) match {
+    // If the number of cases increase remember to add a `@switch` annotation e.g.:
+    // (findInvalidPathElementCharPosition(element): @switch) match {
+    (findInvalidPathElementCharPosition(element)) match {
       case ValidPathCode =>
       // valid
       case EmptyPathCode =>
@@ -104,7 +105,7 @@ object ActorPath {
   /**
    * This method is used to validate a path element (Actor Name).
    * Since Actors form a tree, it is addressable using an URL, therefore an Actor Name has to conform to:
-   * <a href="http://www.ietf.org/rfc/rfc2396.txt">RFC-2396</a>.
+   * <a href="https://www.ietf.org/rfc/rfc2396.txt">RFC-2396</a>.
    *
    * User defined Actor names may not start from a `$` sign - these are reserved for system names.
    */
@@ -153,8 +154,7 @@ object ActorPath {
  * references are compared the unique id of the actor is not taken into account
  * when comparing actor paths.
  */
-@silent("@SerialVersionUID has no effect on traits")
-@silent("deprecated")
+@nowarn("msg=@SerialVersionUID has no effect on traits")
 @SerialVersionUID(1L)
 sealed trait ActorPath extends Comparable[ActorPath] with Serializable {
 
@@ -203,6 +203,7 @@ sealed trait ActorPath extends Comparable[ActorPath] with Serializable {
   /**
    * Java API: Sequence of names for this path from root to this. Performance implication: has to allocate a list.
    */
+  @nowarn("msg=deprecated")
   def getElements: java.lang.Iterable[String] =
     scala.collection.JavaConverters.asJavaIterableConverter(elements).asJava
 
@@ -310,6 +311,9 @@ final case class RootActorPath(address: Address, name: String = "/") extends Act
 
 }
 
+/**
+ * Not for user instantiation
+ */
 @SerialVersionUID(1L)
 final class ChildActorPath private[akka] (val parent: ActorPath, val name: String, override private[akka] val uid: Int)
     extends ActorPath {

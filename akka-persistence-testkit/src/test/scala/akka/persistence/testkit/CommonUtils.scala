@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.testkit
@@ -10,10 +10,11 @@ import com.typesafe.config.ConfigFactory
 import org.scalatest.wordspec.AnyWordSpecLike
 
 import akka.actor.{ ActorRef, ActorSystem }
+import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.persistence._
 import akka.testkit.TestKitBase
 
-trait CommonUtils extends AnyWordSpecLike with TestKitBase {
+trait CommonUtils extends AnyWordSpecLike with TestKitBase with LogCapturing {
 
   protected def randomPid() = UUID.randomUUID().toString
 
@@ -97,7 +98,7 @@ class A(pid: String, notifyOnStateChange: Option[ActorRef]) extends PersistentAc
   override def persistenceId = pid
 }
 
-trait TestCommand
+sealed trait TestCommand
 case class Cmd(data: String) extends TestCommand
 case object Passivate extends TestCommand
 case class Evt(data: String)

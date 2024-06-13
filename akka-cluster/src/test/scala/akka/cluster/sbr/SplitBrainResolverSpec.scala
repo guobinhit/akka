@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sbr
@@ -14,7 +14,9 @@ import akka.actor.ActorRef
 import akka.actor.Address
 import akka.actor.ExtendedActorSystem
 import akka.actor.Props
+import akka.cluster._
 import akka.cluster.ClusterEvent.LeaderChanged
+import akka.cluster.ClusterEvent.MemberExited
 import akka.cluster.ClusterEvent.MemberRemoved
 import akka.cluster.ClusterEvent.MemberUp
 import akka.cluster.ClusterEvent.MemberWeaklyUp
@@ -25,7 +27,6 @@ import akka.cluster.ClusterEvent.UnreachableDataCenter
 import akka.cluster.ClusterEvent.UnreachableMember
 import akka.cluster.ClusterSettings.DataCenter
 import akka.cluster.MemberStatus._
-import akka.cluster._
 import akka.coordination.lease.LeaseSettings
 import akka.coordination.lease.TestLease
 import akka.coordination.lease.TimeoutSettings
@@ -97,11 +98,9 @@ class SplitBrainResolverSpec
   |  actor.provider = cluster
   |  cluster.downing-provider-class = "akka.cluster.sbr.SplitBrainResolverProvider"
   |  cluster.split-brain-resolver.active-strategy=keep-majority
-  |  remote {
-  |    netty.tcp {
-  |      hostname = "127.0.0.1"
-  |      port = 0
-  |    }
+  |  remote.artery.canonical {
+  |    hostname = "127.0.0.1"
+  |    port = 0
   |  }
   |}
   """.stripMargin)
@@ -112,6 +111,7 @@ class SplitBrainResolverSpec
   import TestAddresses._
 
   private val selfDc = TestAddresses.defaultDataCenter
+  private lazy val selfUniqueAddress = Cluster(system).selfUniqueAddress
 
   private val testLeaseSettings =
     new LeaseSettings("akka-sbr", "test", new TimeoutSettings(1.second, 2.minutes, 3.seconds), ConfigFactory.empty)
@@ -180,7 +180,7 @@ class SplitBrainResolverSpec
   "StaticQuorum" must {
     class Setup2(size: Int, role: Option[String]) extends StrategySetup {
       override def createStrategy() =
-        new StaticQuorum(selfDc, size, role)
+        new StaticQuorum(selfDc, size, role, selfUniqueAddress)
     }
 
     "down unreachable when enough reachable nodes" in new Setup2(3, None) {
@@ -257,7 +257,7 @@ class SplitBrainResolverSpec
   "KeepMajority" must {
     class Setup2(role: Option[String]) extends StrategySetup {
       override def createStrategy() =
-        new KeepMajority(selfDc, role)
+        new KeepMajority(selfDc, role, selfUniqueAddress)
     }
 
     "down minority partition: {A, C, E} | {B, D} => {A, C, E}" in new Setup2(role = None) {
@@ -593,7 +593,7 @@ class SplitBrainResolverSpec
 
   "KeepOldest" must {
     class Setup2(downIfAlone: Boolean = true, role: Option[String] = None) extends StrategySetup {
-      override def createStrategy() = new KeepOldest(selfDc, downIfAlone, role)
+      override def createStrategy() = new KeepOldest(selfDc, downIfAlone, role, selfUniqueAddress)
     }
 
     "keep partition with oldest" in new Setup2 {
@@ -803,7 +803,7 @@ class SplitBrainResolverSpec
 
   "DownAllNodes" must {
     class Setup2 extends StrategySetup {
-      override def createStrategy() = new DownAllNodes(selfDc)
+      override def createStrategy() = new DownAllNodes(selfDc, selfUniqueAddress)
     }
 
     "down all" in new Setup2 {
@@ -826,7 +826,13 @@ class SplitBrainResolverSpec
       val acquireLeaseDelayForMinority: FiniteDuration = 2.seconds
 
       override def createStrategy() =
-        new LeaseMajority(selfDc, role, testLease, acquireLeaseDelayForMinority)
+        new LeaseMajority(
+          selfDc,
+          role,
+          testLease,
+          acquireLeaseDelayForMinority,
+          releaseAfter = 10.seconds,
+          selfUniqueAddress)
     }
 
     "decide AcquireLeaseAndDownUnreachable, and DownReachable as reverse decision" in {
@@ -839,7 +845,7 @@ class SplitBrainResolverSpec
       val decision1 = strategy1.decide()
       decision1 should ===(AcquireLeaseAndDownUnreachable(Duration.Zero))
       strategy1.nodesToDown(decision1) should ===(side2Nodes)
-      val reverseDecision1 = strategy1.reverseDecision(decision1)
+      val reverseDecision1 = strategy1.reverseDecision(decision1.asInstanceOf[AcquireLeaseDecision])
       reverseDecision1 should ===(DownReachable)
       strategy1.nodesToDown(reverseDecision1) should ===(side1Nodes)
 
@@ -847,7 +853,7 @@ class SplitBrainResolverSpec
       val decision2 = strategy2.decide()
       decision2 should ===(AcquireLeaseAndDownUnreachable(acquireLeaseDelayForMinority))
       strategy2.nodesToDown(decision2) should ===(side1Nodes)
-      val reverseDecision2 = strategy2.reverseDecision(decision2)
+      val reverseDecision2 = strategy2.reverseDecision(decision2.asInstanceOf[AcquireLeaseDecision])
       reverseDecision2 should ===(DownReachable)
       strategy2.nodesToDown(reverseDecision2) should ===(side2Nodes)
     }
@@ -881,7 +887,7 @@ class SplitBrainResolverSpec
       val decision1 = strategy1.decide()
       decision1 should ===(AcquireLeaseAndDownIndirectlyConnected(Duration.Zero))
       strategy1.nodesToDown(decision1) should ===(Set(memberA.uniqueAddress, memberB.uniqueAddress))
-      val reverseDecision1 = strategy1.reverseDecision(decision1)
+      val reverseDecision1 = strategy1.reverseDecision(decision1.asInstanceOf[AcquireLeaseDecision])
       reverseDecision1 should ===(ReverseDownIndirectlyConnected)
       strategy1.nodesToDown(reverseDecision1) should ===(side1Nodes)
     }
@@ -901,7 +907,7 @@ class SplitBrainResolverSpec
       val decision1 = strategy1.decide()
       decision1 should ===(AcquireLeaseAndDownIndirectlyConnected(Duration.Zero))
       strategy1.nodesToDown(decision1) should ===(Set(memberB, memberC, memberD, memberE).map(_.uniqueAddress))
-      val reverseDecision1 = strategy1.reverseDecision(decision1)
+      val reverseDecision1 = strategy1.reverseDecision(decision1.asInstanceOf[AcquireLeaseDecision])
       reverseDecision1 should ===(ReverseDownIndirectlyConnected)
       strategy1.nodesToDown(reverseDecision1) should ===(side1Nodes)
 
@@ -914,7 +920,7 @@ class SplitBrainResolverSpec
       val decision2 = strategy2.decide()
       decision2 should ===(AcquireLeaseAndDownUnreachable(acquireLeaseDelayForMinority))
       strategy2.nodesToDown(decision2) should ===(side1Nodes)
-      val reverseDecision2 = strategy2.reverseDecision(decision2)
+      val reverseDecision2 = strategy2.reverseDecision(decision2.asInstanceOf[AcquireLeaseDecision])
       reverseDecision2 should ===(DownReachable)
       strategy2.nodesToDown(reverseDecision2) should ===(side2Nodes)
 
@@ -925,21 +931,36 @@ class SplitBrainResolverSpec
       val decision3 = strategy3.decide()
       decision3 should ===(AcquireLeaseAndDownIndirectlyConnected(Duration.Zero))
       strategy3.nodesToDown(decision3) should ===(side1Nodes)
-      val reverseDecision3 = strategy3.reverseDecision(decision3)
+      val reverseDecision3 = strategy3.reverseDecision(decision3.asInstanceOf[AcquireLeaseDecision])
       reverseDecision3 should ===(ReverseDownIndirectlyConnected)
       strategy3.nodesToDown(reverseDecision3) should ===(Set(memberB, memberC, memberD, memberE).map(_.uniqueAddress))
+    }
 
+    "down indirectly connected to already downed node during partition: {A, B, C, D} | {(E, F)} => {A, B, C, D}" in new Setup2(
+      role = None) {
+      val memberELeaving = leaving(memberE)
+      val memberFDown = downed(memberF)
+      side1 = Set(memberA, memberB, memberC, memberD)
+      side2 = Set(memberELeaving, memberFDown)
+      // trouble when indirectly connected happens before clean partition
+      indirectlyConnected = List(memberELeaving -> memberFDown)
+
+      // from side1 of the partition, majority
+      assertDowningSide(side1, Set(memberELeaving))
+
+      // from side2 of the partition, minority
+      assertDowningSide(side2, Set(memberA, memberB, memberC, memberD, memberELeaving))
     }
   }
 
   "Strategy" must {
 
     class MajoritySetup(role: Option[String] = None) extends StrategySetup {
-      override def createStrategy() = new KeepMajority(selfDc, role)
+      override def createStrategy() = new KeepMajority(selfDc, role, selfUniqueAddress)
     }
 
     class OldestSetup(role: Option[String] = None) extends StrategySetup {
-      override def createStrategy() = new KeepOldest(selfDc, downIfAlone = true, role)
+      override def createStrategy() = new KeepOldest(selfDc, downIfAlone = true, role, selfUniqueAddress)
     }
 
     "add and remove members with default Member ordering" in {
@@ -1081,24 +1102,29 @@ class SplitBrainResolverSpec
         role: Option[String],
         downAllWhenUnstable: FiniteDuration = Duration.Zero,
         tickInterval: FiniteDuration = Duration.Zero)
-        extends Setup(stableAfter, new KeepMajority(selfDc, role), selfUniqueAddress, downAllWhenUnstable, tickInterval)
+        extends Setup(
+          stableAfter,
+          new KeepMajority(selfDc, role, selfUniqueAddress),
+          selfUniqueAddress,
+          downAllWhenUnstable,
+          tickInterval)
 
     class SetupKeepOldest(
         stableAfter: FiniteDuration,
         selfUniqueAddress: UniqueAddress,
         downIfAlone: Boolean,
         role: Option[String])
-        extends Setup(stableAfter, new KeepOldest(selfDc, downIfAlone, role), selfUniqueAddress)
+        extends Setup(stableAfter, new KeepOldest(selfDc, downIfAlone, role, selfUniqueAddress), selfUniqueAddress)
 
     class SetupStaticQuorum(
         stableAfter: FiniteDuration,
         selfUniqueAddress: UniqueAddress,
         size: Int,
         role: Option[String])
-        extends Setup(stableAfter, new StaticQuorum(selfDc, size, role), selfUniqueAddress)
+        extends Setup(stableAfter, new StaticQuorum(selfDc, size, role, selfUniqueAddress), selfUniqueAddress)
 
     class SetupDownAllNodes(stableAfter: FiniteDuration, selfUniqueAddress: UniqueAddress)
-        extends Setup(stableAfter, new DownAllNodes(selfDc), selfUniqueAddress)
+        extends Setup(stableAfter, new DownAllNodes(selfDc, selfUniqueAddress), selfUniqueAddress)
 
     class SetupLeaseMajority(
         stableAfter: FiniteDuration,
@@ -1109,7 +1135,13 @@ class SplitBrainResolverSpec
         tickInterval: FiniteDuration = Duration.Zero)
         extends Setup(
           stableAfter,
-          new LeaseMajority(selfDc, role, testLease, acquireLeaseDelayForMinority = 20.millis),
+          new LeaseMajority(
+            selfDc,
+            role,
+            testLease,
+            acquireLeaseDelayForMinority = 20.millis,
+            releaseAfter = 10.seconds,
+            selfUniqueAddress),
           selfUniqueAddress,
           downAllWhenUnstable,
           tickInterval)
@@ -1457,6 +1489,56 @@ class SplitBrainResolverSpec
         stop()
       }
 
+    }
+
+    "down indirectly connected when combined with partition and exiting: {A, B, C, D} | {E, F-exiting} => {A, B, C, D}" in {
+      new SetupKeepMajority(stableAfter = Duration.Zero, memberA.uniqueAddress, role = None) {
+        memberUp(memberA, memberB, memberC, memberD, memberE, memberF)
+        val memberFExiting = exiting(memberF)
+        a ! MemberExited(memberFExiting)
+        leader(memberA)
+        // indirectly connected: memberF
+        // partition: memberA, memberB, memberC, memberD | memberE, memberF
+        reachabilityChanged(
+          memberA -> memberE,
+          memberA -> memberFExiting,
+          memberB -> memberE,
+          memberB -> memberFExiting,
+          memberC -> memberE,
+          memberC -> memberFExiting,
+          memberD -> memberE,
+          memberD -> memberFExiting,
+          memberE -> memberFExiting)
+        tick()
+        // keep fully connected members
+        expectDownCalled(memberE)
+        stop()
+      }
+    }
+
+    "down indirectly connected when combined with partition and exiting: {A, B, C, D} | {E-exiting, F} => {A, B, C, D}" in {
+      new SetupKeepMajority(stableAfter = Duration.Zero, memberA.uniqueAddress, role = None) {
+        memberUp(memberA, memberB, memberC, memberD, memberE, memberF)
+        val memberEExiting = exiting(memberE)
+        a ! MemberExited(memberEExiting)
+        leader(memberA)
+        // indirectly connected: memberF
+        // partition: memberA, memberB, memberC, memberD | memberE, memberF
+        reachabilityChanged(
+          memberA -> memberEExiting,
+          memberA -> memberF,
+          memberB -> memberEExiting,
+          memberB -> memberF,
+          memberC -> memberEExiting,
+          memberC -> memberF,
+          memberD -> memberEExiting,
+          memberD -> memberF,
+          memberE -> memberF)
+        tick()
+        // keep fully connected members
+        expectDownCalled(memberF)
+        stop()
+      }
     }
 
     "down all in self data centers" in new SetupDownAllNodes(stableAfter = Duration.Zero, memberA.uniqueAddress) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed
@@ -263,7 +263,9 @@ class ExtensionsSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike with
     }
     val sys = setup match {
       case None    => ActorSystem[Any](Behaviors.empty[Any], name, bootstrap)
-      case Some(s) => ActorSystem[Any](Behaviors.empty[Any], name, s.and(bootstrap))
+      case Some(s) =>
+        // explicit Props.empty: https://github.com/lampepfl/dotty/issues/12679
+        ActorSystem[Any](Behaviors.empty[Any], name, s.and(bootstrap), Props.empty)
     }
 
     try f(sys)

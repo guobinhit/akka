@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.stream.operators.source;
@@ -7,7 +7,6 @@ package jdocs.stream.operators.source;
 import akka.NotUsed;
 import akka.actor.ActorSystem;
 import akka.stream.javadsl.Source;
-
 import java.util.Optional;
 
 interface UnfoldResource {

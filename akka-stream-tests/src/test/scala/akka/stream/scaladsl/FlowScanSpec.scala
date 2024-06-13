@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -15,7 +15,6 @@ import akka.stream.ActorAttributes
 import akka.stream.Supervision
 import akka.stream.testkit.StreamSpec
 import akka.stream.testkit.Utils._
-import akka.stream.testkit.scaladsl.StreamTestKit._
 import akka.stream.testkit.scaladsl.TestSink
 
 class FlowScanSpec extends StreamSpec("""
@@ -27,17 +26,17 @@ class FlowScanSpec extends StreamSpec("""
     def scan(s: Source[Int, NotUsed], duration: Duration = 5.seconds): immutable.Seq[Int] =
       Await.result(s.scan(0)(_ + _).runFold(immutable.Seq.empty[Int])(_ :+ _), duration)
 
-    "Scan" in assertAllStagesStopped {
+    "Scan" in {
       val v = Vector.fill(random.nextInt(100, 1000))(random.nextInt())
       scan(Source(v)) should be(v.scan(0)(_ + _))
     }
 
-    "Scan empty failed" in assertAllStagesStopped {
+    "Scan empty failed" in {
       val e = new Exception("fail!")
       (intercept[Exception](scan(Source.failed[Int](e))) should be).theSameInstanceAs(e)
     }
 
-    "Scan empty" in assertAllStagesStopped {
+    "Scan empty" in {
       scan(Source.empty[Int]) should be(Vector.empty[Int].scan(0)(_ + _))
     }
 
@@ -54,8 +53,7 @@ class FlowScanSpec extends StreamSpec("""
           old + current
         }
         .withAttributes(supervisionStrategy(Supervision.restartingDecider))
-      Source(List(1, 3, -1, 5, 7)).via(scan).runWith(TestSink.probe).toStrict(1.second) should ===(
-        Seq(0, 1, 4, 0, 5, 12))
+      Source(List(1, 3, -1, 5, 7)).via(scan).runWith(TestSink()).toStrict(1.second) should ===(Seq(0, 1, 4, 0, 5, 12))
     }
 
     "resume properly" in {
@@ -66,14 +64,14 @@ class FlowScanSpec extends StreamSpec("""
           old + current
         }
         .withAttributes(supervisionStrategy(Supervision.resumingDecider))
-      Source(List(1, 3, -1, 5, 7)).via(scan).runWith(TestSink.probe).toStrict(1.second) should ===(Seq(0, 1, 4, 9, 16))
+      Source(List(1, 3, -1, 5, 7)).via(scan).runWith(TestSink()).toStrict(1.second) should ===(Seq(0, 1, 4, 9, 16))
     }
 
     "scan normally for empty source" in {
       Source
         .empty[Int]
         .scan(0) { case (a, b) => a + b }
-        .runWith(TestSink.probe[Int])
+        .runWith(TestSink[Int]())
         .request(2)
         .expectNext(0)
         .expectComplete()
@@ -84,7 +82,7 @@ class FlowScanSpec extends StreamSpec("""
       Source
         .failed[Int](ex)
         .scan(0) { case (a, b) => a + b }
-        .runWith(TestSink.probe[Int])
+        .runWith(TestSink[Int]())
         .request(2)
         .expectNextOrError(0, ex)
     }

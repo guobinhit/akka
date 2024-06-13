@@ -1,14 +1,12 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed
 
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
-
 import org.scalatest.wordspec.AnyWordSpecLike
-
 import akka.actor.InvalidMessageException
 import akka.actor.testkit.typed.TestException
 import akka.actor.testkit.typed.scaladsl.LogCapturing
@@ -647,7 +645,8 @@ abstract class ActorContextSpec extends ScalaTestWithActorTestKit with AnyWordSp
     }
 
     "not allow null messages" in {
-      val actor = spawn(Behaviors.empty[Null].decorate)
+      // Scala 3 doesn't generate an implicit `ClassTag[Null]` (https://github.com/lampepfl/dotty/issues/9586)
+      val actor = spawn(decoration(ClassTag.Null)(Behaviors.empty[Null]))
       intercept[InvalidMessageException] {
         actor ! null
       }

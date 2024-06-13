@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.testkit.internal
@@ -19,6 +19,7 @@ private[testkit] object SerializedEventStorageImpl {
       sequenceNr: Long,
       payloadSerId: Int,
       payloadSerManifest: String,
+      eventAdapterManifest: String,
       writerUuid: String,
       payload: Array[Byte],
       tags: Set[String],
@@ -43,18 +44,20 @@ private[testkit] class SerializedEventStorageImpl(system: ActorSystem) extends E
       val (payload, tags) = pr.payload match {
         case Tagged(event: AnyRef, tags) => (event, tags)
         case event: AnyRef               => (event, Set.empty[String])
+        case p                           => throw new RuntimeException(s"Unexpected payload: $p")
       }
       val s = serialization.findSerializerFor(payload)
       val manifest = Serializers.manifestFor(s, payload)
       Serialized(
-        pr.persistenceId,
-        pr.sequenceNr,
-        s.identifier,
-        manifest,
-        pr.writerUuid,
-        s.toBinary(payload),
-        tags,
-        pr.metadata)
+        persistenceId = pr.persistenceId,
+        sequenceNr = pr.sequenceNr,
+        payloadSerId = s.identifier,
+        payloadSerManifest = manifest,
+        eventAdapterManifest = pr.manifest,
+        writerUuid = pr.writerUuid,
+        payload = s.toBinary(payload),
+        tags = tags,
+        metadata = pr.metadata)
     }
 
   /**
@@ -65,7 +68,12 @@ private[testkit] class SerializedEventStorageImpl(system: ActorSystem) extends E
     val eventForRepr =
       if (internal.tags.isEmpty) event
       else Tagged(event, internal.tags)
-    val pr = PersistentRepr(eventForRepr, internal.sequenceNr, internal.persistenceId, writerUuid = internal.writerUuid)
+    val pr = PersistentRepr(
+      payload = eventForRepr,
+      sequenceNr = internal.sequenceNr,
+      persistenceId = internal.persistenceId,
+      writerUuid = internal.writerUuid,
+      manifest = internal.eventAdapterManifest)
     internal.metadata.fold(pr)(meta => pr.withMetadata(meta))
   }
 

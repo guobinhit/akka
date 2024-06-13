@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
@@ -32,7 +32,6 @@ object RemoveInternalClusterShardingDataSpec {
     akka.loglevel = DEBUG
     akka.loggers = ["akka.testkit.SilenceAllTestEventListener"]
     akka.actor.provider = "cluster"
-    akka.remote.classic.netty.tcp.port = 0
     akka.remote.artery.canonical.port = 0
     akka.persistence.journal.plugin = "akka.persistence.journal.leveldb"
     akka.persistence.journal.leveldb {
@@ -49,10 +48,12 @@ object RemoveInternalClusterShardingDataSpec {
 
   val extractEntityId: ShardRegion.ExtractEntityId = {
     case msg: Int => (msg.toString, msg)
+    case _        => throw new IllegalArgumentException()
   }
 
   val extractShardId: ShardRegion.ExtractShardId = {
     case msg: Int => (msg % 10).toString
+    case _        => throw new IllegalArgumentException()
   }
 
   class HasSnapshots(override val persistenceId: String, replyTo: ActorRef) extends PersistentActor {

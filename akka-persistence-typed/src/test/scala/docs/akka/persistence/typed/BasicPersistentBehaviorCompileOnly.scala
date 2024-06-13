@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.akka.persistence.typed
@@ -25,10 +25,10 @@ import akka.persistence.typed.PersistenceId
 //#structure
 import akka.persistence.typed.RecoveryCompleted
 import akka.persistence.typed.SnapshotFailed
-import com.github.ghik.silencer.silent
+import scala.annotation.nowarn
 
 // unused variables in pattern match are useful in the docs
-@silent
+@nowarn
 object BasicPersistentBehaviorCompileOnly {
 
   import akka.persistence.typed.scaladsl.RetentionCriteria
@@ -108,10 +108,10 @@ object BasicPersistentBehaviorCompileOnly {
   import MyPersistentBehavior._
 
   object RecoveryBehavior {
-    def apply(): Behavior[Command] =
+    def apply(persistenceId: PersistenceId): Behavior[Command] =
       //#recovery
       EventSourcedBehavior[Command, Event, State](
-        persistenceId = PersistenceId.ofUniqueId("abc"),
+        persistenceId = persistenceId,
         emptyState = State(),
         commandHandler = (state, cmd) => throw new NotImplementedError("TODO: process the command & return an Effect"),
         eventHandler = (state, evt) => throw new NotImplementedError("TODO: process the event return the next state"))
@@ -246,6 +246,18 @@ object BasicPersistentBehaviorCompileOnly {
     }
   //#snapshottingPredicate
 
+  def predicate[State, Event]: (State, Event, Long) => Boolean = { (_, _, _) =>
+    true
+  }
+  EventSourcedBehavior[Command, Event, State](
+    persistenceId = PersistenceId.ofUniqueId("abc"),
+    emptyState = State(),
+    commandHandler = (state, cmd) => throw new NotImplementedError("TODO: process the command & return an Effect"),
+    eventHandler = (state, evt) => throw new NotImplementedError("TODO: process the event return the next state"))
+  //#snapshottingPredicateDeleteEvents
+    .snapshotWhen(predicate, deleteEventsOnSnapshot = true)
+  //#snapshottingPredicateDeleteEvents
+
   //#snapshotSelection
   import akka.persistence.typed.SnapshotSelectionCriteria
 
@@ -318,6 +330,9 @@ object BasicPersistentBehaviorCompileOnly {
     commandHandler = (state, cmd) => throw new NotImplementedError("TODO: process the command & return an Effect"),
     eventHandler = (state, evt) => throw new NotImplementedError("TODO: process the event return the next state"))
     .eventAdapter(new WrapperEventAdapter[Event])
-  //#install-event-adapter
+    //#install-event-adapter
+    //#custom-stash-buffer
+    .withStashCapacity(100)
+  //#custom-stash-buffer
 
 }

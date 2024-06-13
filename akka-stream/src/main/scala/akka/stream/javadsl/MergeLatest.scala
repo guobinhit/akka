@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.javadsl
@@ -37,5 +37,6 @@ object MergeLatest {
    *
    * @param inputPorts number of input ports
    */
-  def create[T](inputPorts: Int): GraphStage[UniformFanInShape[T, java.util.List[T]]] = create(inputPorts, false)
+  def create[T](inputPorts: Int): GraphStage[UniformFanInShape[T, java.util.List[T]]] =
+    create(inputPorts, eagerComplete = false)
 }

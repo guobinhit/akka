@@ -1,8 +1,10 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor;
+
+import static org.junit.Assert.*;
 
 import akka.event.Logging;
 import akka.event.Logging.LoggerInitialized;
@@ -11,21 +13,17 @@ import akka.japi.Pair;
 import akka.japi.Util;
 import akka.japi.tuple.Tuple22;
 import akka.japi.tuple.Tuple4;
-import akka.routing.GetRoutees;
 import akka.routing.FromConfig;
+import akka.routing.GetRoutees;
 import akka.routing.NoRouter;
 import akka.testkit.AkkaJUnitActorSystemResource;
 import akka.testkit.AkkaSpec;
 import akka.testkit.TestProbe;
-
+import java.util.Optional;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.scalatestplus.junit.JUnitSuite;
 import scala.Option;
-
-import java.util.Optional;
-
-import static org.junit.Assert.*;
 
 public class JavaAPI extends JUnitSuite {
 
@@ -194,14 +192,7 @@ public class JavaAPI extends JUnitSuite {
     }
 
     public void onReceive(Object msg) {
-      String reply =
-          String.valueOf(a)
-              + "-"
-              + String.valueOf(b)
-              + "-"
-              + String.valueOf(c)
-              + "-"
-              + String.valueOf(d);
+      String reply = a + "-" + b + "-" + c + "-" + d;
       getSender().tell(reply, getSelf());
     }
   }

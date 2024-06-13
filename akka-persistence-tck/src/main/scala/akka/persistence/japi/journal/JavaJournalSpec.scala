@@ -1,10 +1,13 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.japi.journal
 
+import scala.collection.immutable
+
 import com.typesafe.config.Config
+import org.scalatest.{ Args, ConfigMap, Filter, Status, Suite, TestData }
 
 import akka.persistence.CapabilityFlag
 import akka.persistence.journal.JournalSpec
@@ -25,4 +28,40 @@ class JavaJournalSpec(config: Config) extends JournalSpec(config) {
   override protected def supportsRejectingNonSerializableObjects: CapabilityFlag = CapabilityFlag.on()
 
   override protected def supportsSerialization: CapabilityFlag = CapabilityFlag.on()
+
+  override def runTests(testName: Option[String], args: Args): Status =
+    super.runTests(testName, args)
+
+  override def runTest(testName: String, args: Args): Status =
+    super.runTest(testName, args)
+
+  override def run(testName: Option[String], args: Args): Status =
+    super.run(testName, args)
+
+  override def testDataFor(testName: String, theConfigMap: ConfigMap): TestData =
+    super.testDataFor(testName, theConfigMap)
+
+  override def testNames: Set[String] =
+    super.testNames
+
+  override def tags: Map[String, Set[String]] =
+    super.tags
+
+  override def rerunner: Option[String] =
+    super.rerunner
+
+  override def expectedTestCount(filter: Filter): Int =
+    super.expectedTestCount(filter)
+
+  override def suiteId: String =
+    super.suiteId
+
+  override def suiteName: String =
+    super.suiteName
+
+  override def runNestedSuites(args: Args): Status =
+    super.runNestedSuites(args)
+
+  override def nestedSuites: immutable.IndexedSeq[Suite] =
+    super.nestedSuites
 }

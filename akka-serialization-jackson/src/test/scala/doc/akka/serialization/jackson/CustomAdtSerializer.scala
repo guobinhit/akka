@@ -1,8 +1,10 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package doc.akka.serialization.jackson
+
+import akka.serialization.jackson.JsonSerializable
 
 object CustomAdtSerializer {
 
@@ -16,8 +18,8 @@ object CustomAdtSerializer {
   import com.fasterxml.jackson.databind.deser.std.StdDeserializer
   import com.fasterxml.jackson.databind.ser.std.StdSerializer
 
-  @JsonSerialize(using = classOf[DirectionJsonSerializer])
-  @JsonDeserialize(using = classOf[DirectionJsonDeserializer])
+  @JsonSerialize(`using` = classOf[DirectionJsonSerializer])
+  @JsonDeserialize(`using` = classOf[DirectionJsonDeserializer])
   sealed trait Direction
 
   object Direction {
@@ -54,6 +56,6 @@ object CustomAdtSerializer {
     }
   }
 
-  final case class Compass(currentDirection: Direction) extends MySerializable
+  final case class Compass(currentDirection: Direction) extends JsonSerializable
   //#adt-trait-object
 }

@@ -1,14 +1,15 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
 
+import com.typesafe.config.ConfigFactory
+import org.scalatest.wordspec.AnyWordSpecLike
+
 import akka.actor.{ Actor, ActorLogging, ActorRef, Props }
 import akka.cluster.{ Cluster, MemberStatus }
 import akka.testkit.{ AkkaSpec, ImplicitSender, TestProbe }
-import com.typesafe.config.ConfigFactory
-import org.scalatest.wordspec.AnyWordSpecLike
 
 object RememberEntitiesBatchedUpdatesSpec {
 
@@ -44,7 +45,6 @@ object RememberEntitiesBatchedUpdatesSpec {
       # akka.loggers = ["akka.testkit.SilenceAllTestEventListener"]
       akka.actor.provider = cluster
       akka.remote.artery.canonical.port = 0
-      akka.remote.classic.netty.tcp.port = 0
       akka.cluster.sharding.state-store-mode = ddata
       akka.cluster.sharding.remember-entities = on
       # no leaks between test runs thank you
@@ -62,11 +62,13 @@ class RememberEntitiesBatchedUpdatesSpec
 
   val extractEntityId: ShardRegion.ExtractEntityId = {
     case EntityEnvelope(id, payload) => (id.toString, payload)
+    case _                           => throw new IllegalArgumentException()
   }
 
   val extractShardId: ShardRegion.ExtractShardId = {
     case EntityEnvelope(_, _)       => "1" // single shard for all entities
     case ShardRegion.StartEntity(_) => "1"
+    case _                          => throw new IllegalArgumentException()
   }
 
   override def atStartup(): Unit = {

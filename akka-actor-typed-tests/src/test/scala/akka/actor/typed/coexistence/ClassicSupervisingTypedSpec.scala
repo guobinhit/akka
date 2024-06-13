@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.coexistence
@@ -19,7 +19,7 @@ import akka.testkit.TestProbe
 object ProbedBehavior {
   def behavior(probe: u.ActorRef): Behavior[String] = {
     Behaviors
-      .receiveMessage[String] {
+      .receiveMessagePartial[String] {
         case "throw" => throw TestException("oh dear")
       }
       .receiveSignal {

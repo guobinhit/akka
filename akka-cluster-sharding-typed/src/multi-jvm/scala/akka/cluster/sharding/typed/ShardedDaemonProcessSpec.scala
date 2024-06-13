@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding.typed
@@ -39,7 +39,7 @@ object ShardedDaemonProcessSpec extends MultiNodeConfig {
       val snitchRouter = ctx.spawn(Routers.group(SnitchServiceKey), "router")
       snitchRouter ! ProcessActorEvent(id, "Started")
 
-      Behaviors.receiveMessage {
+      Behaviors.receiveMessagePartial {
         case Stop =>
           snitchRouter ! ProcessActorEvent(id, "Stopped")
           Behaviors.stopped

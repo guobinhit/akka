@@ -1,14 +1,13 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.io.japi;
 
-import java.util.concurrent.CountDownLatch;
-
+import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
 import akka.actor.Terminated;
-import akka.actor.AbstractActor;
+import java.util.concurrent.CountDownLatch;
 
 public class Watcher extends AbstractActor {
 

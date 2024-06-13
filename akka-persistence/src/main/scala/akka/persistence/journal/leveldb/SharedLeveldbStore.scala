@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.journal.leveldb
@@ -21,6 +21,7 @@ import akka.persistence.journal.AsyncWriteTarget
  * set for each actor system that uses the store via `SharedLeveldbJournal.setStore`. The
  * shared LevelDB store is for testing only.
  */
+@deprecated("Use another journal implementation or the in-mem journal in combination with the journal-proxy", "2.6.15")
 class SharedLeveldbStore(cfg: Config) extends LeveldbStore {
   import AsyncWriteTarget._
   import context.dispatcher

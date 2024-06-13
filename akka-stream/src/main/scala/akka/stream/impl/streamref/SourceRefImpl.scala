@@ -1,10 +1,10 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl.streamref
 
-import com.github.ghik.silencer.silent
+import scala.annotation.nowarn
 
 import akka.NotUsed
 import akka.actor.{ ActorRef, Terminated }
@@ -124,24 +124,24 @@ private[stream] final class SourceRefStageImpl[Out](val initialPartnerRef: Optio
 
       // settings ---
       import StreamRefAttributes._
-      @silent("deprecated") // can't remove this settings access without breaking compat
+      @nowarn("msg=deprecated") // can't remove this settings access without breaking compat
       private[this] val settings = eagerMaterializer.settings.streamRefSettings
 
-      @silent("deprecated") // can't remove this settings access without breaking compat
+      @nowarn("msg=deprecated") // can't remove this settings access without breaking compat
       private[this] val subscriptionTimeout = inheritedAttributes.get[StreamRefAttributes.SubscriptionTimeout](
         SubscriptionTimeout(settings.subscriptionTimeout))
 
-      @silent("deprecated") // can't remove this settings access without breaking compat
+      @nowarn("msg=deprecated") // can't remove this settings access without breaking compat
       private[this] val bufferCapacity = inheritedAttributes
         .get[StreamRefAttributes.BufferCapacity](StreamRefAttributes.BufferCapacity(settings.bufferCapacity))
         .capacity
 
-      @silent("deprecated") // can't remove this settings access without breaking compat
+      @nowarn("msg=deprecated") // can't remove this settings access without breaking compat
       private[this] val demandRedeliveryInterval = inheritedAttributes
         .get[StreamRefAttributes.DemandRedeliveryInterval](DemandRedeliveryInterval(settings.demandRedeliveryInterval))
         .timeout
 
-      @silent("deprecated") // can't remove this settings access without breaking compat
+      @nowarn("msg=deprecated") // can't remove this settings access without breaking compat
       private[this] val finalTerminationSignalDeadline =
         inheritedAttributes
           .get[StreamRefAttributes.FinalTerminationSignalDeadline](
@@ -151,17 +151,17 @@ private[stream] final class SourceRefStageImpl[Out](val initialPartnerRef: Optio
 
       override protected val stageActorName: String = streamRefsMaster.nextSourceRefStageName()
       private[this] val self: GraphStageLogic.StageActor =
-        getEagerStageActor(eagerMaterializer, poisonPillCompatibility = false)(receiveRemoteMessage)
+        getEagerStageActor(eagerMaterializer)(receiveRemoteMessage)
       override val ref: ActorRef = self.ref
       private[this] implicit def selfSender: ActorRef = ref
 
       // demand management ---
       private var state: State = initialPartnerRef match {
-        case OptionVal.Some(ref) =>
+        case OptionVal.Some(partnerRef) =>
           // this means we're the "remote" for an already active Source on the other side (the "origin")
-          self.watch(ref)
-          AwaitingSubscription(ref)
-        case OptionVal.None =>
+          self.watch(partnerRef)
+          AwaitingSubscription(partnerRef)
+        case _ =>
           // we are the "origin", and awaiting the other side to start when we'll receive their partherRef
           AwaitingPartner
       }
@@ -304,7 +304,7 @@ private[stream] final class SourceRefStageImpl[Out](val initialPartnerRef: Optio
           state match {
             case WaitingForCancelAck(partner, cause) =>
               verifyPartner(sender, partner)
-              log.debug(s"[$stageActorName] Got cancellation ack from remote, canceling", stageActorName)
+              log.debug(s"[{}] Got cancellation ack from remote, canceling", stageActorName)
               cancelStage(cause)
             case other =>
               throw new IllegalStateException(s"[$stageActorName] Got an Ack when in state $other")
@@ -353,9 +353,9 @@ private[stream] final class SourceRefStageImpl[Out](val initialPartnerRef: Optio
 
         case DemandRedeliveryTimerKey =>
           state match {
-            case Running(ref) =>
+            case Running(partner) =>
               log.debug("[{}] Scheduled re-delivery of demand until [{}]", stageActorName, localCumulativeDemand)
-              ref ! StreamRefsProtocol.CumulativeDemand(localCumulativeDemand)
+              partner ! StreamRefsProtocol.CumulativeDemand(localCumulativeDemand)
               scheduleDemandRedelivery()
 
             case other =>
@@ -394,21 +394,23 @@ private[stream] final class SourceRefStageImpl[Out](val initialPartnerRef: Optio
               throw new IllegalStateException(
                 s"[$stageActorName] CancellationDeadlineTimerKey can't happen in state $other")
           }
+
+        case other => throw new IllegalArgumentException(s"Unknown timer key: ${other}")
       }
 
       override def onDownstreamFinish(cause: Throwable): Unit = {
         state match {
-          case Running(ref) =>
-            triggerCancellationExchange(ref, cause)
+          case Running(partner) =>
+            triggerCancellationExchange(partner, cause)
 
           case AwaitingPartner =>
             // we can't do a graceful cancellation dance in this case, wait for partner and then cancel
             // or timeout if we never get a partner
             scheduleOnce(TerminationDeadlineTimerKey, finalTerminationSignalDeadline)
 
-          case AwaitingSubscription(ref) =>
-            // we didn't get an a first demand yet but have access to the partner - try a cancellation dance
-            triggerCancellationExchange(ref, cause)
+          case AwaitingSubscription(partner) =>
+            // we didn't get a first demand yet but have access to the partner - try a cancellation dance
+            triggerCancellationExchange(partner, cause)
 
           case UpstreamCompleted(_) =>
             // we saw upstream complete so let's just complete
@@ -418,8 +420,8 @@ private[stream] final class SourceRefStageImpl[Out](val initialPartnerRef: Optio
                 stageActorName,
                 receiveBuffer.used)
             cause match {
-              case _: SubscriptionWithCancelException => completeStage()
-              case failure                            => failStage(failure)
+              case _: SubscriptionWithCancelException.NonFailureCancellation => completeStage()
+              case failure                                                   => failStage(failure)
             }
 
           case WaitingForCancelAck(_, _) =>

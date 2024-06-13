@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed
@@ -44,7 +44,7 @@ class ActorRefIgnoreSpec extends ScalaTestWithActorTestKit() with AnyWordSpecLik
     implicit val timeout: Timeout = 1.second
 
     // send a message to interactWithRef
-    context.ask(askMeRef, Request) {
+    context.ask(askMeRef, Request.apply) {
       case Success(res) => res
       case Failure(ex)  => throw ex
     }

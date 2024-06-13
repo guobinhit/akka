@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.singleton
@@ -52,6 +52,7 @@ class ClusterSingletonLeaseSpec extends AkkaSpec(ConfigFactory.parseString("""
        use-lease = "test-lease"
        lease-retry-interval = 2000ms
      }
+     akka.remote.artery.canonical.port = 0
   """).withFallback(TestLease.config)) {
   import TestLease.{ AcquireReq, ReleaseReq }
 

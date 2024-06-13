@@ -1,9 +1,10 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.serialization
 
+import java.io.NotSerializableException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -50,6 +51,7 @@ class PrimitivesSerializationSpec extends AkkaSpec(PrimitivesSerializationSpec.t
       case _: akka.serialization.IntSerializer        => new IntSerializer(extSystem)
       case _: akka.serialization.StringSerializer     => new StringSerializer(extSystem)
       case _: akka.serialization.ByteStringSerializer => new ByteStringSerializer(extSystem)
+      case _                                          => throw new NotSerializableException()
     }
   }
 

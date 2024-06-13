@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.akka.cluster.sharding.typed
@@ -23,7 +23,6 @@ object AccountExampleSpec {
   val config = ConfigFactory.parseString("""
       akka.actor.provider = cluster
 
-      akka.remote.classic.netty.tcp.port = 0
       akka.remote.artery.canonical.port = 0
       akka.remote.artery.canonical.hostname = 127.0.0.1
       
@@ -118,9 +117,11 @@ class AccountExampleSpec
 
       // Errors are shown in IntelliJ Scala plugin 2019.1.6, but compiles with Scala 2.12.8.
       // Ok in IntelliJ if using ref.ask[OperationResult].
-      ref.askWithStatus(Deposit(100, _)).futureValue should ===(Done)
-      ref.askWithStatus(Withdraw(10, _)).futureValue should ===(Done)
-      ref.ask(GetBalance(_)).map(_.balance).futureValue should ===(90)
+      val deposited = ref.askWithStatus(Deposit(100, _)).futureValue
+      deposited should ===(Done)
+      val withdrawn = ref.askWithStatus(Withdraw(10, _)).futureValue
+      withdrawn should ===(Done)
+      ref.ask(GetBalance.apply).map(_.balance).futureValue should ===(90)
     }
 
     "verifySerialization" in {

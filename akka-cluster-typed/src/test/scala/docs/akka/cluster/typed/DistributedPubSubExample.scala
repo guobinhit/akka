@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.akka.cluster.typed
@@ -285,12 +285,11 @@ object DistributedPubSubExample {
   import akka.actor.testkit.typed.scaladsl.TestProbe
   import Ontology._
 
-  val config: Config = ConfigFactory.parseString(s"""
+  val config: Config = ConfigFactory.parseString("""
         akka.actor.provider = "cluster"
         akka.cluster.pub-sub.max-delta-elements = 500
         akka.cluster.jmx.enabled = off
         akka.remote.artery.canonical.hostname = 127.0.0.1
-        akka.remote.classic.netty.tcp.port = 0
         akka.remote.artery.canonical.port = 0
         akka.loglevel = INFO
         akka.loggers = ["akka.testkit.TestEventListener"]

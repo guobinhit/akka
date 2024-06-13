@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding.typed.scaladsl
@@ -15,7 +15,13 @@ import akka.actor.typed.ActorRef
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.Behaviors
 import akka.cluster.MemberStatus
+import akka.cluster.ddata.typed.scaladsl.DistributedData
+import akka.cluster.ddata.typed.scaladsl.Replicator
+import akka.cluster.sharding.typed.ClusterShardingSettings
 import akka.cluster.sharding.typed.ShardedDaemonProcessSettings
+import akka.cluster.sharding.typed.internal.ShardedDaemonProcessCoordinator
+import akka.cluster.sharding.typed.internal.ShardedDaemonProcessState
+import akka.cluster.sharding.typed.internal.ShardedDaemonProcessStateKey
 import akka.cluster.typed.Cluster
 import akka.cluster.typed.Join
 
@@ -24,7 +30,6 @@ object ShardedDaemonProcessSpec {
   def config = ConfigFactory.parseString("""
       akka.actor.provider = cluster
 
-      akka.remote.classic.netty.tcp.port = 0
       akka.remote.artery.canonical.port = 0
       akka.remote.artery.canonical.hostname = 127.0.0.1
 
@@ -32,13 +37,14 @@ object ShardedDaemonProcessSpec {
       
       # ping often/start fast for test
       akka.cluster.sharded-daemon-process.keep-alive-interval = 1s
+      akka.cluster.sharded-daemon-process.keep-alive-throttle-interval = 20ms
 
       akka.coordinated-shutdown.terminate-actor-system = off
       akka.coordinated-shutdown.run-by-actor-system-terminate = off
       """)
 
   object MyActor {
-    trait Command
+    sealed trait Command
     case object Stop extends Command
 
     case class Started(id: Int, selfRef: ActorRef[Command])
@@ -63,7 +69,7 @@ class ShardedDaemonProcessSpec
 
   import ShardedDaemonProcessSpec._
 
-  "The ShardedDaemonSet" must {
+  "The ShardedDaemonProcess" must {
 
     "have a single node cluster running first" in {
       val probe = createTestProbe()
@@ -99,6 +105,76 @@ class ShardedDaemonProcessSpec
       ShardedDaemonProcess(system).init("roles", 3, id => MyActor(id, probe.ref), settings, None)
 
       probe.expectNoMessage()
+    }
+
+  }
+
+  "Coordinator" must {
+    "have a single node cluster running first" in {
+      val probe = createTestProbe()
+      Cluster(system).manager ! Join(Cluster(system).selfMember.address)
+      probe.awaitAssert({
+        Cluster(system).selfMember.status == MemberStatus.Up
+      }, 3.seconds)
+    }
+
+    "send keep alive messages to original id scheme when revision is 0" in {
+      val shardingProbe = createTestProbe[Any]()
+      val settings = ShardedDaemonProcessSettings(system)
+      val shardingSettings = ClusterShardingSettings(system)
+      val pinger =
+        spawn(ShardedDaemonProcessCoordinator(settings, shardingSettings, 3, "throttle-a", shardingProbe.ref))
+      // note that StartEntity.apply is actually a ShardingEnvelope wrapping the StartEntity message
+      // See ShardedDaemonProcessImpl.DecodedId for details about entity id format
+      shardingProbe.expectMessage(StartEntity("0"))
+      shardingProbe.expectMessage(StartEntity("1"))
+      shardingProbe.expectMessage(StartEntity("2"))
+      shardingProbe.expectMessage(StartEntity("0"))
+
+      testKit.stop(pinger)
+    }
+
+    "send keep alive messages with new scheme when revision is > 0" in {
+      val name = "throttle-b"
+      val key = ShardedDaemonProcessStateKey(name)
+      val ddataProbe = createTestProbe[Replicator.UpdateResponse[ShardedDaemonProcessState]]()
+      DistributedData(system).replicator.tell(
+        Replicator.Update(key, ShardedDaemonProcessState.initialState(2), Replicator.WriteLocal, ddataProbe.ref)(
+          state => state.startScalingTo(3).completeScaling()))
+      ddataProbe.expectMessageType[Replicator.UpdateSuccess[ShardedDaemonProcessState]]
+
+      val shardingProbe = createTestProbe[Any]()
+      val settings = ShardedDaemonProcessSettings(system)
+      val shardingSettings = ClusterShardingSettings(system)
+      val pinger =
+        spawn(ShardedDaemonProcessCoordinator(settings, shardingSettings, 3, name, shardingProbe.ref))
+      // note that StartEntity.apply is actually a ShardingEnvelope wrapping the StartEntity message
+      // See ShardedDaemonProcessImpl.DecodedId for details about entity id format
+      shardingProbe.expectMessage(StartEntity("1|3|0"))
+      shardingProbe.expectMessage(StartEntity("1|3|1"))
+      shardingProbe.expectMessage(StartEntity("1|3|2"))
+      shardingProbe.expectMessage(StartEntity("1|3|0"))
+
+      testKit.stop(pinger)
+    }
+
+    "throttle keep alive messages" in {
+      val shardingProbe = createTestProbe[Any]()
+      val settings = ShardedDaemonProcessSettings(system).withKeepAliveThrottleInterval(1.second)
+      val shardingSettings = ClusterShardingSettings(system)
+      val pinger =
+        spawn(ShardedDaemonProcessCoordinator(settings, shardingSettings, 3, "throttle-c", shardingProbe.ref))
+      // note that StartEntity.apply is actually a ShardingEnvelope wrapping the StartEntity message
+      // See ShardedDaemonProcessImpl.DecodedId for details about entity id format
+      shardingProbe.expectMessage(StartEntity("0"))
+      shardingProbe.expectNoMessage(100.millis)
+      shardingProbe.expectMessage(StartEntity("1"))
+      shardingProbe.expectNoMessage(100.millis)
+      shardingProbe.expectMessage(StartEntity("2"))
+      shardingProbe.expectNoMessage(100.millis)
+      shardingProbe.expectMessage(StartEntity("0"))
+
+      testKit.stop(pinger)
     }
 
   }

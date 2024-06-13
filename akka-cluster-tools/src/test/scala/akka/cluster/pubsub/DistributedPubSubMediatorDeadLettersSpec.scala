@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.pubsub
@@ -15,9 +15,7 @@ object DistributedPubSubMediatorDeadLettersSpec {
     s"""
     akka.loglevel = INFO
     akka.actor.provider = "cluster"
-    akka.remote.classic.netty.tcp.port=0
     akka.remote.artery.canonical.port=0
-    akka.remote.log-remote-lifecycle-events = off
     akka.cluster.pub-sub.send-to-dead-letters-when-no-subscribers = $sendToDeadLettersWhenNoSubscribers
   """
 }

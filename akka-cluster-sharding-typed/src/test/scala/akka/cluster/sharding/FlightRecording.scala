@@ -1,8 +1,9 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
+import java.nio.file.Files
 import java.nio.file.Path
 
 import akka.actor.{ ActorSystem, ExtendedActorSystem }
@@ -31,6 +32,10 @@ class FlightRecording(system: ActorSystem) {
   }
 
   def endAndDump(location: Path) = {
+    // Make sure parent directory exists
+    if (location.getParent != null)
+      Files.createDirectories(location.getParent)
+
     for {
       r <- recording
       stop <- stopMethod

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
@@ -33,8 +33,6 @@ object RestartNode2SpecMultiJvmSpec extends MultiNodeConfig {
       akka.cluster.testkit.auto-down-unreachable-after = 2s
       akka.cluster.retry-unsuccessful-join-after = 3s
       akka.cluster.allow-weakly-up-members = off
-      akka.remote.retry-gate-closed-for = 45s
-      akka.remote.log-remote-lifecycle-events = INFO
       # test is using Java serialization and not priority to rewrite
       akka.actor.allow-java-serialization = on
       akka.actor.warn-about-java-serializer-usage = off
@@ -46,17 +44,16 @@ object RestartNode2SpecMultiJvmSpec extends MultiNodeConfig {
 class RestartNode2SpecMultiJvmNode1 extends RestartNode2SpecSpec
 class RestartNode2SpecMultiJvmNode2 extends RestartNode2SpecSpec
 
-abstract class RestartNode2SpecSpec
-    extends MultiNodeSpec(RestartNode2SpecMultiJvmSpec)
-    with MultiNodeClusterSpec
-    with ImplicitSender {
+abstract class RestartNode2SpecSpec extends MultiNodeClusterSpec(RestartNode2SpecMultiJvmSpec) with ImplicitSender {
 
   import RestartNode2SpecMultiJvmSpec._
 
   @volatile var seedNode1Address: Address = _
 
   // use a separate ActorSystem, to be able to simulate restart
-  lazy val seed1System = ActorSystem(system.name, system.settings.config)
+  lazy val seed1System = ActorSystem(system.name, MultiNodeSpec.configureNextPortIfFixed(system.settings.config))
+
+  override def verifySystemShutdown: Boolean = true
 
   def seedNodes: immutable.IndexedSeq[Address] = Vector(seedNode1Address, seed2)
 
@@ -64,9 +61,7 @@ abstract class RestartNode2SpecSpec
   lazy val restartedSeed1System = ActorSystem(
     system.name,
     ConfigFactory.parseString(s"""
-      akka.remote.classic.netty.tcp.port = ${seedNodes.head.port.get}
       akka.remote.artery.canonical.port = ${seedNodes.head.port.get}
-      #akka.remote.retry-gate-closed-for = 1s
       """).withFallback(system.settings.config))
 
   override def afterAll(): Unit = {

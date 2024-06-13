@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.akka.typed;
@@ -12,7 +12,6 @@ import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
 import akka.actor.typed.javadsl.TimerScheduler;
-
 import java.time.Duration;
 import java.util.function.BiFunction;
 
@@ -91,7 +90,6 @@ public class TailChopping<Reply> extends AbstractBehavior<TailChopping.Command> 
   }
 
   @Override
-  @SuppressWarnings("unchecked")
   public Receive<Command> createReceive() {
     return newReceiveBuilder()
         .onMessage(WrappedReply.class, this::onReply)

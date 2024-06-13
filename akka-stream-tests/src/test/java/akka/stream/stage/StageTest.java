@@ -1,24 +1,23 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.stage;
 
-import akka.NotUsed;
-import akka.stream.StreamTest;
-import akka.testkit.AkkaJUnitActorSystemResource;
-import akka.stream.javadsl.Sink;
-import akka.stream.javadsl.Source;
-import akka.testkit.AkkaSpec;
-
-import org.junit.ClassRule;
-import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 
+import akka.NotUsed;
+import akka.stream.StreamTest;
+import akka.stream.javadsl.Sink;
+import akka.stream.javadsl.Source;
+import akka.testkit.AkkaJUnitActorSystemResource;
+import akka.testkit.AkkaSpec;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
+import org.junit.ClassRule;
+import org.junit.Test;
 
 public class StageTest extends StreamTest {
   public StageTest() {

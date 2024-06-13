@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.typed
@@ -8,7 +8,6 @@ import java.nio.charset.StandardCharsets
 
 import scala.concurrent.Future
 import scala.concurrent.Promise
-import scala.concurrent.duration._
 import scala.util.control.NonFatal
 
 import com.typesafe.config.ConfigFactory
@@ -23,6 +22,7 @@ import akka.Done
 import akka.actor.CoordinatedShutdown
 import akka.actor.ExtendedActorSystem
 import akka.actor.InvalidMessageException
+import akka.actor.testkit.typed.TestKitSettings
 import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.actor.testkit.typed.scaladsl.TestInbox
 import akka.actor.typed.ActorRef
@@ -68,11 +68,12 @@ class ActorSystemSpec
     with Eventually
     with LogCapturing {
 
-  implicit val patience: PatienceConfig = PatienceConfig(3.seconds, Span(100, org.scalatest.time.Millis))
+  private val testKitSettings = TestKitSettings(ConfigFactory.load().getConfig("akka.actor.testkit.typed"))
+  override implicit val patienceConfig: PatienceConfig =
+    PatienceConfig(testKitSettings.SingleExpectDefaultTimeout, Span(100, org.scalatest.time.Millis))
 
   val config = ConfigFactory.parseString("""
       akka.actor.provider = cluster
-      akka.remote.classic.netty.tcp.port = 0
       akka.remote.artery.canonical.port = 0
       akka.remote.artery.canonical.hostname = 127.0.0.1
 
@@ -129,7 +130,7 @@ class ActorSystemSpec
         Behaviors.receiveMessage[Done] { _ =>
           Behaviors.stopped
         }
-      withSystem("shutdown", stoppable, doTerminate = false) { sys: ActorSystem[Done] =>
+      withSystem("shutdown", stoppable, doTerminate = false) { (sys: ActorSystem[Done]) =>
         sys ! Done
         sys.whenTerminated.futureValue
       }

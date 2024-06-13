@@ -1,31 +1,30 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.event;
 
+import static akka.event.Logging.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import akka.actor.Props;
-import akka.testkit.AkkaJUnitActorSystemResource;
-import akka.event.Logging.Error;
 import akka.event.ActorWithMDC.Log;
-import static akka.event.Logging.*;
-
+import akka.event.Logging.Error;
+import akka.testkit.AkkaJUnitActorSystemResource;
 import akka.testkit.javadsl.TestKit;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.time.Duration;
+import java.util.*;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.scalatestplus.junit.JUnitSuite;
-
-import java.util.*;
-import java.time.Duration;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertSame;
 
 public class LoggingAdapterTest extends JUnitSuite {
 
@@ -158,8 +157,9 @@ public class LoggingAdapterTest extends JUnitSuite {
             assertEquals(level, log.level());
             assertEquals(mdc, log.getMDC().toString());
             if (cause != null) {
-              Error error = (Error) log;
-              assertSame(cause, error.cause());
+              assertTrue(event instanceof LogEventWithCause);
+              LogEventWithCause causedEvent = (LogEventWithCause) event;
+              assertSame(cause, causedEvent.cause());
             }
             return null;
           });

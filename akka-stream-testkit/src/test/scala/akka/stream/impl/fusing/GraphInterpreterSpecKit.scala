@@ -1,14 +1,13 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl.fusing
 
+import scala.annotation.nowarn
 import scala.collection.{ Map => SMap }
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.FiniteDuration
-
-import com.github.ghik.silencer.silent
 
 import akka.actor.ActorSystem
 import akka.actor.Cancellable
@@ -31,7 +30,7 @@ import akka.stream.testkit.Utils.TE
  * INTERNAL API
  */
 @InternalApi
-private[akka] object NoMaterializer extends Materializer {
+private[akka] case class NoMaterializer(system: ActorSystem) extends Materializer {
   override def withNamePrefix(name: String): Materializer =
     throw new UnsupportedOperationException("NoMaterializer cannot be named")
   override def materialize[Mat](runnable: Graph[ClosedShape, Mat]): Mat =
@@ -64,9 +63,6 @@ private[akka] object NoMaterializer extends Materializer {
 
   override def isShutdown: Boolean = throw new UnsupportedOperationException("NoMaterializer cannot shutdown")
 
-  override def system: ActorSystem =
-    throw new UnsupportedOperationException("NoMaterializer does not have an actorsystem")
-
   override private[akka] def logger = throw new UnsupportedOperationException("NoMaterializer does not have a logger")
 
   override private[akka] def supervisor =
@@ -79,7 +75,7 @@ private[akka] object NoMaterializer extends Materializer {
     throw new UnsupportedOperationException("NoMaterializer does not have settings")
 }
 
-@silent
+@nowarn
 object GraphInterpreterSpecKit {
 
   /**
@@ -101,7 +97,7 @@ object GraphInterpreterSpecKit {
     if (attributes.nonEmpty && attributes.length != stages.length)
       throw new IllegalArgumentException("Attributes must be either empty or one per stage")
 
-    @silent("deprecated")
+    @nowarn("msg=deprecated")
     val defaultAttributes = ActorMaterializerSettings(system).toAttributes
 
     var inOwners = SMap.empty[Inlet[_], GraphStageLogic]
@@ -251,7 +247,7 @@ trait GraphInterpreterSpecKit extends StreamSpec {
 
   import GraphInterpreterSpecKit._
   val logger = Logging(system, "InterpreterSpecKit")
-  @silent("deprecated")
+  @nowarn("msg=deprecated")
   val defaultAttributes = ActorMaterializerSettings(system).toAttributes
 
   abstract class Builder {
@@ -328,7 +324,7 @@ trait GraphInterpreterSpecKit extends StreamSpec {
       }
 
       _interpreter = new GraphInterpreter(
-        NoMaterializer,
+        NoMaterializer(system),
         logger,
         logics,
         connections,
@@ -451,28 +447,28 @@ trait GraphInterpreterSpecKit extends StreamSpec {
     override def step(): Unit = interpreter.execute(eventLimit = if (!chasing) 1 else 2)
 
     class UpstreamPortProbe[T] extends UpstreamProbe[T]("upstreamPort") {
-      def isAvailable: Boolean = isAvailable(out)
-      def isClosed: Boolean = isClosed(out)
+      def isAvailable: Boolean = isAvailable(this.out)
+      def isClosed: Boolean = isClosed(this.out)
 
-      def push(elem: T): Unit = push(out, elem)
-      def complete(): Unit = complete(out)
-      def fail(ex: Throwable): Unit = fail(out, ex)
+      def push(elem: T): Unit = push(this.out, elem)
+      def complete(): Unit = complete(this.out)
+      def fail(ex: Throwable): Unit = fail(this.out, ex)
     }
 
     class DownstreamPortProbe[T] extends DownstreamProbe[T]("upstreamPort") {
-      def isAvailable: Boolean = isAvailable(in)
-      def hasBeenPulled: Boolean = hasBeenPulled(in)
-      def isClosed: Boolean = isClosed(in)
+      def isAvailable: Boolean = isAvailable(this.in)
+      def hasBeenPulled: Boolean = hasBeenPulled(this.in)
+      def isClosed: Boolean = isClosed(this.in)
 
-      def pull(): Unit = pull(in)
-      def cancel(): Unit = cancel(in)
-      def grab(): T = grab(in)
+      def pull(): Unit = pull(this.in)
+      def cancel(): Unit = cancel(this.in)
+      def grab(): T = grab(this.in)
 
-      setHandler(in, new InHandler {
+      setHandler(this.in, new InHandler {
 
         // Modified onPush that does not grab() automatically the element. This accesses some internals.
         override def onPush(): Unit = {
-          val internalEvent = portToConn(in.id).slot
+          val internalEvent = portToConn(DownstreamPortProbe.this.in.id).slot
 
           internalEvent match {
             case Failed(_, elem) => lastEvent += OnNext(DownstreamPortProbe.this, elem)

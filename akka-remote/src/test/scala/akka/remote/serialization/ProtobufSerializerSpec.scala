@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.serialization
@@ -49,7 +49,6 @@ class ProtobufSerializerSpec extends AkkaSpec(s"""
       "com.google.protobuf.GeneratedMessage",
       "com.google.protobuf.GeneratedMessageV3",
       "scalapb.GeneratedMessageCompanion",
-      "akka.protobuf.GeneratedMessage",
       "akka.protobufv3.internal.GeneratedMessageV3",
       "${classOf[AnotherMessage].getName}",
       "${classOf[ProtobufSerializerSpec.AnotherInterface].getName}",

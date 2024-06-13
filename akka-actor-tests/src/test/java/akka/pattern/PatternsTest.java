@@ -1,8 +1,13 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.pattern;
+
+import static akka.pattern.Patterns.ask;
+import static akka.pattern.Patterns.pipe;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.junit.Assert.assertEquals;
 
 import akka.actor.*;
 import akka.dispatch.Futures;
@@ -10,6 +15,11 @@ import akka.testkit.AkkaJUnitActorSystemResource;
 import akka.testkit.AkkaSpec;
 import akka.testkit.TestProbe;
 import akka.util.Timeout;
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.scalatestplus.junit.JUnitSuite;
@@ -18,18 +28,7 @@ import scala.concurrent.ExecutionContext;
 import scala.concurrent.Future;
 import scala.concurrent.duration.FiniteDuration;
 
-import java.util.Arrays;
-import java.util.concurrent.*;
-import java.time.Duration;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import static akka.pattern.Patterns.ask;
-import static akka.pattern.Patterns.pipe;
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.junit.Assert.assertEquals;
-
-/** Copyright (C) 2009-2018 Lightbend Inc. <https://www.lightbend.com> */
+/** Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com> */
 public class PatternsTest extends JUnitSuite {
 
   public static final class ExplicitAskTestActor extends AbstractActor {
@@ -306,6 +305,43 @@ public class PatternsTest extends JUnitSuite {
 
     final String actual = retriedStage.toCompletableFuture().get(3, SECONDS);
     assertEquals(expected, actual);
+  }
+
+  @Test
+  public void testShortCircuitRetry() throws Exception {
+    AtomicInteger failureCounter = new AtomicInteger();
+
+    Predicate<Throwable> decider =
+        (ex) -> {
+          return !(ex instanceof IllegalArgumentException);
+        };
+
+    final CompletableFuture<Object> ise = new CompletableFuture<Object>();
+    final CompletableFuture<Object> iae = new CompletableFuture<Object>();
+    ise.completeExceptionally(new IllegalStateException());
+    iae.completeExceptionally(new IllegalArgumentException());
+
+    CompletionStage<Object> retriedAttempts =
+        Patterns.retry(
+            () -> { // attempt
+              if ((failureCounter.getAndIncrement() % 3) < 2) {
+                return ise;
+              } else {
+                return iae;
+              }
+            },
+            decider, // shouldRetry
+            10,
+            ec);
+
+    try {
+      retriedAttempts.toCompletableFuture().get(3, SECONDS);
+      throw new AssertionError("future should have failed!");
+    } catch (java.util.concurrent.ExecutionException e) {
+      assertEquals(e.getCause().getClass(), IllegalArgumentException.class);
+    }
+
+    assertEquals(failureCounter.get(), 3);
   }
 
   @Test(expected = IllegalStateException.class)

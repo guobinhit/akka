@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.testkit.scaladsl
@@ -102,7 +102,7 @@ object StreamTestKit {
         .append(logic.attributes.attributeList.mkString(", "))
         .append("],\n")
     }
-    builder.setLength(builder.length() - 2)
+    builder.setLength(builder.length - 2)
     shell match {
       case running: RunningInterpreter =>
         builder.append("\n  ],\n  connections: [\n")
@@ -119,7 +119,7 @@ object StreamTestKit {
             .append(connection.state)
             .append(")\n")
         }
-        builder.setLength(builder.length() - 2)
+        builder.setLength(builder.length - 2)
 
       case _ =>
     }
@@ -150,7 +150,7 @@ object StreamTestKit {
             builder.append(s"[label=shouldPush, color=red, dir=back];")
           case ConnectionSnapshot.Closed =>
             builder.append("[style=dotted, label=closed, dir=both];")
-          case _ =>
+          case null =>
         }
         builder.append("\n")
       }

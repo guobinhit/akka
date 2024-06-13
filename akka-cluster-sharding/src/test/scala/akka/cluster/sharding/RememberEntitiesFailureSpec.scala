@@ -1,27 +1,29 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
+
+import scala.annotation.nowarn
+import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
+
+import com.typesafe.config.ConfigFactory
+import org.scalatest.wordspec.AnyWordSpecLike
 
 import akka.Done
 import akka.actor.{ Actor, ActorLogging, ActorRef, Props, Timers }
 import akka.cluster.Cluster
 import akka.cluster.MemberStatus
+import akka.cluster.sharding.ShardCoordinator.ShardAllocationStrategy
 import akka.cluster.sharding.ShardRegion.ShardId
 import akka.cluster.sharding.internal.RememberEntitiesCoordinatorStore
-import akka.cluster.sharding.internal.RememberEntitiesShardStore
 import akka.cluster.sharding.internal.RememberEntitiesProvider
+import akka.cluster.sharding.internal.RememberEntitiesShardStore
 import akka.testkit.AkkaSpec
 import akka.testkit.TestException
 import akka.testkit.TestProbe
 import akka.testkit.WithLogCapturing
-import com.github.ghik.silencer.silent
-import com.typesafe.config.ConfigFactory
-import org.scalatest.wordspec.AnyWordSpecLike
-import scala.concurrent.duration._
-
-import akka.cluster.sharding.ShardCoordinator.ShardAllocationStrategy
 
 object RememberEntitiesFailureSpec {
   val config = ConfigFactory.parseString(s"""
@@ -29,7 +31,6 @@ object RememberEntitiesFailureSpec {
       akka.loggers = ["akka.testkit.SilenceAllTestEventListener"]
       akka.actor.provider = cluster
       akka.remote.artery.canonical.port = 0
-      akka.remote.classic.netty.tcp.port = 0
       akka.cluster.sharding.distributed-data.durable.keys = []
       # must be ddata or else remember entities store is ignored
       akka.cluster.sharding.state-store-mode = ddata
@@ -61,10 +62,12 @@ object RememberEntitiesFailureSpec {
 
   val extractEntityId: ShardRegion.ExtractEntityId = {
     case EntityEnvelope(id, payload) => (id.toString, payload)
+    case _                           => throw new IllegalArgumentException()
   }
 
   val extractShardId: ShardRegion.ExtractShardId = {
     case EntityEnvelope(id, _) => (id % 10).toString
+    case _                     => throw new IllegalArgumentException()
   }
 
   sealed trait Fail
@@ -81,7 +84,7 @@ object RememberEntitiesFailureSpec {
   case class ShardStoreCreated(store: ActorRef, shardId: ShardId)
   case class CoordinatorStoreCreated(store: ActorRef)
 
-  @silent("never used")
+  @nowarn("msg=never used")
   class FakeStore(settings: ClusterShardingSettings, typeName: String) extends RememberEntitiesProvider {
     override def shardStoreProps(shardId: ShardId): Props = FakeShardStoreActor.props(shardId)
     override def coordinatorStoreProps(): Props = FakeCoordinatorStoreActor.props()
@@ -98,7 +101,7 @@ object RememberEntitiesFailureSpec {
   class FakeShardStoreActor(shardId: ShardId) extends Actor with ActorLogging with Timers {
     import FakeShardStoreActor._
 
-    implicit val ec = context.system.dispatcher
+    implicit val ec: ExecutionContext = context.system.dispatcher
     private var failUpdate: Option[Fail] = None
 
     context.system.eventStream.publish(ShardStoreCreated(self, shardId))
@@ -201,7 +204,7 @@ class RememberEntitiesFailureSpec
 
   "Remember entities handling in sharding" must {
 
-    List(NoResponse, CrashStore, StopStore, Delay(500.millis), Delay(1.second)).foreach { wayToFail: Fail =>
+    List(NoResponse, CrashStore, StopStore, Delay(500.millis), Delay(1.second)).foreach { (wayToFail: Fail) =>
       s"recover when initial remember entities load fails $wayToFail" in {
         log.debug("Getting entities for shard 1 will fail")
         failShardGetEntities = Map("1" -> wayToFail)

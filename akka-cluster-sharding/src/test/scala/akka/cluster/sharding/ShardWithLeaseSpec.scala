@@ -1,8 +1,13 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
+
+import scala.concurrent.Future
+import scala.concurrent.duration._
+import scala.util.Success
+import scala.util.control.NoStackTrace
 
 import akka.actor.Actor
 import akka.actor.ActorLogging
@@ -16,11 +21,6 @@ import akka.testkit.EventFilter
 import akka.testkit.TestProbe
 import akka.testkit.WithLogCapturing
 
-import scala.concurrent.Future
-import scala.concurrent.duration._
-import scala.util.Success
-import scala.util.control.NoStackTrace
-
 // FIXME this looks like it is the same test as ClusterShardingLeaseSpec is there any difference?
 object ShardWithLeaseSpec {
   val config =
@@ -28,7 +28,6 @@ object ShardWithLeaseSpec {
       akka.loglevel = DEBUG
       akka.loggers = ["akka.testkit.SilenceAllTestEventListener"]
       akka.actor.provider = "cluster"
-      akka.remote.classic.netty.tcp.port = 0
       akka.remote.artery.canonical.port = 0
       test-lease {
           lease-class = akka.coordination.lease.TestLease
@@ -54,10 +53,12 @@ object ShardWithLeaseSpec {
 
   val extractEntityId: ShardRegion.ExtractEntityId = {
     case EntityEnvelope(id, payload) => (id.toString, payload)
+    case _                           => throw new IllegalArgumentException()
   }
 
   val extractShardId: ShardRegion.ExtractShardId = {
     case EntityEnvelope(id, _) => (id % numberOfShards).toString
+    case _                     => throw new IllegalArgumentException()
   }
 
   case class BadLease(msg: String) extends RuntimeException(msg) with NoStackTrace
@@ -130,9 +131,11 @@ class ShardWithLeaseSpec extends AkkaSpec(ShardWithLeaseSpec.config) with WithLo
           occurrences = 1)
         .intercept {
           lease.getCurrentCallback().apply(Some(BadLease("bye bye lease")))
-          sharding.tell(EntityEnvelope(1, "hello"), probe.ref)
-          probe.expectNoMessage(shortDuration)
         }
+
+      lease.setNextAcquireResult(Future.successful(false))
+      sharding.tell(EntityEnvelope(1, "hello"), probe.ref)
+      probe.expectNoMessage(shortDuration)
     }
   }
 

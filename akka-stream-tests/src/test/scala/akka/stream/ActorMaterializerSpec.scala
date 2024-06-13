@@ -1,15 +1,15 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream
 
+import scala.annotation.nowarn
 import scala.concurrent.Await
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.util.{ Failure, Try }
+import scala.util.Try
 
-import com.github.ghik.silencer.silent
 import com.typesafe.config.ConfigFactory
 
 import akka.Done
@@ -32,7 +32,7 @@ object IndirectMaterializerCreation extends ExtensionId[IndirectMaterializerCrea
   def lookup: ExtensionId[IndirectMaterializerCreation] = this
 }
 
-@silent
+@nowarn
 class IndirectMaterializerCreation(ex: ExtendedActorSystem) extends Extension {
   // extension instantiation blocked on materializer (which has Await.result inside)
   implicit val mat: ActorMaterializer = ActorMaterializer()(ex)
@@ -43,7 +43,7 @@ class IndirectMaterializerCreation(ex: ExtendedActorSystem) extends Extension {
 
 }
 
-@silent
+@nowarn
 class ActorMaterializerSpec extends StreamSpec with ImplicitSender {
 
   "ActorMaterializer" must {
@@ -142,7 +142,7 @@ class ActorMaterializerSpec extends StreamSpec with ImplicitSender {
 
       p.expectMsg("hello")
       a ! PoisonPill
-      val Failure(_) = p.expectMsgType[Try[Done]]
+      p.expectMsgType[Try[Done]].isFailure should ===(true)
     }
 
     "report correctly if it has been shut down from the side" in {
@@ -157,7 +157,7 @@ class ActorMaterializerSpec extends StreamSpec with ImplicitSender {
 
 object ActorMaterializerSpec {
 
-  @silent("deprecated")
+  @nowarn("msg=deprecated")
   class ActorWithMaterializer(p: TestProbe) extends Actor {
     private val settings: ActorMaterializerSettings =
       ActorMaterializerSettings(context.system).withDispatcher("akka.test.stream-dispatcher")

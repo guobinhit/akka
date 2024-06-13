@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.testkit.scaladsl
@@ -15,7 +15,7 @@ import akka.testkit.EventFilter
 
 trait CommonSnapshotTests extends ScalaDslUtils {
 
-  lazy val testKit = new SnapshotTestKit(system)
+  final lazy val testKit = new SnapshotTestKit(system)
   import testKit._
 
   def specificTests(): Unit
@@ -71,7 +71,7 @@ trait CommonSnapshotTests extends ScalaDslUtils {
       expectNextPersistedType[Int](pid) should be(2)
 
       assertThrows[AssertionError] {
-        expectNextPersistedType(pid)
+        expectNextPersistedType[Any](pid)
       }
     }
 
@@ -523,36 +523,6 @@ trait CommonSnapshotTests extends ScalaDslUtils {
       act ! Cmd("j")
       act ! Cmd("k")
 
-      tk.expectNextPersisted(pid, NonEmptyState("abcdefghij"))
-
-    }
-
-    "test snapshot events with RetentionCriteria after sending commands" in {
-
-      lazy val tk = new SnapshotTestKit(system)
-
-      val pid = randomPid()
-      val act = system.spawn(
-        eventSourcedBehaviorWithState(pid).withRetention(
-          RetentionCriteria.snapshotEvery(numberOfEvents = 2, keepNSnapshots = 2)),
-        pid)
-
-      act ! Cmd("a")
-      act ! Cmd("b")
-      act ! Cmd("c")
-      act ! Cmd("d")
-      act ! Cmd("e")
-      act ! Cmd("f")
-      act ! Cmd("g")
-      act ! Cmd("h")
-      act ! Cmd("i")
-      act ! Cmd("j")
-      act ! Cmd("k")
-
-      tk.expectNextPersisted(pid, NonEmptyState("ab"))
-      tk.expectNextPersisted(pid, NonEmptyState("abcd"))
-      tk.expectNextPersisted(pid, NonEmptyState("abcdef"))
-      tk.expectNextPersisted(pid, NonEmptyState("abcdefgh"))
       tk.expectNextPersisted(pid, NonEmptyState("abcdefghij"))
 
     }

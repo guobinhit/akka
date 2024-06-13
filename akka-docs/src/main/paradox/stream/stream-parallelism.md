@@ -2,9 +2,18 @@
 
 ## Dependency
 
+The Akka dependencies are available from Akka's library repository. To access them there, you need to configure the URL for this repository.
+
+@@repository [sbt,Maven,Gradle] {
+id="akka-repository"
+name="Akka library repository"
+url="https://repo.akka.io/maven"
+}
+
 To use Akka Streams, add the module to your project:
 
 @@dependency[sbt,Maven,Gradle] {
+  bomGroup=com.typesafe.akka bomArtifact=akka-bom_$scala.binary.version$ bomVersionSymbols=AkkaVersion
   symbol1=AkkaVersion
   value1="$akka.version$"
   group="com.typesafe.akka"
@@ -83,7 +92,7 @@ it is easy to add a third frying pan with Patrik's method, but Roland cannot add
 since that would require a third processing step, which is not practically possible in the case of frying pancakes.
 
 One drawback of the example code above is it does not preserve the ordering of pancakes. This might be a problem
-if children like to track their "own" pancakes. In those cases the `Balance` and `Merge` operators should be replaced
+if children like to track their "own" pancakes. In those cases the @apidoc[akka.stream.*.Balance$] and @apidoc[akka.stream.*.Merge$] operators should be replaced
 by round-robin balancing and merging operators which put in and take out pancakes in a strict order.
 
 A more detailed example of creating a worker pool can be found in the cookbook: @ref:[Balancing jobs to a fixed pool of workers](stream-cookbook.md#cookbook-balance)

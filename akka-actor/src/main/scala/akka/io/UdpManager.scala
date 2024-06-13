@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.io
@@ -50,11 +50,11 @@ private[io] class UdpManager(udp: UdpExt)
   def receive = workerForCommandHandler {
     case b: Bind =>
       val commander = sender() // cache because we create a function that will run asynchly
-      (registry => Props(classOf[UdpListener], udp, registry, commander, b))
+      (registry => Props(new UdpListener(udp, registry, commander, b)))
 
-    case SimpleSender(options) =>
+    case s: SimpleSender =>
       val commander = sender() // cache because we create a function that will run asynchly
-      (registry => Props(classOf[UdpSender], udp, registry, commander, options))
+      (registry => Props(new UdpSender(udp, registry, commander, s.options)))
   }
 
 }

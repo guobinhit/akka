@@ -1,8 +1,10 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.stream.javadsl.cookbook;
+
+import static junit.framework.TestCase.assertTrue;
 
 import akka.NotUsed;
 import akka.actor.*;
@@ -12,15 +14,12 @@ import akka.stream.javadsl.*;
 import akka.stream.testkit.TestSubscriber;
 import akka.stream.testkit.javadsl.TestSink;
 import akka.testkit.javadsl.TestKit;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
-
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletionStage;
-
-import static junit.framework.TestCase.assertTrue;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
 public class RecipeGlobalRateLimit extends RecipeTest {
   static ActorSystem system;

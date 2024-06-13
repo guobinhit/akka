@@ -3,7 +3,7 @@
 Each Akka module has a `reference.conf` file with the default values.
 
 Make your edits/overrides in your `application.conf`. Don't override default values if
-you are not sure of the implications. [Akka Config Checker](https://doc.akka.io/docs/akka-enhancements/current/config-checker.html)
+you are not sure of the implications. [Akka Config Checker](https://doc.akka.io/docs/akka-diagnostics/current/config-checker.html)
 is a useful tool for finding potential configuration issues.
 
 The purpose of `reference.conf` files is for libraries, like Akka, to define default values that are used if
@@ -70,12 +70,7 @@ nondeterministic when loading the configuration.`
 <a id="config-akka-remote-artery"></a>
 ### akka-remote artery
 
-@@snip [reference.conf](/akka-remote/src/main/resources/reference.conf) { #shared #artery type=none }
-
-<a id="config-akka-remote"></a>
-### akka-remote classic (deprecated)
-
-@@snip [reference.conf](/akka-remote/src/main/resources/reference.conf) { #shared #classic type=none }
+@@snip [reference.conf](/akka-remote/src/main/resources/reference.conf) { #artery type=none }
 
 <a id="config-akka-testkit"></a>
 ### akka-testkit

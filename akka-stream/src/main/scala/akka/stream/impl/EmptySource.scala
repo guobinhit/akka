@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl
@@ -16,7 +16,7 @@ import akka.stream.stage._
   val out = Outlet[Nothing]("EmptySource.out")
   override val shape = SourceShape(out)
 
-  override protected def initialAttributes = DefaultAttributes.lazySource
+  override protected def initialAttributes = DefaultAttributes.emptySource
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
     new GraphStageLogic(shape) with OutHandler {

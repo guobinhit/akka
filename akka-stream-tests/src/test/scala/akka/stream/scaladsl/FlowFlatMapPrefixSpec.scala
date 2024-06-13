@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -9,28 +9,33 @@ import akka.stream.{
   AbruptStageTerminationException,
   AbruptTerminationException,
   Attributes,
+  FlowShape,
+  Inlet,
   Materializer,
   NeverMaterializedException,
+  Outlet,
   SubscriptionWithCancelException
 }
+import akka.stream.Attributes.Attribute
+import akka.stream.stage.{ GraphStage, GraphStageLogic, InHandler, OutHandler }
 import akka.stream.testkit.{ StreamSpec, TestPublisher, TestSubscriber }
 import akka.stream.testkit.Utils.TE
-import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 
-class FlowFlatMapPrefixSpec extends StreamSpec {
+// Debug loglevel to diagnose https://github.com/akka/akka/issues/30469
+class FlowFlatMapPrefixSpec extends StreamSpec("akka.loglevel = debug") {
   def src10(i: Int = 0) = Source(i until (i + 10))
 
   for {
     att <- List(
       Attributes.NestedMaterializationCancellationPolicy.EagerCancellation,
       Attributes.NestedMaterializationCancellationPolicy.PropagateToNested)
-    delayDownstreanCancellation = att.propagateToNestedMaterialization
+    delayDownstreamCancellation = att.propagateToNestedMaterialization
     attributes = Attributes(att)
   } {
 
     s"A PrefixAndDownstream with $att" must {
 
-      "work in the simple identity case" in assertAllStagesStopped {
+      "work in the simple identity case" in {
         src10()
           .flatMapPrefixMat(2) { _ =>
             Flow[Int]
@@ -40,7 +45,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
           .futureValue should ===(2 until 10)
       }
 
-      "expose mat value in the simple identity case" in assertAllStagesStopped {
+      "expose mat value in the simple identity case" in {
         val (prefixF, suffixF) = src10()
           .flatMapPrefixMat(2) { prefix =>
             Flow[Int].mapMaterializedValue(_ => prefix)
@@ -53,7 +58,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         suffixF.futureValue should ===(2 until 10)
       }
 
-      "work when source is exactly the required prefix" in assertAllStagesStopped {
+      "work when source is exactly the required prefix" in {
         val (prefixF, suffixF) = src10()
           .flatMapPrefixMat(10) { prefix =>
             Flow[Int].mapMaterializedValue(_ => prefix)
@@ -66,7 +71,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         suffixF.futureValue should be(empty)
       }
 
-      "work when source has less than the required prefix" in assertAllStagesStopped {
+      "work when source has less than the required prefix" in {
         val (prefixF, suffixF) = src10()
           .flatMapPrefixMat(20) { prefix =>
             Flow[Int].mapMaterializedValue(_ => prefix)
@@ -79,7 +84,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         suffixF.futureValue should be(empty)
       }
 
-      "simple identity case when downstream completes before consuming the entire stream" in assertAllStagesStopped {
+      "simple identity case when downstream completes before consuming the entire stream" in {
         val (prefixF, suffixF) = Source(0 until 100)
           .flatMapPrefixMat(10) { prefix =>
             Flow[Int].mapMaterializedValue(_ => prefix)
@@ -93,7 +98,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         suffixF.futureValue should ===(10 until 20)
       }
 
-      "propagate failure to create the downstream flow" in assertAllStagesStopped {
+      "propagate failure to create the downstream flow" in {
         val suffixF = Source(0 until 100)
           .flatMapPrefixMat(10) { prefix =>
             throw TE(s"I hate mondays! (${prefix.size})")
@@ -107,7 +112,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         ex.getCause should ===(TE("I hate mondays! (10)"))
       }
 
-      "propagate flow failures" in assertAllStagesStopped {
+      "propagate flow failures" in {
         val (prefixF, suffixF) = Source(0 until 100)
           .flatMapPrefixMat(10) { prefix =>
             Flow[Int].mapMaterializedValue(_ => prefix).map {
@@ -123,7 +128,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         ex should ===(TE("don't like 15 either!"))
       }
 
-      "produce multiple elements per input" in assertAllStagesStopped {
+      "produce multiple elements per input" in {
         val (prefixF, suffixF) = src10()
           .flatMapPrefixMat(7) { prefix =>
             Flow[Int].mapMaterializedValue(_ => prefix).mapConcat(n => List.fill(n - 6)(n))
@@ -136,7 +141,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         suffixF.futureValue should ===(7 :: 8 :: 8 :: 9 :: 9 :: 9 :: Nil)
       }
 
-      "succeed when upstream produces no elements" in assertAllStagesStopped {
+      "succeed when upstream produces no elements" in {
         val (prefixF, suffixF) = Source
           .empty[Int]
           .flatMapPrefixMat(7) { prefix =>
@@ -150,7 +155,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         suffixF.futureValue should be(empty)
       }
 
-      "apply materialized flow's semantics when upstream produces no elements" in assertAllStagesStopped {
+      "apply materialized flow's semantics when upstream produces no elements" in {
         val (prefixF, suffixF) = Source
           .empty[Int]
           .flatMapPrefixMat(7) { prefix =>
@@ -164,7 +169,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         suffixF.futureValue should ===(100 :: 101 :: Nil)
       }
 
-      "handles upstream completion" in assertAllStagesStopped {
+      "handles upstream completion" in {
         val publisher = TestPublisher.manualProbe[Int]()
         val subscriber = TestSubscriber.manualProbe[Int]()
 
@@ -196,7 +201,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
 
       }
 
-      "work when materialized flow produces no downstream elements" in assertAllStagesStopped {
+      "work when materialized flow produces no downstream elements" in {
         val (prefixF, suffixF) = Source(0 until 100)
           .flatMapPrefixMat(4) { prefix =>
             Flow[Int].mapMaterializedValue(_ => prefix).filter(_ => false)
@@ -209,7 +214,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         suffixF.futureValue should be(empty)
       }
 
-      "work when materialized flow does not consume upstream" in assertAllStagesStopped {
+      "work when materialized flow does not consume upstream" in {
         val (prefixF, suffixF) = Source(0 until 100)
           .map { i =>
             i should be <= 4
@@ -227,7 +232,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         suffixF.futureValue should be(empty)
       }
 
-      "work when materialized flow cancels upstream but keep producing" in assertAllStagesStopped {
+      "work when materialized flow cancels upstream but keep producing" in {
         val (prefixF, suffixF) = src10()
           .flatMapPrefixMat(4) { prefix =>
             Flow[Int].mapMaterializedValue(_ => prefix).take(0).concat(Source(11 to 12))
@@ -240,7 +245,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         suffixF.futureValue should ===(11 :: 12 :: Nil)
       }
 
-      "propagate materialization failure (when application of 'f' succeeds)" in assertAllStagesStopped {
+      "propagate materialization failure (when application of 'f' succeeds)" in {
         val (prefixF, suffixF) = src10()
           .flatMapPrefixMat(4) { prefix =>
             Flow[Int].mapMaterializedValue(_ => throw TE(s"boom-bada-bang (${prefix.size})"))
@@ -254,7 +259,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         suffixF.failed.futureValue should ===(TE("boom-bada-bang (4)"))
       }
 
-      "succeed when materialized flow completes downstream but keep consuming elements" in assertAllStagesStopped {
+      "succeed when materialized flow completes downstream but keep consuming elements" in {
         val (prefixAndTailF, suffixF) = src10()
           .flatMapPrefixMat(4) { prefix =>
             Flow[Int]
@@ -273,7 +278,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         suffix.futureValue should ===(4 until 10)
       }
 
-      "propagate downstream cancellation via the materialized flow" in assertAllStagesStopped {
+      "propagate downstream cancellation via the materialized flow" in {
         val publisher = TestPublisher.manualProbe[Int]()
         val subscriber = TestSubscriber.manualProbe[Int]()
 
@@ -308,7 +313,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         srcWatchTermF.futureValue should ===(Done)
       }
 
-      "early downstream cancellation is later handed out to materialized flow" in assertAllStagesStopped {
+      "early downstream cancellation is later handed out to materialized flow" in {
         val publisher = TestPublisher.manualProbe[Int]()
         val subscriber = TestSubscriber.manualProbe[Int]()
 
@@ -333,27 +338,28 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         subUpstream.expectRequest() should be >= (1L)
         subUpstream.sendNext(0)
         subUpstream.sendNext(1)
-        subDownstream.cancel()
 
         //subflow not materialized yet, hence mat value (future) isn't ready yet
         matFlowWatchTerm.value should be(empty)
 
-        if (delayDownstreanCancellation) {
+        if (delayDownstreamCancellation) {
           srcWatchTermF.value should be(empty)
           //this one is sent AFTER downstream cancellation
           subUpstream.sendNext(2)
 
+          subDownstream.cancel()
           subUpstream.expectCancellation()
 
           matFlowWatchTerm.futureValue should ===(Done)
           srcWatchTermF.futureValue should ===(Done)
         } else {
+          subDownstream.cancel()
           srcWatchTermF.futureValue should ===(Done)
           matFlowWatchTerm.failed.futureValue should be(a[NeverMaterializedException])
         }
       }
 
-      "early downstream failure is deferred until prefix completion" in assertAllStagesStopped {
+      "early downstream failure is deferred until prefix completion" in {
         val publisher = TestPublisher.manualProbe[Int]()
         val subscriber = TestSubscriber.manualProbe[Int]()
 
@@ -380,7 +386,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         subUpstream.sendNext(1)
         subDownstream.asInstanceOf[SubscriptionWithCancelException].cancel(TE("that again?!"))
 
-        if (delayDownstreanCancellation) {
+        if (delayDownstreamCancellation) {
           matFlowWatchTerm.value should be(empty)
           srcWatchTermF.value should be(empty)
 
@@ -398,7 +404,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         }
       }
 
-      "downstream failure is propagated via the materialized flow" in assertAllStagesStopped {
+      "downstream failure is propagated via the materialized flow" in {
         val publisher = TestPublisher.manualProbe[Int]()
         val subscriber = TestSubscriber.manualProbe[Int]()
 
@@ -417,7 +423,6 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
           .withAttributes(attributes)
           .run()
 
-        notUsedF.value should be(empty)
         suffixF.value should be(empty)
         srcWatchTermF.value should be(empty)
 
@@ -440,7 +445,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         srcWatchTermF.failed.futureValue should ===(TE("3!?!?!?"))
       }
 
-      "complete mat value with failures on abrupt termination before materializing the flow" in assertAllStagesStopped {
+      "complete mat value with failures on abrupt termination before materializing the flow" in {
         val mat = Materializer(system)
         val publisher = TestPublisher.manualProbe[Int]()
 
@@ -465,11 +470,12 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
           case ex: NeverMaterializedException =>
             ex.getCause should not be null
             ex.getCause should be(a[AbruptTerminationException])
+          case unexpected => throw new RuntimeException(s"Unexpected: $unexpected")
         }
         doneF.failed.futureValue should be(a[AbruptTerminationException])
       }
 
-      "respond to abrupt termination after flow materialization" in assertAllStagesStopped {
+      "respond to abrupt termination after flow materialization" in {
         val mat = Materializer(system)
         val countFF = src10()
           .flatMapPrefixMat(2) { prefix =>
@@ -491,7 +497,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         countF.failed.futureValue should be(a[AbruptStageTerminationException])
       }
 
-      "behave like via when n = 0" in assertAllStagesStopped {
+      "behave like via when n = 0" in {
         val (prefixF, suffixF) = src10()
           .flatMapPrefixMat(0) { prefix =>
             prefix should be(empty)
@@ -505,7 +511,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         suffixF.futureValue should ===(0 until 10)
       }
 
-      "behave like via when n = 0 and upstream produces no elements" in assertAllStagesStopped {
+      "behave like via when n = 0 and upstream produces no elements" in {
         val (prefixF, suffixF) = Source
           .empty[Int]
           .flatMapPrefixMat(0) { prefix =>
@@ -520,7 +526,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         suffixF.futureValue should be(empty)
       }
 
-      "propagate errors during flow's creation when n = 0" in assertAllStagesStopped {
+      "propagate errors during flow's creation when n = 0" in {
         val (prefixF, suffixF) = src10()
           .flatMapPrefixMat(0) { prefix =>
             prefix should be(empty)
@@ -535,7 +541,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         suffixF.failed.futureValue should ===(TE("not this time my friend!"))
       }
 
-      "propagate materialization failures when n = 0" in assertAllStagesStopped {
+      "propagate materialization failures when n = 0" in {
         val (prefixF, suffixF) = src10()
           .flatMapPrefixMat(0) { prefix =>
             prefix should be(empty)
@@ -550,7 +556,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         suffixF.failed.futureValue should ===(TE("Bang! no materialization this time"))
       }
 
-      "run a detached flow" in assertAllStagesStopped {
+      "run a detached flow" in {
         val publisher = TestPublisher.manualProbe[Int]()
         val subscriber = TestSubscriber.manualProbe[String]()
 
@@ -585,7 +591,7 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         subscriber.expectComplete()
       }
 
-      "complete newShells registration when all active interpreters are done" in assertAllStagesStopped {
+      "complete newShells registration when all active interpreters are done" in {
         @volatile var closeSink: () => Unit = null
 
         val (fNotUsed, qOut) = Source
@@ -612,6 +618,122 @@ class FlowFlatMapPrefixSpec extends StreamSpec {
         log.debug("closer assigned, waiting for completion")
         fNotUsed.futureValue should be(NotUsed)
       }
+
+      "complete when downstream cancels before pulling" in {
+        val fSeq = Source
+          .single(1)
+          .flatMapPrefixMat(1) { prefix =>
+            Flow[Int].mapMaterializedValue(_ => prefix)
+          }(Keep.right)
+          .to(Sink.cancelled)
+          .withAttributes(attributes)
+          .run()
+
+        if (att.propagateToNestedMaterialization) {
+          fSeq.futureValue should equal(Seq(1))
+        } else {
+          fSeq.failed.futureValue should be(a[NeverMaterializedException])
+        }
+      }
+
+      "complete when downstream cancels before pulling, prefix=0" in {
+        val fSeq = Source
+          .single(1)
+          .flatMapPrefixMat(0) { prefix =>
+            Flow[Int].mapMaterializedValue(_ => prefix)
+          }(Keep.right)
+          .to(Sink.cancelled)
+          .withAttributes(attributes)
+          .run()
+
+        if (att.propagateToNestedMaterialization) {
+          fSeq.futureValue should equal(Nil)
+        } else {
+          fSeq.failed.futureValue should be(a[NeverMaterializedException])
+        }
+      }
+
+      "complete when downstream cancels before pulling and upstream does not produce" in {
+        val fSeq = Source(List.empty[Int])
+          .flatMapPrefixMat(1) { prefix =>
+            Flow[Int].mapMaterializedValue(_ => prefix)
+          }(Keep.right)
+          .to(Sink.cancelled)
+          .withAttributes(attributes)
+          .run()
+
+        if (att.propagateToNestedMaterialization) {
+          fSeq.futureValue should equal(Nil)
+        } else {
+          fSeq.failed.futureValue should be(a[NeverMaterializedException])
+        }
+      }
+
+      "complete when downstream cancels before pulling and upstream does not produce, prefix=0" in {
+        val fSeq = Source(List.empty[Int])
+          .flatMapPrefixMat(0) { prefix =>
+            Flow[Int].mapMaterializedValue(_ => prefix)
+          }(Keep.right)
+          .to(Sink.cancelled)
+          .withAttributes(attributes)
+          .run()
+
+        if (att.propagateToNestedMaterialization) {
+          fSeq.futureValue should equal(Nil)
+        } else {
+          fSeq.failed.futureValue should be(a[NeverMaterializedException])
+        }
+      }
+    }
+  }
+
+  "attributes propagation" must {
+    case class CustomAttribute(n: Int) extends Attribute
+    class WithAttr[A] extends GraphStage[FlowShape[A, (A, Option[CustomAttribute])]] {
+      override val shape: FlowShape[A, (A, Option[CustomAttribute])] =
+        FlowShape(Inlet[A]("in"), Outlet[(A, Option[CustomAttribute])]("out"))
+      override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
+        new GraphStageLogic(shape) with InHandler with OutHandler {
+          val attr = inheritedAttributes.get[CustomAttribute]
+
+          setHandlers(shape.in, shape.out, this)
+
+          override def onPush(): Unit = push(shape.out, grab(shape.in) -> attr)
+
+          override def onPull(): Unit = pull(shape.in)
+        }
+    }
+    def withAttr[A] = Flow.fromGraph(new WithAttr[A])
+    "baseline behaviour" in {
+      Source
+        .single("1")
+        .via(withAttr)
+        .map(_._2)
+        .withAttributes(Attributes(CustomAttribute(42)))
+        .runWith(Sink.head)
+        .futureValue should be(Some(CustomAttribute(42)))
+    }
+
+    "propagate attribute applied to flatMapPrefix" in {
+      Source
+        .single("1")
+        .flatMapPrefix(0) { _ =>
+          Flow[String].via(withAttr).map(_._2)
+        }
+        .withAttributes(Attributes(CustomAttribute(42)))
+        .runWith(Sink.head)
+        .futureValue should be(Some(CustomAttribute(42)))
+    }
+
+    "respect attributes override" in {
+      Source
+        .single("1")
+        .flatMapPrefix(0) { _ =>
+          Flow[String].via(withAttr).map(_._2).withAttributes(Attributes(CustomAttribute(24)))
+        }
+        .withAttributes(Attributes(CustomAttribute(42)))
+        .runWith(Sink.head)
+        .futureValue should be(Some(CustomAttribute(24)))
     }
   }
 }

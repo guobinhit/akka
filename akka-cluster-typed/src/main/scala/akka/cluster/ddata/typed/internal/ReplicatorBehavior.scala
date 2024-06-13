@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.ddata.typed.internal
@@ -71,7 +71,7 @@ import akka.util.Timeout
                 Behaviors.same
 
               case cmd: JReplicator.Get[d] =>
-                implicit val timeout = Timeout(cmd.consistency.timeout match {
+                implicit val timeout: Timeout = Timeout(cmd.consistency.timeout match {
                   case java.time.Duration.ZERO => localAskTimeout
                   case t                       => t.asScala + additionalAskTimeout
                 })
@@ -99,7 +99,7 @@ import akka.util.Timeout
                 Behaviors.same
 
               case cmd: JReplicator.Update[d] =>
-                implicit val timeout = Timeout(cmd.writeConsistency.timeout match {
+                implicit val timeout: Timeout = Timeout(cmd.writeConsistency.timeout match {
                   case java.time.Duration.ZERO => localAskTimeout
                   case t                       => t.asScala + additionalAskTimeout
                 })
@@ -149,6 +149,7 @@ import akka.util.Timeout
                 rsp match {
                   case chg: dd.Replicator.Changed[_] => subscriber ! JReplicator.Changed(chg.key)(chg.dataValue)
                   case del: dd.Replicator.Deleted[_] => subscriber ! JReplicator.Deleted(del.key)
+                  case exp: dd.Replicator.Expired[_] => subscriber ! JReplicator.Expired(exp.key)
                 }
                 Behaviors.same
 
@@ -166,7 +167,7 @@ import akka.util.Timeout
                 Behaviors.same
 
               case cmd: JReplicator.Delete[d] =>
-                implicit val timeout = Timeout(cmd.consistency.timeout match {
+                implicit val timeout: Timeout = Timeout(cmd.consistency.timeout match {
                   case java.time.Duration.ZERO => localAskTimeout
                   case t                       => t.asScala + additionalAskTimeout
                 })
@@ -205,6 +206,8 @@ import akka.util.Timeout
                 classicReplicator.tell(dd.Replicator.FlushChanges, sender = akka.actor.ActorRef.noSender)
                 Behaviors.same
 
+              case unexpected =>
+                throw new RuntimeException(s"Unexpected message: ${unexpected.getClass}") // compiler exhaustiveness check pleaser
             }
           }
           .receiveSignal {

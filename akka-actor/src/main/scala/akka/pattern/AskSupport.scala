@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.pattern
@@ -7,20 +7,20 @@ package akka.pattern
 import java.net.URLEncoder
 import java.util.concurrent.TimeoutException
 
+import scala.annotation.nowarn
 import scala.annotation.tailrec
 import scala.concurrent.{ Future, Promise }
 import scala.language.implicitConversions
 import scala.util.{ Failure, Success }
-import com.github.ghik.silencer.silent
+import scala.util.control.NoStackTrace
+
 import akka.actor._
 import akka.annotation.{ InternalApi, InternalStableApi }
 import akka.dispatch.ExecutionContexts
 import akka.dispatch.sysmsg._
-import akka.util.ByteString
 import akka.util.{ Timeout, Unsafe }
+import akka.util.ByteString
 import akka.util.unused
-
-import scala.util.control.NoStackTrace
 
 /**
  * This is what is used to complete a Future that is returned from an ask/? call,
@@ -335,6 +335,7 @@ final class AskableActorRef(val actorRef: ActorRef) extends AnyVal {
   protected def ask(message: Any, timeout: Timeout): Future[Any] =
     internalAsk(message, timeout, ActorRef.noSender)
 
+  //todo add scaladoc
   def ask(message: Any)(implicit timeout: Timeout, sender: ActorRef = Actor.noSender): Future[Any] =
     internalAsk(message, timeout, sender)
 
@@ -504,7 +505,7 @@ final class ExplicitlyAskableActorSelection(val actorSel: ActorSelection) extend
  *
  * INTERNAL API
  */
-private[akka] final class PromiseActorRef private (
+private[akka] final class PromiseActorRef(
     val provider: ActorRefProvider,
     val result: Promise[Any],
     _mcn: String,
@@ -529,12 +530,17 @@ private[akka] final class PromiseActorRef private (
    * Stopped               => stopped, path not yet created
    */
   @volatile
-  @silent("never used")
+  @nowarn("msg=never updated")
   private[this] var _stateDoNotCallMeDirectly: AnyRef = _
 
   @volatile
-  @silent("never used")
+  @nowarn("msg=never updated")
   private[this] var _watchedByDoNotCallMeDirectly: Set[ActorRef] = ActorCell.emptyActorRefSet
+
+  @nowarn private def _preventPrivateUnusedErasure = {
+    _stateDoNotCallMeDirectly
+    _watchedByDoNotCallMeDirectly
+  }
 
   @inline
   private[this] def watchedBy: Set[ActorRef] =
@@ -596,14 +602,15 @@ private[akka] final class PromiseActorRef private (
     case StoppedWithPath(p) => p
     case Stopped            =>
       // even if we are already stopped we still need to produce a proper path
-      updateState(Stopped, StoppedWithPath(provider.tempPath()))
+      updateState(Stopped, StoppedWithPath(provider.tempPath(refPathPrefix)))
       path
     case Registering => path // spin until registration is completed
+    case unexpected  => throw new IllegalStateException(s"Unexpected state: $unexpected")
   }
 
   override def !(message: Any)(implicit sender: ActorRef = Actor.noSender): Unit = state match {
     case Stopped | _: StoppedWithPath =>
-      provider.deadLetters ! message
+      provider.deadLetters ! DeadLetter(message, if (sender eq Actor.noSender) provider.deadLetters else sender, this)
       onComplete(message, alreadyCompleted = true)
     case _ =>
       if (message == null) throw InvalidMessageException("Message is null")
@@ -663,6 +670,7 @@ private[akka] final class PromiseActorRef private (
         } else stop()
       case Stopped | _: StoppedWithPath => // already stopped
       case Registering                  => stop() // spin until registration is completed before stopping
+      case unexpected                   => throw new IllegalStateException(s"Unexpected state: $unexpected")
     }
   }
 

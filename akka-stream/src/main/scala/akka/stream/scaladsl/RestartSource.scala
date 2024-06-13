@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -8,7 +8,7 @@ import scala.concurrent.duration.FiniteDuration
 
 import akka.NotUsed
 import akka.stream.{ Attributes, Outlet, RestartSettings, SourceShape }
-import akka.stream.stage.{ GraphStage, OutHandler }
+import akka.stream.stage.{ GraphStage, GraphStageLogic }
 
 /**
  * A RestartSource wraps a [[Source]] that gets restarted when it completes or fails.
@@ -100,8 +100,9 @@ object RestartSource {
   /**
    * Wrap the given [[Source]] with a [[Source]] that will restart it when it fails using an exponential backoff.
    *
-   * This [[Source]] will never emit a failure, since the failure of the wrapped [[Source]] is always handled by
-   * restarting. The wrapped [[Source]] can be cancelled by cancelling this [[Source]].
+   * This [[Source]] will not emit a failure as long as maxRestarts is not reached, since failure of the wrapped [[Source]]
+   * is handled by restarting it. The wrapped [[Source]] can be cancelled
+   * by cancelling this [[Source]].
    * When that happens, the wrapped [[Source]], if currently running will be cancelled, and it will not be restarted.
    * This can be triggered simply by the downstream cancelling, or externally by introducing a [[KillSwitch]] right
    * after this [[Source]] in the graph.
@@ -128,8 +129,8 @@ object RestartSource {
   /**
    * Wrap the given [[Source]] with a [[Source]] that will restart it when it fails using an exponential backoff.
    *
-   * This [[Source]] will not emit a complete or failure as long as maxRestarts is not reached, since the completion
-   * or failure of the wrapped [[Source]] is handled by restarting it. The wrapped [[Source]] can however be cancelled
+   * This [[Source]] will not emit a failure as long as maxRestarts is not reached, since failure of the wrapped [[Source]]
+   * is handled by restarting it. The wrapped [[Source]] can be cancelled
    * by cancelling this [[Source]]. When that happens, the wrapped [[Source]], if currently running will be cancelled,
    * and it will not be restarted.
    * This can be triggered simply by the downstream cancelling, or externally by introducing a [[KillSwitch]] right
@@ -162,8 +163,8 @@ object RestartSource {
   /**
    * Wrap the given [[Source]] with a [[Source]] that will restart it when it fails using an exponential backoff.
    *
-   * This [[Source]] will not emit a complete or failure as long as maxRestarts is not reached, since the completion
-   * or failure of the wrapped [[Source]] is handled by restarting it. The wrapped [[Source]] can however be cancelled
+   * This [[Source]] will not emit a failure as long as maxRestarts is not reached, since failure of the wrapped [[Source]]
+   * is handled by restarting it. The wrapped [[Source]] can be cancelled
    * by cancelling this [[Source]]. When that happens, the wrapped [[Source]], if currently running will be cancelled,
    * and it will not be restarted.
    * This can be triggered simply by the downstream cancelling, or externally by introducing a [[KillSwitch]] right
@@ -195,16 +196,14 @@ private final class RestartWithBackoffSource[T](
 
       override protected def startGraph() = {
         val sinkIn = createSubInlet(out)
-        sourceFactory().runWith(sinkIn.sink)(subFusingMaterializer)
+        subFusingMaterializer.materialize(sourceFactory().to(sinkIn.sink), inheritedAttributes)
         if (isAvailable(out)) {
           sinkIn.pull()
         }
       }
 
       override protected def backoff() = {
-        setHandler(out, new OutHandler {
-          override def onPull() = ()
-        })
+        setHandler(out, GraphStageLogic.EagerTerminateOutput)
       }
 
       backoff()

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.journal.leveldb
@@ -13,7 +13,7 @@ import akka.testkit.{ AkkaSpec, TestProbe }
 
 object PersistencePluginProxySpec {
   lazy val config =
-    ConfigFactory.parseString(s"""
+    ConfigFactory.parseString("""
       akka {
         actor {
           provider = remote
@@ -30,11 +30,6 @@ object PersistencePluginProxySpec {
           }
         }
         remote {
-          enabled-transports = ["akka.remote.classic.netty.tcp"]
-          classic.netty.tcp {
-            hostname = "127.0.0.1"
-            port = 0
-          }
           artery.canonical {
             hostname = "127.0.0.1"
             port = 0

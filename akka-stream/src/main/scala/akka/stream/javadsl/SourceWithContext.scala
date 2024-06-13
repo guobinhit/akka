@@ -1,23 +1,24 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.javadsl
 
 import java.util.concurrent.CompletionStage
+import java.util.function.BiFunction
 
 import scala.annotation.unchecked.uncheckedVariance
 import scala.compat.java8.FutureConverters._
 
 import akka.actor.ClassicActorSystemProvider
+import akka.annotation.ApiMayChange
 import akka.event.{ LogMarker, LoggingAdapter, MarkerLoggingAdapter }
 import akka.japi.Pair
-import akka.japi.Util
 import akka.japi.function
 import akka.stream._
 import akka.util.ConstantFun
-import akka.util.ccompat.JavaConverters._
 import akka.util.JavaDurationConverters._
+import akka.util.ccompat.JavaConverters._
 
 object SourceWithContext {
 
@@ -37,7 +38,7 @@ object SourceWithContext {
  *
  * Can be created by calling [[Source.asSourceWithContext]]
  */
-final class SourceWithContext[+Out, +Ctx, +Mat](delegate: scaladsl.SourceWithContext[Out, Ctx, Mat])
+final class SourceWithContext[Out, Ctx, +Mat](delegate: scaladsl.SourceWithContext[Out, Ctx, Mat])
     extends GraphDelegate(delegate) {
 
   /**
@@ -57,6 +58,23 @@ final class SourceWithContext[+Out, +Ctx, +Mat](delegate: scaladsl.SourceWithCon
       viaFlow: Graph[FlowShape[Pair[Out @uncheckedVariance, Ctx @uncheckedVariance], Pair[Out2, Ctx2]], Mat2])
       : SourceWithContext[Out2, Ctx2, Mat] =
     viaScala(_.via(akka.stream.scaladsl.Flow[(Out, Ctx)].map { case (o, c) => Pair(o, c) }.via(viaFlow).map(_.toScala)))
+
+  /**
+   * Transform this flow by the regular flow. The given flow works on the data portion of the stream and
+   * ignores the context.
+   *
+   * The given flow *must* not re-order, drop or emit multiple elements for one incoming
+   * element, the sequence of incoming contexts is re-combined with the outgoing
+   * elements of the stream. If a flow not fulfilling this requirement is used the stream
+   * will not fail but continue running in a corrupt state and re-combine incorrect pairs
+   * of elements and contexts or deadlock.
+   *
+   * For more background on these requirements
+   *  see https://doc.akka.io/docs/akka/current/stream/stream-context.html.
+   */
+  @ApiMayChange def unsafeDataVia[Out2, Mat2](
+      viaFlow: Graph[FlowShape[Out @uncheckedVariance, Out2], Mat2]): SourceWithContext[Out2, Ctx, Mat] =
+    viaScala(_.unsafeDataVia(viaFlow))
 
   /**
    * Context-preserving variant of [[akka.stream.javadsl.Source.withAttributes]].
@@ -140,10 +158,29 @@ final class SourceWithContext[+Out, +Ctx, +Mat](delegate: scaladsl.SourceWithCon
   def map[Out2](f: function.Function[Out, Out2]): SourceWithContext[Out2, Ctx, Mat] =
     viaScala(_.map(f.apply))
 
+  /**
+   * Context-preserving variant of [[akka.stream.javadsl.Source.mapAsync]].
+   *
+   * @see [[akka.stream.javadsl.Source.mapAsync]]
+   */
   def mapAsync[Out2](
       parallelism: Int,
       f: function.Function[Out, CompletionStage[Out2]]): SourceWithContext[Out2, Ctx, Mat] =
     viaScala(_.mapAsync[Out2](parallelism)(o => f.apply(o).toScala))
+
+  /**
+   * Context-preserving variant of [[akka.stream.javadsl.Source.mapAsyncPartitioned]].
+   *
+   * @see [[akka.stream.javadsl.Source.mapAsyncPartitioned]]
+   */
+  def mapAsyncPartitioned[Out2, P](
+      parallelism: Int,
+      perPartition: Int,
+      partitioner: function.Function[Out, P],
+      f: BiFunction[Out, P, CompletionStage[Out2]]): SourceWithContext[Out2, Ctx, Mat] =
+    viaScala(_.mapAsyncPartitioned[Out2, P](parallelism, perPartition)(x => partitioner(x)) { (x, p) =>
+      f(x, p).toScala
+    })
 
   /**
    * Context-preserving variant of [[akka.stream.javadsl.Source.mapConcat]].
@@ -174,7 +211,7 @@ final class SourceWithContext[+Out, +Ctx, +Mat](delegate: scaladsl.SourceWithCon
    * @see [[akka.stream.javadsl.Source.mapConcat]]
    */
   def mapConcat[Out2](f: function.Function[Out, _ <: java.lang.Iterable[Out2]]): SourceWithContext[Out2, Ctx, Mat] =
-    viaScala(_.mapConcat(elem => Util.immutableSeq(f.apply(elem))))
+    viaScala(_.mapConcat(elem => f.apply(elem).asScala))
 
   /**
    * Apply the given function to each context element (leaving the data elements unchanged).

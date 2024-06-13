@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.metrics
 
 import java.lang.System.{ currentTimeMillis => newTimestamp }
 
+import scala.annotation.nowarn
 import scala.util.Failure
 
-import com.github.ghik.silencer.silent
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -17,7 +17,7 @@ import akka.cluster.metrics.StandardMetrics._
 import akka.testkit.AkkaSpec
 import akka.testkit.ImplicitSender
 
-@silent
+@nowarn
 class MetricNumericConverterSpec extends AnyWordSpec with Matchers with MetricNumericConverter {
 
   "MetricNumericConverter" must {
@@ -30,7 +30,7 @@ class MetricNumericConverterSpec extends AnyWordSpec with Matchers with MetricNu
     }
 
     "define a new metric" in {
-      val Some(metric) = Metric.create(HeapMemoryUsed, 256L, decayFactor = Some(0.18))
+      val metric = Metric.create(HeapMemoryUsed, 256L, decayFactor = Some(0.18)).get
       metric.name should ===(HeapMemoryUsed)
       metric.value should ===(256L)
       metric.isSmooth should ===(true)
@@ -56,7 +56,7 @@ class MetricNumericConverterSpec extends AnyWordSpec with Matchers with MetricNu
   }
 }
 
-@silent
+@nowarn
 class NodeMetricsSpec extends AnyWordSpec with Matchers {
 
   val node1 = Address("akka", "sys", "a", 2554)
@@ -238,7 +238,7 @@ class MetricsGossipSpec
   }
 }
 
-@silent
+@nowarn
 class MetricValuesSpec extends AkkaSpec(MetricsConfig.defaultEnabled) with MetricsCollectorFactory {
   import akka.cluster.metrics.StandardMetrics._
 
@@ -280,6 +280,8 @@ class MetricValuesSpec extends AkkaSpec(MetricsConfig.defaultEnabled) with Metri
             // we don't check the heap max value in this test.
             // extract is the java api
             StandardMetrics.extractHeapMemory(node) should not be null
+          case other =>
+            fail(other.toString)
         }
 
         node match {
@@ -297,6 +299,8 @@ class MetricValuesSpec extends AkkaSpec(MetricsConfig.defaultEnabled) with Metri
             }
             // extract is the java api
             StandardMetrics.extractCpu(node) should not be null
+          case other =>
+            fail(other.toString)
         }
       }
     }

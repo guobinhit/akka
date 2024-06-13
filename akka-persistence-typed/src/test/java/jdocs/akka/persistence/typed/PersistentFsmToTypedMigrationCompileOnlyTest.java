@@ -1,17 +1,16 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.akka.persistence.typed;
+
+import static jdocs.akka.persistence.typed.WebStoreCustomerFSM.*;
 
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.javadsl.TimerScheduler;
 import akka.persistence.typed.*;
 import akka.persistence.typed.javadsl.*;
-
 import java.time.Duration;
-
-import static jdocs.akka.persistence.typed.WebStoreCustomerFSM.*;
 
 @Deprecated
 public class PersistentFsmToTypedMigrationCompileOnlyTest {

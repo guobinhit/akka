@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl
@@ -233,7 +233,7 @@ import akka.util.unused
 
   protected def downstreamRunning: Actor.Receive = {
     case SubscribePending =>
-      subscribePending(exposedPublisher.takePendingSubscribers())
+      subscribePending(exposedPublisher.takePendingSubscribers().asInstanceOf[Seq[Subscriber[Any]]])
     case RequestMore(_, elements) =>
       if (elements < 1) {
         error(ReactiveStreamsCompliance.numberOfElementsInRequestMustBePositiveException)

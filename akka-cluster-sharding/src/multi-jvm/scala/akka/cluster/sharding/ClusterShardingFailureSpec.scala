@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
@@ -10,7 +10,7 @@ import akka.actor._
 import akka.cluster.sharding.ShardRegion.Passivate
 import akka.cluster.sharding.ShardRegion.StartEntity
 import akka.remote.testconductor.RoleName
-import akka.remote.transport.ThrottlerTransportAdapter.Direction
+import akka.remote.testkit.Direction
 import akka.serialization.jackson.CborSerializable
 import akka.testkit._
 import akka.util.ccompat._
@@ -46,6 +46,7 @@ object ClusterShardingFailureSpec {
     case Get(id)         => id.charAt(0).toString
     case Add(id, _)      => id.charAt(0).toString
     case StartEntity(id) => id
+    case _               => throw new IllegalArgumentException()
   }
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery.tcp.ssl
@@ -11,9 +11,17 @@ import java.security.PrivateKey
 import java.security.SecureRandom
 import java.security.cert.Certificate
 import java.security.cert.X509Certificate
+import javax.net.ssl.KeyManager
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLEngine
+import javax.net.ssl.SSLSession
+import javax.net.ssl.TrustManager
+
+import scala.concurrent.duration._
+
+import com.typesafe.config.Config
 
 import akka.actor.ActorSystem
-import akka.annotation.ApiMayChange
 import akka.annotation.InternalApi
 import akka.event.Logging
 import akka.event.MarkerLoggingAdapter
@@ -23,28 +31,15 @@ import akka.remote.artery.tcp.SslTransportException
 import akka.remote.artery.tcp.ssl.RotatingKeysSSLEngineProvider.CachedContext
 import akka.remote.artery.tcp.ssl.RotatingKeysSSLEngineProvider.ConfiguredContext
 import akka.stream.TLSRole
-import com.typesafe.config.Config
-import javax.net.ssl.KeyManager
-import javax.net.ssl.SSLContext
-import javax.net.ssl.SSLEngine
-import javax.net.ssl.SSLSession
-import javax.net.ssl.TrustManager
-
-import scala.concurrent.duration._
 
 /**
  * Variation on ConfigSSLEngineProvider that will periodically reload the keys and certificates
  * from disk, to facilitate rolling updates of certificates.
  *
- * This class is still ApiMayChange because it can likely be further harmonized with
- * the standard ConfigSSLEngineProvider. Also the location and default values of the
- * configuration may change in future versions of Akka.
- *
  * This provider does not perform hostname verification, but instead allows checking
  * that the remote certificate has a subject name that matches the subject name of
  * the configured certificate.
  */
-@ApiMayChange
 final class RotatingKeysSSLEngineProvider(val config: Config, protected val log: MarkerLoggingAdapter)
     extends SSLEngineProvider {
 

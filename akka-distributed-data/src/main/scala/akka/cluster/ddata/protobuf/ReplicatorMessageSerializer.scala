@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.ddata.protobuf
@@ -28,7 +28,7 @@ import akka.cluster.ddata.Replicator._
 import akka.cluster.ddata.Replicator.Internal._
 import akka.cluster.ddata.VersionVector
 import akka.cluster.ddata.protobuf.msg.{ ReplicatorMessages => dm }
-import akka.protobufv3.internal.ByteString
+import akka.remote.ByteStringUtils
 import akka.serialization.BaseSerializer
 import akka.serialization.Serialization
 import akka.serialization.SerializerWithStringManifest
@@ -266,8 +266,15 @@ class ReplicatorMessageSerializer(val system: ExtendedActorSystem)
     val b = dm.Status.newBuilder()
     b.setChunk(status.chunk).setTotChunks(status.totChunks)
     status.digests.foreach {
-      case (key, digest) =>
-        b.addEntries(dm.Status.Entry.newBuilder().setKey(key).setDigest(ByteString.copyFrom(digest.toArray)))
+      case (key, (digest, usedTimestamp)) =>
+        val entryBuilder =
+          dm.Status.Entry
+            .newBuilder()
+            .setKey(key)
+            .setDigest(ByteStringUtils.toProtoByteStringUnsafe(digest.toArrayUnsafe()))
+        if (usedTimestamp != 0L)
+          entryBuilder.setUsedTimestamp(usedTimestamp)
+        b.addEntries(entryBuilder)
     }
     status.toSystemUid.foreach(b.setToSystemUid) // can be None when sending back to a node of version 2.5.21
     b.setFromSystemUid(status.fromSystemUid.get)
@@ -279,7 +286,9 @@ class ReplicatorMessageSerializer(val system: ExtendedActorSystem)
     val toSystemUid = if (status.hasToSystemUid) Some(status.getToSystemUid) else None
     val fromSystemUid = if (status.hasFromSystemUid) Some(status.getFromSystemUid) else None
     Status(
-      status.getEntriesList.asScala.iterator.map(e => e.getKey -> AkkaByteString(e.getDigest.toByteArray())).toMap,
+      status.getEntriesList.asScala.iterator
+        .map(e => e.getKey -> (AkkaByteString.fromArrayUnsafe(e.getDigest.toByteArray()) -> e.getUsedTimestamp))
+        .toMap,
       status.getChunk,
       status.getTotChunks,
       toSystemUid,
@@ -289,8 +298,12 @@ class ReplicatorMessageSerializer(val system: ExtendedActorSystem)
   private def gossipToProto(gossip: Gossip): dm.Gossip = {
     val b = dm.Gossip.newBuilder().setSendBack(gossip.sendBack)
     gossip.updatedData.foreach {
-      case (key, data) =>
-        b.addEntries(dm.Gossip.Entry.newBuilder().setKey(key).setEnvelope(dataEnvelopeToProto(data)))
+      case (key, (data, usedTimestamp)) =>
+        val entryBuilder =
+          dm.Gossip.Entry.newBuilder().setKey(key).setEnvelope(dataEnvelopeToProto(data))
+        if (usedTimestamp != 0L)
+          entryBuilder.setUsedTimestamp(usedTimestamp)
+        b.addEntries(entryBuilder)
     }
     gossip.toSystemUid.foreach(b.setToSystemUid) // can be None when sending back to a node of version 2.5.21
     b.setFromSystemUid(gossip.fromSystemUid.get)
@@ -302,7 +315,9 @@ class ReplicatorMessageSerializer(val system: ExtendedActorSystem)
     val toSystemUid = if (gossip.hasToSystemUid) Some(gossip.getToSystemUid) else None
     val fromSystemUid = if (gossip.hasFromSystemUid) Some(gossip.getFromSystemUid) else None
     Gossip(
-      gossip.getEntriesList.asScala.iterator.map(e => e.getKey -> dataEnvelopeFromProto(e.getEnvelope)).toMap,
+      gossip.getEntriesList.asScala.iterator
+        .map(e => e.getKey -> (dataEnvelopeFromProto(e.getEnvelope) -> e.getUsedTimestamp))
+        .toMap,
       sendBack = gossip.getSendBack,
       toSystemUid,
       fromSystemUid)

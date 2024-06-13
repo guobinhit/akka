@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor
@@ -7,11 +7,11 @@ package akka.actor
 import java.util.concurrent.{ ConcurrentLinkedQueue, RejectedExecutionException }
 import java.util.concurrent.atomic.AtomicInteger
 
+import scala.annotation.nowarn
 import scala.concurrent.{ Await, Future }
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-import com.github.ghik.silencer.silent
 import com.typesafe.config.{ Config, ConfigFactory }
 
 import akka.actor.setup.ActorSystemSetup
@@ -21,6 +21,8 @@ import akka.pattern.ask
 import akka.testkit.{ TestKit, _ }
 import akka.util.{ Switch, Timeout }
 import akka.util.Helpers.ConfigOps
+
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
 object ActorSystemSpec {
 
@@ -64,7 +66,7 @@ object ActorSystemSpec {
     }
   }
 
-  @silent
+  @nowarn
   final case class FastActor(latch: TestLatch, testActor: ActorRef) extends Actor {
     val ref1 = context.actorOf(Props.empty)
     context.actorSelection(ref1.path.toString).tell(Identify(ref1), testActor)
@@ -79,11 +81,11 @@ object ActorSystemSpec {
       extends MessageDispatcherConfigurator(_config, _prerequisites) {
     private val instance = new Dispatcher(
       this,
-      config.getString("id"),
-      config.getInt("throughput"),
-      config.getNanosDuration("throughput-deadline-time"),
+      this.config.getString("id"),
+      this.config.getInt("throughput"),
+      this.config.getNanosDuration("throughput-deadline-time"),
       configureExecutor(),
-      config.getMillisDuration("shutdown-timeout")) {
+      this.config.getMillisDuration("shutdown-timeout")) {
       val doneIt = new Switch
       override protected[akka] def registerForExecution(
           mbox: Mailbox,
@@ -94,6 +96,7 @@ object ActorSystemSpec {
           TestKit.awaitCond(mbox.actor.actor != null, 1.second)
           mbox.actor.actor match {
             case FastActor(latch, _) => Await.ready(latch, 1.second)
+            case _                   => throw new IllegalStateException()
           }
         }
         ret
@@ -113,17 +116,18 @@ object ActorSystemSpec {
 
 }
 
-@silent
-class ActorSystemSpec extends AkkaSpec(ActorSystemSpec.config) with ImplicitSender {
+@nowarn
+class ActorSystemSpec extends AkkaSpec(ActorSystemSpec.config) with ImplicitSender with ScalaCheckPropertyChecks {
 
   import ActorSystemSpec.FastActor
 
   "An ActorSystem" must {
 
-    "reject invalid names" in {
+    "reject common invalid names" in {
       for (n <- Seq(
              "-hallowelt",
              "_hallowelt",
+             "hallo welt",
              "hallo*welt",
              "hallo@welt",
              "hallo#welt",
@@ -131,6 +135,14 @@ class ActorSystemSpec extends AkkaSpec(ActorSystemSpec.config) with ImplicitSend
              "hallo%welt",
              "hallo/welt")) intercept[IllegalArgumentException] {
         ActorSystem(n)
+      }
+    }
+
+    "reject all invalid names" in {
+      forAll { (name: String) =>
+        whenever(!name.matches("""^[a-zA-Z0-9][a-zA-Z0-9-_]*$""")) {
+          an[IllegalArgumentException] should be thrownBy ActorSystem(name)
+        }
       }
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.akka.persistence.typed
@@ -47,7 +47,7 @@ object ReplicatedAuctionExampleSpec {
     final case class OfferBid(bidder: String, offer: MoneyAmount) extends Command
     final case class GetHighestBid(replyTo: ActorRef[Bid]) extends Command
     final case class IsClosed(replyTo: ActorRef[Boolean]) extends Command
-    private final case object Close extends Command // Internal, should not be sent from the outside
+    private case object Close extends Command // Internal, should not be sent from the outside
     //#commands
 
     //#events
@@ -199,7 +199,6 @@ object ReplicatedAuctionExampleSpec {
             case Close =>
               context.log.info("Close")
               require(shouldClose(state))
-              // TODO send email (before or after persisting)
               Effect.persist(WinnerDecided(replicationContext.replicaId, state.highestBid, state.highestCounterOffer))
             case _: OfferBid =>
               // auction finished, no more bids accepted

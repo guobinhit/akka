@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote
@@ -52,7 +52,7 @@ private[akka] object MessageSerializer {
       if (oldInfo eq null)
         Serialization.currentTransportInformation.value = system.provider.serializationInformation
 
-      builder.setMessage(ByteString.copyFrom(serializer.toBinary(message)))
+      builder.setMessage(ByteStringUtils.toProtoByteStringUnsafe(serializer.toBinary(message)))
       builder.setSerializerId(serializer.identifier)
 
       val ms = Serializers.manifestFor(serializer, message)

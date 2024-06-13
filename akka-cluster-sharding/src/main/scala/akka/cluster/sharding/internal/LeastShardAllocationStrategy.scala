@@ -1,16 +1,17 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding.internal
 
 import scala.collection.immutable
 import scala.concurrent.Future
+
 import akka.actor.ActorRef
 import akka.annotation.InternalApi
 import akka.cluster.sharding.ShardRegion.ShardId
-import akka.cluster.sharding.internal.AbstractLeastShardAllocationStrategy.RegionEntry
-import akka.cluster.sharding.internal.AbstractLeastShardAllocationStrategy.ShardSuitabilityOrdering
+import akka.cluster.sharding.internal.ClusterShardAllocationMixin.RegionEntry
+import akka.cluster.sharding.internal.ClusterShardAllocationMixin.ShardSuitabilityOrdering
 
 /**
  * INTERNAL API

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 import sbt._
@@ -74,7 +74,7 @@ object StreamOperatorsIndexGenerator extends AutoPlugin {
 
   // FIXME document these methods as well
   val pendingTestCases = Map(
-    "Source" -> (pendingSourceOrFlow ++ Seq("preMaterialize")),
+    "Source" -> (pendingSourceOrFlow),
     "Flow" -> (pendingSourceOrFlow ++ Seq(
       "lazyInit",
       "fromProcessorMat",
@@ -157,7 +157,9 @@ object StreamOperatorsIndexGenerator extends AutoPlugin {
         "akka-stream-typed/src/main/scala/akka/stream/typed/javadsl/ActorFlow.scala",
         "akka-stream-typed/src/main/scala/akka/stream/typed/scaladsl/ActorFlow.scala",
         "akka-stream-typed/src/main/scala/akka/stream/typed/scaladsl/ActorSink.scala",
-        "akka-stream-typed/src/main/scala/akka/stream/typed/javadsl/ActorSink.scala").flatMap { f =>
+        "akka-stream-typed/src/main/scala/akka/stream/typed/javadsl/ActorSink.scala",
+        "akka-stream-typed/src/main/scala/akka/stream/typed/scaladsl/PubSub.scala",
+        "akka-stream-typed/src/main/scala/akka/stream/typed/javadsl/PubSub.scala").flatMap { f =>
         val slashesNr = f.count(_ == '/')
         val element = f.split("/")(slashesNr).split("\\.")(0)
         IO.read(new File(f))
@@ -246,9 +248,15 @@ object StreamOperatorsIndexGenerator extends AutoPlugin {
         s"There must be at least 5 lines in $file, including the title, description, category link and an empty line between each two of them")
       // This forces the short description to be on a single line. We could make this smarter,
       // but 'forcing' the short description to be really short seems nice as well.
-      val description = lines(2)
-        .replaceAll("ref:?\\[(.*?)\\]\\(", "ref[$1](" + file.getAbsolutePath.replaceFirst(".*/([^/]+/).*", "$1"))
-      require(!description.isEmpty, s"description in $file must be non-empty, single-line description at the 3rd line")
+      val separator = java.io.File.separatorChar
+      val path =
+        if (separator != '/')
+          file.getAbsolutePath.replace(separator, '/')
+        else
+          file.getAbsolutePath
+      val description =
+        lines(2).replaceAll("ref:?\\[(.*?)\\]\\(", "ref[$1](" + path.replaceFirst(".*/([^/]+/).*", "$1"))
+      require(description.nonEmpty, s"description in $file must be non-empty, single-line description at the 3rd line")
       val categoryLink = lines(4)
       require(
         categoryLink.startsWith("@ref"),

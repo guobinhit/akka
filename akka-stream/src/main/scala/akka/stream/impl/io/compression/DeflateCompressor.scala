@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl.io.compression
@@ -19,12 +19,12 @@ import akka.util.{ ByteString, ByteStringBuilder }
   protected lazy val deflater = new Deflater(level, nowrap)
 
   override final def compressAndFlush(input: ByteString): ByteString = {
-    val buffer = newTempBuffer(input.size)
+    val buffer = newTempBuffer(input.length)
 
     compressWithBuffer(input, buffer) ++ flushWithBuffer(buffer)
   }
   override final def compressAndFinish(input: ByteString): ByteString = {
-    val buffer = newTempBuffer(input.size)
+    val buffer = newTempBuffer(input.length)
 
     compressWithBuffer(input, buffer) ++ finishWithBuffer(buffer)
   }
@@ -34,7 +34,7 @@ import akka.util.{ ByteString, ByteStringBuilder }
 
   protected def compressWithBuffer(input: ByteString, buffer: Array[Byte]): ByteString = {
     require(deflater.needsInput())
-    deflater.setInput(input.toArray)
+    deflater.setInput(input.toArrayUnsafe())
     drainDeflater(deflater, buffer)
   }
   protected def flushWithBuffer(buffer: Array[Byte]): ByteString = {

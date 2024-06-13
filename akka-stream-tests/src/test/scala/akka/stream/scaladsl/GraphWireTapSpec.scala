@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
 import akka.stream.testkit._
-import akka.stream.testkit.scaladsl.StreamTestKit._
 import akka.stream.testkit.scaladsl.TestSink
 
 class GraphWireTapSpec extends StreamSpec("""
@@ -14,8 +13,8 @@ class GraphWireTapSpec extends StreamSpec("""
 
   "A wire tap" must {
 
-    "wireTap must broadcast to the tap" in assertAllStagesStopped {
-      val tp, mp = TestSink.probe[Int](system)
+    "wireTap must broadcast to the tap" in {
+      val tp, mp = TestSink[Int]()(system)
       val (tps, mps) = Source(1 to 2).wireTapMat(tp)(Keep.right).toMat(mp)(Keep.both).run()
       tps.request(2)
       mps.requestNext(1)
@@ -25,8 +24,8 @@ class GraphWireTapSpec extends StreamSpec("""
       tps.expectComplete()
     }
 
-    "wireTap must drop elements while the tap has no demand, buffering up to one element" in assertAllStagesStopped {
-      val tp, mp = TestSink.probe[Int](system)
+    "wireTap must drop elements while the tap has no demand, buffering up to one element" in {
+      val tp, mp = TestSink[Int]()(system)
       val (tps, mps) = Source(1 to 6).wireTapMat(tp)(Keep.right).toMat(mp)(Keep.both).run()
       mps.request(3)
       mps.expectNext(1, 2, 3)
@@ -39,16 +38,16 @@ class GraphWireTapSpec extends StreamSpec("""
       tps.expectComplete()
     }
 
-    "wireTap must cancel if main sink cancels" in assertAllStagesStopped {
-      val tp, mp = TestSink.probe[Int](system)
+    "wireTap must cancel if main sink cancels" in {
+      val tp, mp = TestSink[Int]()(system)
       val (tps, mps) = Source(1 to 6).wireTapMat(tp)(Keep.right).toMat(mp)(Keep.both).run()
       tps.request(6)
       mps.cancel()
       tps.expectComplete()
     }
 
-    "wireTap must continue if tap sink cancels" in assertAllStagesStopped {
-      val tp, mp = TestSink.probe[Int](system)
+    "wireTap must continue if tap sink cancels" in {
+      val tp, mp = TestSink[Int]()(system)
       val (tps, mps) = Source(1 to 6).wireTapMat(tp)(Keep.right).toMat(mp)(Keep.both).run()
       tps.cancel()
       mps.request(6)

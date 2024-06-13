@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
@@ -7,6 +7,7 @@ package akka.cluster
 import java.util.concurrent.atomic.AtomicBoolean
 
 import scala.concurrent.duration._
+import scala.util.control.NonFatal
 
 import com.typesafe.config.ConfigFactory
 import org.scalatest.matchers.should.Matchers
@@ -47,10 +48,6 @@ class DowningProviderSpec extends AnyWordSpec with Matchers {
             hostname = 127.0.0.1
             port = 0
           }
-          classic.netty.tcp {
-            hostname = "127.0.0.1"
-            port = 0
-          }
         }
       }
     """).withFallback(ConfigFactory.load())
@@ -76,17 +73,29 @@ class DowningProviderSpec extends AnyWordSpec with Matchers {
     }
 
     "stop the cluster if the downing provider throws exception in props method" in {
-      val system = ActorSystem(
-        "auto-downing",
-        ConfigFactory.parseString("""
+      // race condition where the downing provider failure can be detected and trigger
+      // graceful shutdown fast enough that creating the actor system throws on constructing
+      // thread (or slow enough that we have time to try join the cluster before noticing)
+      val maybeSystem = try {
+        Some(
+          ActorSystem(
+            "auto-downing",
+            ConfigFactory.parseString("""
           akka.cluster.downing-provider-class="akka.cluster.FailingDowningProvider"
-        """).withFallback(baseConf))
+        """).withFallback(baseConf)))
+      } catch {
+        case NonFatal(_) =>
+          // expected to sometimes happen
+          None
+      }
 
-      val cluster = Cluster(system)
-      cluster.join(cluster.selfAddress)
+      maybeSystem.foreach { system =>
+        val cluster = Cluster(system)
+        cluster.join(cluster.selfAddress)
 
-      awaitCond(cluster.isTerminated, 3.seconds)
-      shutdownActorSystem(system)
+        awaitCond(cluster.isTerminated, 3.seconds)
+        shutdownActorSystem(system)
+      }
     }
 
   }

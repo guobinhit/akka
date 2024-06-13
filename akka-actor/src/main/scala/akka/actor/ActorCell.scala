@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor
@@ -8,12 +8,11 @@ import java.io.{ NotSerializableException, ObjectOutputStream }
 import java.util.concurrent.ThreadLocalRandom
 
 import scala.annotation.{ switch, tailrec }
+import scala.annotation.nowarn
 import scala.collection.immutable
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.Duration
 import scala.util.control.NonFatal
-
-import com.github.ghik.silencer.silent
 
 import akka.actor.dungeon.ChildrenContainer
 import akka.annotation.{ InternalApi, InternalStableApi }
@@ -322,6 +321,7 @@ private[akka] trait Cell {
    * schedule the actor to run, depending on which type of cell it is.
    * Is only allowed to throw Fatal Throwables.
    */
+  @InternalStableApi
   final def sendMessage(message: Any, sender: ActorRef): Unit =
     sendMessage(Envelope(message, sender, system))
 
@@ -357,10 +357,9 @@ private[akka] trait Cell {
 }
 
 /**
- * Everything in here is completely Akka PRIVATE. You will not find any
- * supported APIs in this place. This is not the API you were looking
- * for! (waves hand)
+ * INTERNAL API
  */
+@InternalApi
 private[akka] object ActorCell {
   val contextStack = new ThreadLocal[List[ActorContext]] {
     override def initialValue: List[ActorContext] = Nil
@@ -402,11 +401,10 @@ private[akka] object ActorCell {
 //vars don't need volatile since it's protected with the mailbox status
 //Make sure that they are not read/written outside of a message processing (systemInvoke/invoke)
 /**
- * Everything in here is completely Akka PRIVATE. You will not find any
- * supported APIs in this place. This is not the API you were looking
- * for! (waves hand)
+ * INTERNAL API
  */
-@silent("deprecated")
+@InternalApi
+@nowarn("msg=deprecated")
 private[akka] class ActorCell(
     val system: ActorSystemImpl,
     val self: InternalActorRef,
@@ -565,6 +563,8 @@ private[akka] class ActorCell(
       case PoisonPill                 => self.stop()
       case sel: ActorSelectionMessage => receiveSelection(sel)
       case Identify(messageId)        => sender() ! ActorIdentity(messageId, Some(self))
+      case unexpected =>
+        throw new RuntimeException(s"Unexpected message for autoreceive: $unexpected") // for exhaustiveness check, will not happen
     }
   }
 
@@ -658,9 +658,22 @@ private[akka] class ActorCell(
                or is missing an appropriate, reachable no-args constructor.
               """,
               i.getCause)
-          case x => throw ActorInitializationException(self, "exception during creation", x)
+          case x =>
+            val rootCauseMessage = Option(rootCauseOf(x).getMessage).getOrElse("No message available")
+            throw ActorInitializationException(
+              self,
+              s"exception during creation, root cause message: [$rootCauseMessage]",
+              x)
         }
     }
+  }
+
+  @tailrec
+  private def rootCauseOf(throwable: Throwable): Throwable = {
+    if (throwable.getCause != null && throwable.getCause != throwable)
+      rootCauseOf(throwable.getCause)
+    else
+      throwable
   }
 
   private def supervise(child: ActorRef, async: Boolean): Unit =
@@ -687,7 +700,7 @@ private[akka] class ActorCell(
   }
 
   @InternalStableApi
-  @silent("never used")
+  @nowarn("msg=never used")
   final protected def clearActorFields(actorInstance: Actor, recreate: Boolean): Unit = {
     currentMessage = null
     behaviorStack = emptyBehaviorStack

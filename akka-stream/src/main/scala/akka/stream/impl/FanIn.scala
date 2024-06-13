@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl
@@ -78,7 +78,7 @@ import akka.util.unused
     private[this] final def completed(index: Int): Boolean = hasState(index, Completed)
     private[this] final def registerCompleted(index: Int): Unit = {
       completedCounter += 1
-      setState(index, Completed, true)
+      setState(index, Completed, on = true)
     }
 
     private[this] final def depleted(index: Int): Boolean = hasState(index, Depleted)
@@ -235,13 +235,13 @@ import akka.util.unused
     // FIXME: Eliminate re-wraps
     def subreceive: SubReceive =
       new SubReceive({
-        case OnSubscribe(id, subscription) =>
-          inputs(id).subreceive(ActorSubscriberMessage.OnSubscribe(subscription))
         case OnNext(id, elem) =>
           if (marked(id) && !pending(id)) markedPending += 1
           pending(id, on = true)
           receivedInput = true
           inputs(id).subreceive(ActorSubscriberMessage.OnNext(elem))
+        case OnSubscribe(id, subscription) =>
+          inputs(id).subreceive(ActorSubscriberMessage.OnSubscribe(subscription))
         case OnComplete(id) =>
           if (!pending(id)) {
             if (marked(id) && !depleted(id)) markedDepleted += 1

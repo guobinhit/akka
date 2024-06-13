@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -67,7 +67,7 @@ private[remote] case object Flush extends ControlMessage
  * INTERNAL API
  */
 @InternalApi
-private[remote] case object FlushAck extends ArteryMessage
+private[remote] final case class FlushAck(expectedAcks: Int) extends ArteryMessage
 
 /**
  * INTERNAL API

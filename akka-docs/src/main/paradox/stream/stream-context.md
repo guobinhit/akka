@@ -27,8 +27,8 @@ would have no way to determine whether an element was skipped
 or merely reordered and still in flight.
 
 For this reason, @apidoc[FlowWithContext] allows filtering operations
-(such as `filter`, `filterNot`, `collect`, etc) and grouping operations
-(such as `grouped`, `sliding`, etc) but not reordering operations
+(such as `filter`, `filterNot`, `collect`, etc.) and grouping operations
+(such as `grouped`, `sliding`, etc.) but not reordering operations
 (such as `mapAsyncUnordered` and `statefulMapConcat`). Finally,
 also 'one-to-n' operations such as `mapConcat` are allowed.
 
@@ -62,7 +62,11 @@ produces elements of type `Bar` with contexts of type `Ctx`. The
 reason for this is that `flow` might reorder the elements flowing
 through it, making `via` challenging to implement.
 
-There is a @ref[Flow.asFlowWithContext](operators/Flow/asFlowWithContext.md)
+Due to this there is a `unsafeDataVia` that can be used instead however no
+protection is offered to prevent reordering or dropping/duplicating elements
+from stream so use this operation with great care.
+
+There is also a @ref[Flow.asFlowWithContext](operators/Flow/asFlowWithContext.md)
 which can be used when the types used in the inner
 @apidoc[Flow] have room to hold the context. If this is not the
 case, a better solution is usually to build the flow from the ground

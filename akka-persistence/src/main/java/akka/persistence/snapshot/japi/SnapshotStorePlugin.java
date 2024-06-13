@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.snapshot.japi;
@@ -7,9 +7,8 @@ package akka.persistence.snapshot.japi;
 import akka.persistence.SelectedSnapshot;
 import akka.persistence.SnapshotMetadata;
 import akka.persistence.SnapshotSelectionCriteria;
-import scala.concurrent.Future;
-
 import java.util.Optional;
+import scala.concurrent.Future;
 
 interface SnapshotStorePlugin {
   // #snapshot-store-plugin-api

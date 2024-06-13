@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -12,13 +12,13 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
+import scala.annotation.nowarn
 import scala.annotation.tailrec
 import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 
-import com.github.ghik.silencer.silent
 import org.agrona.concurrent.ManyToOneConcurrentArrayQueue
 
 import akka.Done
@@ -40,6 +40,7 @@ import akka.remote.RemoteLogMarker
 import akka.remote.UniqueAddress
 import akka.remote.artery.ArteryTransport.AeronTerminated
 import akka.remote.artery.ArteryTransport.ShuttingDown
+import akka.remote.artery.Association.UidCollisionException
 import akka.remote.artery.Encoder.OutboundCompressionAccess
 import akka.remote.artery.InboundControlJunction.ControlMessageSubject
 import akka.remote.artery.OutboundControlJunction.OutboundControlIngress
@@ -122,6 +123,8 @@ private[remote] object Association {
       streamKillSwitch: OptionVal[SharedKillSwitch],
       completed: Future[Done],
       stopping: OptionVal[StopSignal])
+
+  final class UidCollisionException(message: String) extends IllegalArgumentException(message) with NoStackTrace
 }
 
 /**
@@ -146,7 +149,7 @@ private[remote] class Association(
 
   require(remoteAddress.port.nonEmpty)
 
-  private val log = Logging.withMarker(transport.system, getClass)
+  private val log = Logging.withMarker(transport.system, classOf[Association])
   private def flightRecorder = transport.flightRecorder
 
   override def settings = transport.settings
@@ -226,7 +229,7 @@ private[remote] class Association(
   def outboundControlIngress: OutboundControlIngress = {
     _outboundControlIngress match {
       case OptionVal.Some(o) => o
-      case OptionVal.None =>
+      case _ =>
         controlQueue match {
           case w: LazyQueueWrapper => w.runMaterialize()
           case _                   =>
@@ -236,7 +239,7 @@ private[remote] class Association(
         materializing.await(10, TimeUnit.SECONDS)
         _outboundControlIngress match {
           case OptionVal.Some(o) => o
-          case OptionVal.None =>
+          case _ =>
             if (transport.isShutdown || isRemovedAfterQuarantined()) throw ShuttingDown
             else throw new IllegalStateException(s"outboundControlIngress for [$remoteAddress] not initialized yet")
         }
@@ -249,8 +252,8 @@ private[remote] class Association(
    * Holds reference to shared state of Association - *access only via helper methods*
    */
   @volatile
-  @silent("never used")
-  private[this] var _sharedStateDoNotCallMeDirectly: AssociationState = AssociationState()
+  @nowarn("msg=never used")
+  private[artery] var _sharedStateDoNotCallMeDirectly: AssociationState = AssociationState()
 
   /**
    * Helper method for access to underlying state via Unsafe
@@ -338,14 +341,14 @@ private[remote] class Association(
       outboundEnvelopePool.acquire().init(recipient, message.asInstanceOf[AnyRef], sender)
 
     // volatile read to see latest queue array
-    @silent("never used")
+    @nowarn("msg=never used")
     val unused = queuesVisibility
 
     def dropped(queueIndex: Int, qSize: Int, env: OutboundEnvelope): Unit = {
       val removed = isRemovedAfterQuarantined()
       if (removed) recipient match {
         case OptionVal.Some(ref) => ref.cachedAssociation = null // don't use this Association instance any more
-        case OptionVal.None      =>
+        case _                   =>
       }
       val reason =
         if (removed) "Due to removed unused quarantined association"
@@ -472,7 +475,7 @@ private[remote] class Association(
           case idx => idx
         }
 
-      case OptionVal.None =>
+      case _ =>
         OrdinaryQueueIndex
     }
   }
@@ -528,13 +531,13 @@ private[remote] class Association(
         current.uniqueRemoteAddress() match {
           case Some(peer) if peer.uid == u =>
             if (!current.isQuarantined(u)) {
-              val newState = current.newQuarantined()
+              val newState = current.newQuarantined(harmless)
               if (swapState(current, newState)) {
                 // quarantine state change was performed
                 if (harmless) {
                   log.info(
-                    "Association to [{}] having UID [{}] has been stopped. All " +
-                    "messages to this UID will be delivered to dead letters. Reason: {}",
+                    "Association to [{}] having UID [{}] has been stopped. Harmless quarantine. " +
+                    "All messages to this UID will be delivered to dead letters. Reason: {}",
                     remoteAddress,
                     u,
                     reason)
@@ -558,6 +561,7 @@ private[remote] class Association(
                 send(ClearSystemMessageDelivery(current.incarnation), OptionVal.None, OptionVal.None)
                 if (!harmless) {
                   // try to tell the other system that we have quarantined it
+                  log.info("Sending Quarantined to [{}]", peer)
                   sendControl(Quarantined(localAddress, peer))
                 }
                 setupStopQuarantinedTimer()
@@ -642,7 +646,7 @@ private[remote] class Association(
             setStopReason(queueIndex, OutboundStreamStopQuarantinedSignal)
             clearStreamKillSwitch(queueIndex, k)
             k.abort(OutboundStreamStopQuarantinedSignal)
-          case OptionVal.None => // already aborted
+          case _ => // already aborted
         }
     }
   }
@@ -688,7 +692,7 @@ private[remote] class Association(
                         setStopReason(queueIndex, OutboundStreamStopIdleSignal)
                         clearStreamKillSwitch(queueIndex, k)
                         k.abort(OutboundStreamStopIdleSignal)
-                      case OptionVal.None => // already aborted
+                      case _ => // already aborted
                     }
 
                   } else {
@@ -700,7 +704,7 @@ private[remote] class Association(
                         flightRecorder.transportStopIdleOutbound(remoteAddress, queueIndex)
                         setControlIdleKillSwitch(OptionVal.None)
                         killSwitch.abort(OutboundStreamStopIdleSignal)
-                      case OptionVal.None => // already stopped
+                      case _ => // already stopped
                     }
                   }
                 }
@@ -791,7 +795,7 @@ private[remote] class Association(
   }
 
   private def getOrCreateQueueWrapper(queueIndex: Int, capacity: Int): QueueWrapper = {
-    @silent("never used")
+    @nowarn("msg=never used")
     val unused = queuesVisibility // volatile read to see latest queues array
     queues(queueIndex) match {
       case existing: QueueWrapper => existing
@@ -958,9 +962,14 @@ private[remote] class Association(
 
     implicit val ec = materializer.executionContext
     streamCompleted.foreach { _ =>
-      // shutdown as expected
-      // countDown the latch in case threads are waiting on the latch in outboundControlIngress method
-      materializing.countDown()
+      if (transport.isShutdown || isRemovedAfterQuarantined()) {
+        // shutdown as expected
+        // countDown the latch in case threads are waiting on the latch in outboundControlIngress method
+        materializing.countDown()
+      } else {
+        log.debug("{} to [{}] was completed. It will be restarted if used again.", streamName, remoteAddress)
+        lazyRestart()
+      }
     }
     streamCompleted.failed.foreach {
       case ArteryTransport.ShutdownSignal =>
@@ -972,7 +981,12 @@ private[remote] class Association(
         // don't restart after shutdown, but log some details so we notice
         // for the TCP transport the ShutdownSignal is "converted" to StreamTcpException
         if (!cause.isInstanceOf[StreamTcpException])
-          log.error(cause, s"{} to [{}] failed after shutdown. {}", streamName, remoteAddress, cause.getMessage)
+          log.warning(
+            s"{} to [{}] failed after shutdown. {}: {}",
+            streamName,
+            remoteAddress,
+            cause.getClass.getName,
+            cause.getMessage)
         cancelAllTimers()
         // countDown the latch in case threads are waiting on the latch in outboundControlIngress method
         materializing.countDown()
@@ -1029,7 +1043,7 @@ private[remote] class Association(
         } else {
           log.error(
             cause,
-            s"{} to [{}] failed and restarted {} times within {} seconds. Terminating system. ${cause.getMessage}",
+            s"{} to [{}] failed and restarted {} times within {} seconds. Terminating system. ${cause.getMessage}",
             streamName,
             remoteAddress,
             advancedSettings.OutboundMaxRestarts,
@@ -1149,7 +1163,7 @@ private[remote] class AssociationRegistry(createAssociation: Address => Associat
           a
         else
           // make sure we don't overwrite same UID with different association
-          throw new IllegalArgumentException(s"UID collision old [$previous] new [$a]")
+          throw new UidCollisionException(s"UID collision old [$previous] new [$a]")
       case _ =>
         // update associationsByUid Map with the uid -> association
         val newMap = currentMap.updated(peer.uid, a)

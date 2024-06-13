@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.event
@@ -155,7 +155,7 @@ class LoggerSpec extends AnyWordSpec with Matchers {
         system.log.error("Danger! Danger!")
         // since logging is asynchronous ensure that it propagates
         if (shouldLog) {
-          probe.fishForMessage(0.5.seconds.dilated) {
+          probe.fishForMessage() {
             case "Danger! Danger!" => true
             case _                 => false
           }

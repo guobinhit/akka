@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.pattern
@@ -140,6 +140,36 @@ class RetrySpec extends AkkaSpec with RetrySupport {
       within(3 seconds) {
         Await.result(retried, remaining) should ===(5)
       }
+    }
+  }
+
+  "support short-circuiting failures that are not amenable to retries" in {
+    @volatile var failCount = 0
+
+    def retriable(cause: Throwable): Boolean =
+      cause match {
+        case _: IllegalArgumentException => false
+        case _                           => true
+      }
+
+    def attempt() =
+      failCount match {
+        case _ if (failCount % 3) < 2 =>
+          failCount += 1
+          Future.failed(new NoSuchElementException(failCount.toString))
+
+        case _ =>
+          failCount += 1
+          Future.failed(new IllegalArgumentException(failCount.toString))
+      }
+
+    val retried = retry(() => attempt(), retriable(_), 10)
+
+    within(3 seconds) {
+      Await.ready(retried, remaining)
+      failCount shouldBe 3
+      retried.value.get shouldBe a[scala.util.Failure[_]]
+      retried.failed.value.get.get shouldBe an[IllegalArgumentException]
     }
   }
 

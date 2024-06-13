@@ -1,20 +1,24 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
 
 import java.io.Closeable
+import java.util.concurrent.CompletionStage
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.atomic.AtomicBoolean
 
+import scala.annotation.nowarn
 import scala.annotation.varargs
 import scala.collection.immutable
 import scala.concurrent.{ Await, ExecutionContext }
+import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.util.Failure
+import scala.util.Success
 import scala.util.control.NonFatal
 
-import com.github.ghik.silencer.silent
 import com.typesafe.config.{ Config, ConfigFactory }
 
 import akka.ConfigurationException
@@ -29,6 +33,7 @@ import akka.event.MarkerLoggingAdapter
 import akka.japi.Util
 import akka.pattern._
 import akka.remote.{ UniqueAddress => _, _ }
+import akka.util.Version
 
 /**
  * Cluster Extension Id and factory for creating Cluster extension.
@@ -78,7 +83,7 @@ class Cluster(val system: ExtendedActorSystem) extends Extension {
    */
   val selfUniqueAddress: UniqueAddress = system.provider match {
     case c: ClusterActorRefProvider =>
-      UniqueAddress(c.transport.defaultAddress, AddressUidExtension(system).longAddressUid)
+      UniqueAddress(c.transport.defaultAddress, system.uid)
     case other =>
       throw new ConfigurationException(
         s"ActorSystem [${system}] needs to have 'akka.actor.provider' set to 'cluster' in the configuration, currently uses [${other.getClass.getName}]")
@@ -100,7 +105,7 @@ class Cluster(val system: ExtendedActorSystem) extends Extension {
   /**
    * Java API: roles that this member has
    */
-  @silent("deprecated")
+  @nowarn("msg=deprecated")
   def getSelfRoles: java.util.Set[String] =
     scala.collection.JavaConverters.setAsJavaSetConverter(selfRoles).asJava
 
@@ -140,7 +145,7 @@ class Cluster(val system: ExtendedActorSystem) extends Extension {
           "auto-down-unreachable-after") != "off"))
       logWarning(
         "auto-down has been removed in Akka 2.6.0. See " +
-        "https://doc.akka.io/docs/akka/2.6/typed/cluster.html#downing for alternatives.")
+        "https://doc.akka.io/docs/akka/current/typed/cluster.html#downing for alternatives.")
   }
 
   // ========================================================
@@ -179,7 +184,7 @@ class Cluster(val system: ExtendedActorSystem) extends Extension {
 
         override def maxFrequency: Double = systemScheduler.maxFrequency
 
-        @silent("deprecated")
+        @nowarn("msg=deprecated")
         override def schedule(initialDelay: FiniteDuration, interval: FiniteDuration, runnable: Runnable)(
             implicit executor: ExecutionContext): Cancellable =
           systemScheduler.schedule(initialDelay, interval, runnable)
@@ -194,7 +199,7 @@ class Cluster(val system: ExtendedActorSystem) extends Extension {
   // create supervisor for daemons under path "/system/cluster"
   private val clusterDaemons: ActorRef = {
     system.systemActorOf(
-      Props(classOf[ClusterDaemon], joinConfigCompatChecker).withDispatcher(UseDispatcher).withDeploy(Deploy.local),
+      Props(new ClusterDaemon(joinConfigCompatChecker)).withDispatcher(UseDispatcher).withDeploy(Deploy.local),
       name = "cluster")
   }
 
@@ -320,6 +325,13 @@ class Cluster(val system: ExtendedActorSystem) extends Extension {
     clusterCore ! ClusterUserAction.JoinTo(fillLocal(address))
   }
 
+  /**
+   * Change the state of every member in preparation for a full cluster shutdown.
+   */
+  def prepareForFullClusterShutdown(): Unit = {
+    clusterCore ! ClusterUserAction.PrepareForShutdown
+  }
+
   private def fillLocal(address: Address): Address = {
     // local address might be used if grabbed from actorRef.path.address
     if (address.hasLocalScope && address.system == selfAddress.system) selfAddress
@@ -351,6 +363,37 @@ class Cluster(val system: ExtendedActorSystem) extends Extension {
    */
   def joinSeedNodes(seedNodes: java.util.List[Address]): Unit =
     joinSeedNodes(Util.immutableSeq(seedNodes))
+
+  /**
+   * Scala API: If the `appVersion` is read from an external system (e.g. Kubernetes) it can be defined after
+   * system startup but before joining by completing the `appVersion` `Future`. In that case, `setAppVersionLater`
+   * should be called before calling `join` or `joinSeedNodes`. It's fine to call `join` or `joinSeedNodes`
+   * immediately afterwards (before the `Future` is completed. The join will then wait for the `appVersion`
+   * to be completed.
+   */
+  def setAppVersionLater(appVersion: Future[Version]): Unit = {
+    clusterCore ! ClusterUserAction.SetAppVersionLater
+    import system.dispatcher
+    appVersion.onComplete {
+      case Success(version) =>
+        clusterCore ! ClusterUserAction.SetAppVersion(version)
+      case Failure(exc) =>
+        logWarning("Later appVersion failed. Fallback to configured appVersion [{}]. {}", settings.AppVersion, exc)
+        clusterCore ! ClusterUserAction.SetAppVersion(settings.AppVersion)
+    }
+  }
+
+  /**
+   * Java API: If the `appVersion` is read from an external system (e.g. Kubernetes) it can be defined after
+   * system startup but before joining by completing the `appVersion` `CompletionStage`. In that case,
+   * `setAppVersionLater` should be called before calling `join` or `joinSeedNodes`. It's fine to call
+   * `join` or `joinSeedNodes` immediately afterwards (before the `CompletionStage` is completed. The join will
+   * then wait for the `appVersion` to be completed.
+   */
+  def setAppVersionLater(appVersion: CompletionStage[Version]): Unit = {
+    import scala.compat.java8.FutureConverters._
+    setAppVersionLater(appVersion.toScala)
+  }
 
   /**
    * Send command to issue state transition to LEAVING for the node specified by 'address'.
@@ -399,7 +442,8 @@ class Cluster(val system: ExtendedActorSystem) extends Extension {
   /**
    * The supplied thunk will be run, once, when current cluster member is `Removed`.
    * If the cluster has already been shutdown the thunk will run on the caller thread immediately.
-   * Typically used together `cluster.leave(cluster.selfAddress)` and then `system.terminate()`.
+   * If this is called "at the same time" as `shutdown()` there is a possibility that the the thunk
+   * is not invoked. It's often better to use [[akka.actor.CoordinatedShutdown]] for this purpose.
    */
   def registerOnMemberRemoved[T](code: => T): Unit =
     registerOnMemberRemoved(new Runnable { override def run(): Unit = code })
@@ -407,7 +451,8 @@ class Cluster(val system: ExtendedActorSystem) extends Extension {
   /**
    * Java API: The supplied thunk will be run, once, when current cluster member is `Removed`.
    * If the cluster has already been shutdown the thunk will run on the caller thread immediately.
-   * Typically used together `cluster.leave(cluster.selfAddress)` and then `system.terminate()`.
+   * If this is called "at the same time" as `shutdown()` there is a possibility that the the thunk
+   * is not invoked. It's often better to use [[akka.actor.CoordinatedShutdown]] for this purpose.
    */
   def registerOnMemberRemoved(callback: Runnable): Unit = {
     if (_isTerminated.get())

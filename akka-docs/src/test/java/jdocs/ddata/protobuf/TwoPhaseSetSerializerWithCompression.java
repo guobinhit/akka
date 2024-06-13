@@ -1,12 +1,11 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.ddata.protobuf;
 
-import jdocs.ddata.TwoPhaseSet;
-
 import akka.actor.ExtendedActorSystem;
+import jdocs.ddata.TwoPhaseSet;
 
 public class TwoPhaseSetSerializerWithCompression extends TwoPhaseSetSerializer {
   public TwoPhaseSetSerializerWithCompression(ExtendedActorSystem system) {

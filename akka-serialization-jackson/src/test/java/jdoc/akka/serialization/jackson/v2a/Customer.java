@@ -1,15 +1,14 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdoc.akka.serialization.jackson.v2a;
 
-import jdoc.akka.serialization.jackson.MySerializable;
-
+import akka.serialization.jackson.JsonSerializable;
 import java.util.Optional;
 
 // #structural
-public class Customer implements MySerializable {
+public class Customer implements JsonSerializable {
   public final String name;
   public final Address shippingAddress;
   public final Optional<Address> billingAddress;

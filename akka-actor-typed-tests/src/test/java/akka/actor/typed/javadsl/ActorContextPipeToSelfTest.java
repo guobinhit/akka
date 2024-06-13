@@ -1,8 +1,11 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.javadsl;
+
+import static org.hamcrest.CoreMatchers.startsWith;
+import static org.junit.Assert.*;
 
 import akka.actor.testkit.typed.javadsl.LogCapturing;
 import akka.actor.testkit.typed.javadsl.LoggingTestKit;
@@ -11,19 +14,14 @@ import akka.actor.testkit.typed.javadsl.TestProbe;
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.Behavior;
 import akka.actor.typed.Props;
-import akka.actor.typed.Signal;
 import com.typesafe.config.ConfigFactory;
+import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.scalatestplus.junit.JUnitSuite;
-
-import java.time.Duration;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-
-import static org.hamcrest.CoreMatchers.startsWith;
-import static org.junit.Assert.*;
 
 public final class ActorContextPipeToSelfTest extends JUnitSuite {
 
@@ -50,12 +48,12 @@ public final class ActorContextPipeToSelfTest extends JUnitSuite {
 
   @Test
   public void handlesSuccess() {
-    assertEquals("ok: hi", responseFrom(CompletableFuture.completedFuture("hi")));
+    assertEquals("ok: hi", responseFrom(CompletableFuture.completedFuture("hi"), "success"));
   }
 
   @Test
   public void handlesFailure() {
-    assertEquals("ko: boom", responseFrom(failedFuture(new RuntimeException("boom"))));
+    assertEquals("ko: boom", responseFrom(failedFuture(new RuntimeException("boom")), "failure"));
   }
 
   @Test
@@ -111,7 +109,7 @@ public final class ActorContextPipeToSelfTest extends JUnitSuite {
     return future;
   }
 
-  private String responseFrom(final CompletionStage<String> future) {
+  private String responseFrom(final CompletionStage<String> future, String postfix) {
     final TestProbe<Msg> probe = testKit.createTestProbe();
     final Behavior<Msg> behavior =
         Behaviors.setup(
@@ -135,14 +133,14 @@ public final class ActorContextPipeToSelfTest extends JUnitSuite {
                     return Behaviors.stopped();
                   });
             });
-    final String name = "pipe-to-self-spec";
+    final String name = "pipe-to-self-spec-" + postfix;
     final Props props = Props.empty().withDispatcherFromConfig("pipe-to-self-spec-dispatcher");
 
     testKit.spawn(behavior, name, props);
 
     final Msg msg = probe.expectMessageClass(Msg.class);
 
-    assertEquals("pipe-to-self-spec", msg.selfName);
+    assertEquals(name, msg.selfName);
     assertThat(
         msg.threadName, startsWith("ActorContextPipeToSelfTest-pipe-to-self-spec-dispatcher"));
     return msg.response;

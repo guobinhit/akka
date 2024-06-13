@@ -1,8 +1,12 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
+
+import scala.concurrent.duration._
+
+import com.typesafe.config.ConfigFactory
 
 import akka.actor.Actor
 import akka.actor.ActorRef
@@ -12,9 +16,6 @@ import akka.cluster.MemberStatus
 import akka.testkit.AkkaSpec
 import akka.testkit.ImplicitSender
 import akka.testkit.WithLogCapturing
-import com.typesafe.config.ConfigFactory
-
-import scala.concurrent.duration._
 
 /**
  * Covers some corner cases around sending triggering an entity with StartEntity
@@ -28,7 +29,6 @@ object StartEntitySpec {
       akka.loggers = ["akka.testkit.SilenceAllTestEventListener"]
       akka.actor.provider = cluster
       akka.remote.artery.canonical.port = 0
-      akka.remote.classic.netty.tcp.port = 0
       akka.cluster.sharding.state-store-mode = ddata
       akka.cluster.sharding.remember-entities = on
       # no leaks between test runs thank you
@@ -67,11 +67,13 @@ class StartEntitySpec extends AkkaSpec(StartEntitySpec.config) with ImplicitSend
 
   val extractEntityId: ShardRegion.ExtractEntityId = {
     case EntityEnvelope(id, payload) => (id.toString, payload)
+    case _                           => throw new IllegalArgumentException()
   }
 
   val extractShardId: ShardRegion.ExtractShardId = {
     case EntityEnvelope(_, _)       => "1" // single shard for all entities
     case ShardRegion.StartEntity(_) => "1"
+    case _                          => throw new IllegalArgumentException()
   }
 
   override def atStartup(): Unit = {
@@ -126,11 +128,17 @@ class StartEntitySpec extends AkkaSpec(StartEntitySpec.config) with ImplicitSend
       sharding ! EntityEnvelope("1", "ping")
       expectMsg("pong")
       val entity = lastSender
-      watch(entity)
 
       // stop without passivation
       entity ! "just-stop"
-      expectTerminated(entity)
+
+      // Make sure the shard has processed the termination
+      awaitAssert({
+        sharding ! ShardRegion.GetShardRegionState
+        val state = expectMsgType[ShardRegion.CurrentShardRegionState]
+        state.shards should have size (1)
+        state.shards.head.entityIds should ===(Set.empty[String])
+      })
 
       // the backoff is 10s by default, so plenty time to
       // bypass region and send start entity directly to shard

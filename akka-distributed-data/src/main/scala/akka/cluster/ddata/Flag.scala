@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.ddata
@@ -9,7 +9,7 @@ object Flag {
   /**
    * `Flag` that is initialized to `false`.
    */
-  val empty: Flag = new Flag(false)
+  val empty: Flag = new Flag(enabled = false)
 
   /**
    * `Flag` that is initialized to `false`.
@@ -19,7 +19,7 @@ object Flag {
   /**
    * `Flag` that is initialized to `true`.
    */
-  val Enabled: Flag = new Flag(true)
+  val Enabled: Flag = new Flag(enabled = true)
 
   def apply(): Flag = Disabled
 
@@ -56,4 +56,7 @@ object FlagKey {
 }
 
 @SerialVersionUID(1L)
-final case class FlagKey(_id: String) extends Key[Flag](_id) with ReplicatedDataSerialization
+final case class FlagKey(_id: String) extends Key[Flag](_id) with ReplicatedDataSerialization {
+  override def withId(newId: Key.KeyId): FlagKey =
+    FlagKey(newId)
+}

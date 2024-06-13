@@ -1,8 +1,10 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery.compress
+
+import java.io.NotSerializableException
 
 import scala.concurrent.duration._
 
@@ -17,7 +19,7 @@ import akka.testkit._
 
 object CompressionIntegrationSpec {
 
-  val commonConfig = ConfigFactory.parseString(s"""
+  val commonConfig = ConfigFactory.parseString("""
      akka {
        loglevel = INFO
 
@@ -419,10 +421,12 @@ class TestMessageSerializer(val system: ExtendedActorSystem) extends SerializerW
   override def manifest(o: AnyRef): String =
     o match {
       case _: TestMessage => TestMessageManifest
+      case _              => throw new NotSerializableException()
     }
 
   override def toBinary(o: AnyRef): Array[Byte] = o match {
     case msg: TestMessage => msg.name.getBytes
+    case _                => throw new NotSerializableException()
   }
 
   override def fromBinary(bytes: Array[Byte], manifest: String): AnyRef = {

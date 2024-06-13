@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.testkit.typed.javadsl
@@ -7,14 +7,16 @@ package akka.actor.testkit.typed.javadsl
 import java.time.Duration
 import java.util.{ List => JList }
 import java.util.function.Supplier
-import akka.japi.function.Creator
 
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.TestKitSettings
 import akka.actor.testkit.typed.internal.TestProbeImpl
 import akka.actor.typed.ActorRef
 import akka.actor.typed.ActorSystem
+import akka.actor.typed.RecipientRef
+import akka.actor.typed.internal.InternalRecipientRef
 import akka.annotation.DoNotInherit
+import akka.japi.function.Creator
 import akka.util.unused
 
 object FishingOutcomes {
@@ -22,7 +24,7 @@ object FishingOutcomes {
   /**
    * Consume this message and continue with the next
    */
-  def continue(): FishingOutcome = FishingOutcome.Continue
+  def continueAndCollect(): FishingOutcome = FishingOutcome.Continue
 
   /**
    * Consume this message and continue with the next
@@ -65,7 +67,7 @@ object TestProbe {
  * Not for user extension
  */
 @DoNotInherit
-abstract class TestProbe[M] {
+abstract class TestProbe[M] extends RecipientRef[M] { this: InternalRecipientRef[M] =>
 
   implicit protected def settings: TestKitSettings
 
@@ -198,7 +200,7 @@ abstract class TestProbe[M] {
    * Java API: Allows for flexible matching of multiple messages within a timeout, the fisher function is fed each incoming
    * message, and returns one of the following effects to decide on what happens next:
    *
-   *  * [[FishingOutcomes.continue]] - continue with the next message given that the timeout has not been reached
+   *  * [[FishingOutcomes.continueAndCollect]] - continue with the next message given that the timeout has not been reached
    *  * [[FishingOutcomes.complete]] - successfully complete and return the message
    *  * [[FishingOutcomes.fail]] - fail the test with a custom message
    *

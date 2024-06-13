@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.ddata.protobuf
@@ -27,7 +27,6 @@ import akka.cluster.ddata.PruningState.PruningPerformed
 import akka.cluster.ddata.Replicator._
 import akka.cluster.ddata.Replicator.Internal._
 import akka.cluster.ddata.VersionVector
-import akka.remote.RARP
 import akka.testkit.TestKit
 import akka.util.{ unused, ByteString }
 
@@ -37,7 +36,6 @@ class ReplicatorMessageSerializerSpec
         "ReplicatorMessageSerializerSpec",
         ConfigFactory.parseString("""
     akka.actor.provider=cluster
-    akka.remote.classic.netty.tcp.port=0
     akka.remote.artery.canonical.port = 0
     """)))
     with AnyWordSpecLike
@@ -46,13 +44,15 @@ class ReplicatorMessageSerializerSpec
 
   val serializer = new ReplicatorMessageSerializer(system.asInstanceOf[ExtendedActorSystem])
 
-  val Protocol = if (RARP(system).provider.remoteSettings.Artery.Enabled) "akka" else "akka.tcp"
+  val Protocol = "akka"
 
   val address1 = UniqueAddress(Address(Protocol, system.name, "some.host.org", 4711), 1L)
   val address2 = UniqueAddress(Address(Protocol, system.name, "other.host.org", 4711), 2L)
   val address3 = UniqueAddress(Address(Protocol, system.name, "some.host.org", 4712), 3L)
 
   val keyA = GSetKey[String]("A")
+
+  private val usedTimestamp = System.currentTimeMillis()
 
   override def afterAll(): Unit = {
     shutdown()
@@ -111,27 +111,33 @@ class ReplicatorMessageSerializerSpec
       checkSerialization(ReadResult(None))
       checkSerialization(
         Status(
-          Map("A" -> ByteString.fromString("a"), "B" -> ByteString.fromString("b")),
+          Map(
+            "A" -> (ByteString.fromString("a") -> usedTimestamp),
+            "B" -> (ByteString.fromString("b") -> usedTimestamp)),
           chunk = 3,
           totChunks = 10,
           Some(17),
           Some(19)))
       checkSerialization(
         Status(
-          Map("A" -> ByteString.fromString("a"), "B" -> ByteString.fromString("b")),
+          Map("A" -> (ByteString.fromString("a") -> 0L), "B" -> (ByteString.fromString("b") -> 0L)),
           chunk = 3,
           totChunks = 10,
           None, // can be None when sending back to a node of version 2.5.21
           Some(19)))
       checkSerialization(
         Gossip(
-          Map("A" -> DataEnvelope(data1), "B" -> DataEnvelope(GSet() + "b" + "c")),
+          Map(
+            "A" -> (DataEnvelope(data1) -> usedTimestamp),
+            "B" -> (DataEnvelope(GSet() + "b" + "c") -> usedTimestamp)),
           sendBack = true,
           Some(17),
           Some(19)))
       checkSerialization(
         Gossip(
-          Map("A" -> DataEnvelope(data1), "B" -> DataEnvelope(GSet() + "b" + "c")),
+          Map(
+            "A" -> (DataEnvelope(data1) -> usedTimestamp),
+            "B" -> (DataEnvelope(GSet() + "b" + "c") -> usedTimestamp)),
           sendBack = true,
           None, // can be None when sending back to a node of version 2.5.21
           Some(19)))

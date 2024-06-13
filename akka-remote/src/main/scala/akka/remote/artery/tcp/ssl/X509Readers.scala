@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery.tcp.ssl
 
 import java.security.cert.X509Certificate
 import java.util
+import javax.naming.ldap.LdapName
 
 import akka.annotation.InternalApi
-import javax.naming.ldap.LdapName
 import akka.util.ccompat.JavaConverters._
 
 /**

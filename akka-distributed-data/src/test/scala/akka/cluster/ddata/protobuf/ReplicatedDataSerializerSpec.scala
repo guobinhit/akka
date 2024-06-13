@@ -1,10 +1,8 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.ddata.protobuf
-
-import java.util.Base64
 
 import com.typesafe.config.ConfigFactory
 import org.scalatest.BeforeAndAfterAll
@@ -23,7 +21,6 @@ import akka.cluster.Cluster
 import akka.cluster.UniqueAddress
 import akka.cluster.ddata._
 import akka.cluster.ddata.Replicator.Internal._
-import akka.remote.RARP
 import akka.testkit.TestActors
 import akka.testkit.TestKit
 
@@ -34,7 +31,6 @@ class ReplicatedDataSerializerSpec
         ConfigFactory.parseString("""
     akka.loglevel = DEBUG
     akka.actor.provider=cluster
-    akka.remote.classic.netty.tcp.port=0
     akka.remote.artery.canonical.port = 0
     """)))
     with AnyWordSpecLike
@@ -43,7 +39,7 @@ class ReplicatedDataSerializerSpec
 
   val serializer = new ReplicatedDataSerializer(system.asInstanceOf[ExtendedActorSystem])
 
-  val Protocol = if (RARP(system).provider.remoteSettings.Artery.Enabled) "akka" else "akka.tcp"
+  val Protocol = "akka"
 
   val address1 = UniqueAddress(Address(Protocol, system.name, "some.host.org", 4711), 1L)
   val address2 = UniqueAddress(Address(Protocol, system.name, "other.host.org", 4711), 2L)
@@ -55,17 +51,6 @@ class ReplicatedDataSerializerSpec
 
   override def afterAll(): Unit = {
     shutdown()
-  }
-
-  /**
-   * Given a blob created with the previous serializer (with only string keys for maps). If we deserialize it and then
-   * serialize it again and arrive at the same BLOB we can assume that we are compatible in both directions.
-   */
-  def checkCompatibility(oldBlobAsBase64: String, obj: AnyRef): Unit = {
-    val oldBlob = Base64.getDecoder.decode(oldBlobAsBase64)
-    val deserialized = serializer.fromBinary(oldBlob, serializer.manifest(obj))
-    val newBlob = serializer.toBinary(deserialized)
-    newBlob should equal(oldBlob)
   }
 
   def checkSerialization(obj: AnyRef): Int = {
@@ -98,6 +83,8 @@ class ReplicatedDataSerializerSpec
       checkSameContent(GSet() + "a" + "b", GSet() + "b" + "a")
       checkSameContent(GSet() + ref1 + ref2 + ref3, GSet() + ref2 + ref1 + ref3)
       checkSameContent(GSet() + ref1 + ref2 + ref3, GSet() + ref3 + ref2 + ref1)
+
+      checkSerialization(GSetKey[String]("id"))
     }
 
     "serialize ORSet" in {
@@ -127,6 +114,8 @@ class ReplicatedDataSerializerSpec
       val s5 = ORSet().add(address1, "a").add(address2, ref1)
       val s6 = ORSet().add(address2, ref1).add(address1, "a")
       checkSameContent(s5.merge(s6), s6.merge(s5))
+
+      checkSerialization(ORSetKey[String]("id"))
     }
 
     "serialize ORSet with ActorRef message sent between two systems" in {
@@ -189,6 +178,7 @@ class ReplicatedDataSerializerSpec
     "serialize Flag" in {
       checkSerialization(Flag())
       checkSerialization(Flag().switchOn)
+      checkSerialization(FlagKey("id"))
     }
 
     "serialize LWWRegister" in {
@@ -196,6 +186,7 @@ class ReplicatedDataSerializerSpec
       checkSerialization(
         LWWRegister(address1, "value2", LWWRegister.defaultClock[String])
           .withValue(address2, "value3", LWWRegister.defaultClock[String]))
+      checkSerialization(LWWRegisterKey[String]("id"))
     }
 
     "serialize GCounter" in {
@@ -209,6 +200,8 @@ class ReplicatedDataSerializerSpec
       checkSameContent(
         GCounter().increment(address1, 2).increment(address3, 5),
         GCounter().increment(address3, 5).increment(address1, 2))
+
+      checkSerialization(GCounterKey("id"))
     }
 
     "serialize PNCounter" in {
@@ -227,6 +220,8 @@ class ReplicatedDataSerializerSpec
       checkSameContent(
         PNCounter().increment(address1, 2).decrement(address1, 1).increment(address3, 5),
         PNCounter().increment(address3, 5).increment(address1, 2).decrement(address1, 1))
+
+      checkSerialization(PNCounterKey("id"))
     }
 
     "serialize ORMap" in {
@@ -235,6 +230,8 @@ class ReplicatedDataSerializerSpec
       checkSerialization(ORMap().put(address1, 1L, GSet() + "A"))
       // use Flag for this test as object key because it is serializable
       checkSerialization(ORMap().put(address1, Flag(), GSet() + "A"))
+
+      checkSerialization(ORMapKey[UniqueAddress, GSet[String]]("id"))
     }
 
     "serialize ORMap delta" in {
@@ -262,13 +259,6 @@ class ReplicatedDataSerializerSpec
       checkSerialization(ORMap().put(address1, Flag(), GSet() + "A").delta.get)
     }
 
-    "be compatible with old ORMap serialization" in {
-      // Below blob was created with previous version of the serializer
-      val oldBlobAsBase64 =
-        "H4sIAAAAAAAAAOOax8jlyaXMJc8lzMWXX5KRWqSXkV9copdflC7wXEWUiYGBQRaIGQQkuJS45LiEuHiL83NTUdQwwtWIC6kQpUqVKAulGBOlGJOE+LkYE4W4uJi5GB0FuJUYnUACSRABJ7AAAOLO3C3DAAAA"
-      checkCompatibility(oldBlobAsBase64, ORMap())
-    }
-
     "serialize LWWMap" in {
       checkSerialization(LWWMap())
       checkSerialization(LWWMap().put(address1, "a", "value1", LWWRegister.defaultClock[Any]))
@@ -279,13 +269,8 @@ class ReplicatedDataSerializerSpec
         LWWMap()
           .put(address1, "a", "value1", LWWRegister.defaultClock[Any])
           .put(address2, "b", 17, LWWRegister.defaultClock[Any]))
-    }
 
-    "be compatible with old LWWMap serialization" in {
-      // Below blob was created with previous version of the serializer
-      val oldBlobAsBase64 =
-        "H4sIAAAAAAAAAOPy51LhUuKS4xLi4i3Oz03Vy8gvLtHLL0oXeK4iysjAwCALxAwC0kJEqZJiTBSy4AISxhwzrl2fuyRMiIAWKS4utrLEnNJUQwERAD96/peLAAAA"
-      checkCompatibility(oldBlobAsBase64, LWWMap())
+      checkSerialization(LWWMapKey[UniqueAddress, String]("id"))
     }
 
     "serialize PNCounterMap" in {
@@ -296,13 +281,8 @@ class ReplicatedDataSerializerSpec
       checkSerialization(PNCounterMap().increment(address1, Flag(), 3))
       checkSerialization(
         PNCounterMap().increment(address1, "a", 3).decrement(address2, "a", 2).increment(address2, "b", 5))
-    }
 
-    "be compatible with old PNCounterMap serialization" in {
-      // Below blob was created with previous version of the serializer
-      val oldBlobAsBase64 =
-        "H4sIAAAAAAAAAOPy51LhUuKS4xLi4i3Oz03Vy8gvLtHLL0oXeK4iysjAwCALxAwC8kJEqZJiTBTS4wISmlyqXMqE1AsxMgsxAADYQs/9gQAAAA=="
-      checkCompatibility(oldBlobAsBase64, PNCounterMap())
+      checkSerialization(PNCounterMapKey[String]("id"))
     }
 
     "serialize ORMultiMap" in {
@@ -326,13 +306,8 @@ class ReplicatedDataSerializerSpec
       val m3 = ORMultiMap.empty[String, String].addBinding(address1, "a", "A1")
       val d3 = m3.resetDelta.addBinding(address1, "a", "A2").addBinding(address1, "a", "A3").delta.get
       checkSerialization(d3)
-    }
 
-    "be compatible with old ORMultiMap serialization" in {
-      // Below blob was created with previous version of the serializer
-      val oldBlobAsBase64 =
-        "H4sIAAAAAAAAAOPy51LhUuKS4xLi4i3Oz03Vy8gvLtHLL0oXeK4iysjAwCALxAwCakJEqZJiTBQK4QISxJmqSpSpqlKMjgDlsHjDpwAAAA=="
-      checkCompatibility(oldBlobAsBase64, ORMultiMap())
+      checkSerialization(ORMultiMapKey[String, String]("id"))
     }
 
     "serialize ORMultiMap withValueDeltas" in {
@@ -368,6 +343,10 @@ class ReplicatedDataSerializerSpec
       val v1 = VersionVector().increment(address1).increment(address1)
       val v2 = VersionVector().increment(address2)
       checkSameContent(v1.merge(v2), v2.merge(v1))
+    }
+
+    "serialize UnspecificKey" in {
+      checkSerialization(Key.UnspecificKey("id"))
     }
 
   }

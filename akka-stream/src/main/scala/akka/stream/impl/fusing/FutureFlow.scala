@@ -1,24 +1,31 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl.fusing
 
+import scala.concurrent.{ Future, Promise }
+import scala.util.{ Failure, Success, Try }
+import scala.util.control.NonFatal
+
 import akka.annotation.InternalApi
 import akka.dispatch.ExecutionContexts
 import akka.stream.{ AbruptStageTerminationException, Attributes, FlowShape, Inlet, NeverMaterializedException, Outlet }
+import akka.stream.Attributes.SourceLocation
+import akka.stream.impl.Stages.DefaultAttributes
 import akka.stream.scaladsl.{ Flow, Keep, Source }
 import akka.stream.stage.{ GraphStageLogic, GraphStageWithMaterializedValue, InHandler, OutHandler }
 import akka.util.OptionVal
 
-import scala.concurrent.{ Future, Promise }
-import scala.util.control.NonFatal
-import scala.util.{ Failure, Success, Try }
-
 @InternalApi private[akka] final class FutureFlow[In, Out, M](futureFlow: Future[Flow[In, Out, M]])
     extends GraphStageWithMaterializedValue[FlowShape[In, Out], Future[M]] {
-  val in = Inlet[In](s"${this}.in")
-  val out = Outlet[Out](s"${this}.out")
+
+  val in = Inlet[In]("FutureFlow.in")
+  val out = Outlet[Out]("FutureFlow.out")
+
+  override protected def initialAttributes: Attributes =
+    DefaultAttributes.futureFlow and SourceLocation.forLambda(futureFlow)
+
   override val shape: FlowShape[In, Out] = FlowShape(in, out)
 
   override def createLogicAndMaterializedValue(inheritedAttributes: Attributes): (GraphStageLogic, Future[M]) = {
@@ -87,8 +94,8 @@ import scala.util.{ Failure, Success, Try }
         }
 
         def connect(flow: Flow[In, Out, M]): Unit = {
-          val subSource = new SubSourceOutlet[In](s"${FutureFlow.this}.subIn")
-          val subSink = new SubSinkInlet[Out](s"${FutureFlow.this}.subOut")
+          val subSource = new SubSourceOutlet[In]("FutureFlow.subIn")
+          val subSink = new SubSinkInlet[Out]("FutureFlow.subOut")
 
           subSource.setHandler {
             new OutHandler {
@@ -104,16 +111,17 @@ import scala.util.{ Failure, Success, Try }
             }
           }
           try {
-            val matVal =
-              Source.fromGraph(subSource.source).viaMat(flow)(Keep.right).to(subSink.sink).run()(subFusingMaterializer)
+            val matVal = subFusingMaterializer.materialize(
+              Source.fromGraph(subSource.source).viaMat(flow)(Keep.right).to(subSink.sink),
+              inheritedAttributes)
             innerMatValue.success(matVal)
             upstreamFailure match {
               case OptionVal.Some(ex) => subSource.fail(ex)
-              case OptionVal.None     => if (isClosed(in)) subSource.complete()
+              case _                  => if (isClosed(in)) subSource.complete()
             }
             downstreamCause match {
               case OptionVal.Some(cause) => subSink.cancel(cause)
-              case OptionVal.None        => if (isAvailable(out)) subSink.pull()
+              case _                     => if (isAvailable(out)) subSink.pull()
             }
             setHandlers(in, out, new InHandler with OutHandler {
               override def onPull(): Unit = subSink.pull()

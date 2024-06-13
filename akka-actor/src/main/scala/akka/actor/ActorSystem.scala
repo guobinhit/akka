@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor
@@ -19,7 +19,9 @@ import scala.concurrent.duration.Duration
 import scala.util.{ Failure, Success, Try }
 import scala.util.control.{ ControlThrowable, NonFatal }
 
-import com.typesafe.config.{ Config, ConfigFactory }
+import com.typesafe.config.Config
+import com.typesafe.config.ConfigFactory
+import com.typesafe.config.ConfigRenderOptions
 
 import akka.ConfigurationException
 import akka.actor.dungeon.ChildrenContainer
@@ -479,7 +481,8 @@ object ActorSystem {
     /**
      * Returns the String representation of the Config that this Settings is backed by
      */
-    override def toString: String = config.root.render
+    override def toString: String =
+      config.root.render(ConfigRenderOptions.defaults().setShowEnvVariableValues(false))
 
   }
 
@@ -776,6 +779,13 @@ abstract class ExtendedActorSystem extends ActorSystem {
   private[akka] def printTree: String
 
   /**
+   * Random uid assigned at ActorSystem startup. When using Akka Cluster this
+   * uid is used together with an [[akka.actor.Address]] to be able to distinguish restarted
+   * actor system using the same host and port.
+   */
+  def uid: Long
+
+  /**
    * INTERNAL API: final step of `terminate()`
    */
   @InternalApi private[akka] def finalTerminate(): Unit
@@ -811,11 +821,31 @@ private[akka] class ActorSystemImpl(
 
   private val _dynamicAccess: DynamicAccess = createDynamicAccess()
 
+  /**
+   * Optimistic optimization: Tries to avoid going through the extension infrastructure if possible when using
+   * the typed system. Will contain a akka.actor.typed.ActorSystem if set, should not be touched by anything but
+   * the typed ActorSystemAdapter.
+   */
+  private[akka] var typedSystem: OptionVal[AnyRef] = OptionVal.None
+
   final val settings: Settings = {
     val config = Settings.amendSlf4jConfig(
       applicationConfig.withFallback(ConfigFactory.defaultReference(classLoader)),
       _dynamicAccess)
     new Settings(classLoader, config, name, setup)
+  }
+
+  override def uid: Long = {
+    try {
+      provider.systemUid
+    } catch {
+      case NonFatal(exc) =>
+        // could be NPE in RARP if transport not initialized yet
+        throw new IllegalStateException(
+          "uid accessed before provider has been initialized. " +
+          "This is a bug, please report at https://github.com/akka/akka/issues",
+          exc)
+    }
   }
 
   protected def uncaughtExceptionHandler: Thread.UncaughtExceptionHandler =
@@ -890,15 +920,29 @@ private[akka] class ActorSystemImpl(
 
   def actorOf(props: Props, name: String): ActorRef =
     if (guardianProps.isEmpty) guardian.underlying.attachChild(props, name, systemService = false)
-    else
-      throw new UnsupportedOperationException(
-        s"cannot create top-level actor [$name] from the outside on ActorSystem with custom user guardian")
+    else {
+      val message =
+        if (isTypedGuardian)
+          s"cannot create top-level actor [$name] from the outside on a typed ActorSystem.  In a typed ActorSystem, " +
+          "top-level actors should be spawned as children of the guardian behavior; if this is not possible (e.g. this " +
+          "actorOf call is in a library), a classic ActorSystem should be created and used to spawn top-level actors."
+        else s"cannot create top-level actor [$name] from the outside on ActorSystem with custom user guardian"
+
+      throw new UnsupportedOperationException(message)
+    }
 
   def actorOf(props: Props): ActorRef =
     if (guardianProps.isEmpty) guardian.underlying.attachChild(props, systemService = false)
-    else
-      throw new UnsupportedOperationException(
-        "cannot create top-level actor from the outside on ActorSystem with custom user guardian")
+    else {
+      val message =
+        if (isTypedGuardian)
+          "cannot create top-level actor from the outside on a typed ActorSystem.  In a typed ActorSystem, " +
+          "top-level actors should be spawned as children of the guardian behavior; if this is not possible (e.g. this " +
+          "actorOf call is in a library), a classic ActorSystem should be created and used to spawn top-level actors."
+        else "cannot create top-level actor from the outside on ActorSystem with custom user guardian"
+
+      throw new UnsupportedOperationException(message)
+    }
 
   def stop(actor: ActorRef): Unit = {
     val path = actor.path
@@ -990,7 +1034,6 @@ private[akka] class ActorSystemImpl(
       "akka-distributed-data",
       "akka-testkit",
       "akka-multi-node-testkit",
-      "akka-osgi",
       "akka-persistence",
       "akka-persistence-query",
       "akka-persistence-shared",
@@ -1028,7 +1071,7 @@ private[akka] class ActorSystemImpl(
     _initialized = true
 
     if (settings.LogDeadLetters > 0)
-      logDeadLetterListener = Some(systemActorOf(Props[DeadLetterListener](), "deadLetterListener"))
+      logDeadLetterListener = Some(systemActorOf(Props(new DeadLetterListener), "deadLetterListener"))
     eventStream.startUnsubscriber()
     ManifestInfo(this).checkSameVersion("Akka", allModules, logWarning = true)
     if (!terminating)
@@ -1043,7 +1086,7 @@ private[akka] class ActorSystemImpl(
   }
 
   def start(): this.type = _start
-  def registerOnTermination[T](code: => T): Unit = { registerOnTermination(new Runnable { def run = code }) }
+  def registerOnTermination[T](code: => T): Unit = { registerOnTermination(new Runnable { def run() = code }) }
   def registerOnTermination(code: Runnable): Unit = { terminationCallbacks.add(code) }
 
   @volatile private var terminating = false
@@ -1286,4 +1329,7 @@ private[akka] class ActorSystemImpl(
      */
     def terminationFuture: Future[T] = done.future
   }
+
+  private def isTypedGuardian: Boolean =
+    guardianProps.exists(_.clazz.getName.startsWith("akka.actor.typed"))
 }

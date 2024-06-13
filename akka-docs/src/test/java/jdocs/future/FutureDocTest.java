@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.future;
@@ -41,7 +41,6 @@ public class FutureDocTest extends AbstractJavaTest {
   private final ActorSystem<Void> system = toTyped(actorSystemResource.getSystem());
 
   @Test(expected = java.util.concurrent.CompletionException.class)
-  @SuppressWarnings("unchecked")
   public void useAfter() throws Exception {
     final ExecutionContext ec = system.executionContext();
     // #after

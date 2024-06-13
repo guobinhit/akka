@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
@@ -12,6 +12,7 @@ import scala.concurrent.duration.Deadline
 
 import ClusterSettings.DataCenter
 import MemberStatus._
+
 import akka.annotation.InternalApi
 
 /**

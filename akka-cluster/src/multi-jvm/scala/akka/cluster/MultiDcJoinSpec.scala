@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
@@ -11,7 +11,6 @@ import com.typesafe.config.ConfigFactory
 import akka.cluster.ClusterEvent.InitialStateAsEvents
 import akka.cluster.ClusterEvent.MemberUp
 import akka.remote.testkit.MultiNodeConfig
-import akka.remote.testkit.MultiNodeSpec
 import akka.testkit._
 
 // reproducer for issue #29280
@@ -41,8 +40,6 @@ object MultiDcJoinMultiJvmSpec extends MultiNodeConfig {
       loggers = ["akka.testkit.TestEventListener"]
       loglevel = INFO
 
-      remote.log-remote-lifecycle-events = off
-
       cluster {
         debug.verbose-heartbeat-logging = off
         debug.verbose-gossip-logging = off
@@ -62,7 +59,7 @@ class MultiDcJoinMultiJvmNode3 extends MultiDcJoinSpec
 class MultiDcJoinMultiJvmNode4 extends MultiDcJoinSpec
 class MultiDcJoinMultiJvmNode5 extends MultiDcJoinSpec
 
-abstract class MultiDcJoinSpec extends MultiNodeSpec(MultiDcJoinMultiJvmSpec) with MultiNodeClusterSpec {
+abstract class MultiDcJoinSpec extends MultiNodeClusterSpec(MultiDcJoinMultiJvmSpec) {
   import MultiDcJoinMultiJvmSpec._
 
   "Joining a multi-dc cluster" must {

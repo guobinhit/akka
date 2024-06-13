@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.query.journal.leveldb
@@ -9,12 +9,17 @@ import com.typesafe.config.Config
 import akka.actor.ExtendedActorSystem
 import akka.persistence.query.ReadJournalProvider
 
+@deprecated("Use another journal/query implementation", "2.6.15")
 class LeveldbReadJournalProvider(system: ExtendedActorSystem, config: Config) extends ReadJournalProvider {
 
-  override val scaladslReadJournal: scaladsl.LeveldbReadJournal =
-    new scaladsl.LeveldbReadJournal(system, config)
+  val readJournal: scaladsl.LeveldbReadJournal = new scaladsl.LeveldbReadJournal(system, config)
 
-  override val javadslReadJournal: javadsl.LeveldbReadJournal =
-    new javadsl.LeveldbReadJournal(scaladslReadJournal)
+  override def scaladslReadJournal(): akka.persistence.query.scaladsl.ReadJournal =
+    readJournal
+
+  val javaReadJournal = new javadsl.LeveldbReadJournal(readJournal)
+
+  override def javadslReadJournal(): akka.persistence.query.javadsl.ReadJournal =
+    javaReadJournal
 
 }

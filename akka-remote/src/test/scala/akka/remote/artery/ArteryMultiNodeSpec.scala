@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
 
 import com.typesafe.config.{ Config, ConfigFactory }
-import org.scalatest.{ Outcome, Pending }
 
 import akka.actor.{ ActorSystem, Address, BootstrapSetup, RootActorPath }
 import akka.actor.setup.ActorSystemSetup
@@ -38,15 +37,6 @@ abstract class ArteryMultiNodeSpec(config: Config)
   }
 
   private var remoteSystems: Vector[ActorSystem] = Vector.empty
-
-  override protected def withFixture(test: NoArgTest): Outcome = {
-    // note that withFixture is also used in FlightRecorderSpecIntegration
-    if (!RARP(system).provider.remoteSettings.Artery.Enabled) {
-      info(s"${getClass.getName} is only enabled for Artery")
-      Pending
-    } else
-      super.withFixture(test)
-  }
 
   /**
    * @return A new actor system configured with artery enabled. The system will

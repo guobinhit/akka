@@ -1,15 +1,18 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.scaladsl
 
 import akka.NotUsed
+import akka.pattern.StatusReply
+
 //#imports
 import akka.stream.scaladsl.{ Flow, Sink, Source }
 import akka.stream.typed.scaladsl.ActorFlow
 import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.Behaviors
+import akka.util.Timeout
 
 //#imports
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
@@ -24,6 +27,8 @@ object ActorFlowSpec {
   //#ask-actor
   final case class Asking(s: String, replyTo: ActorRef[Reply])
   final case class Reply(msg: String)
+
+  final case class AskingWithStatus(s: String, replyTo: ActorRef[StatusReply[String]])
 
   //#ask-actor
 }
@@ -42,6 +47,24 @@ class ActorFlowSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
         Behaviors.same
     })
 
+    val replierWithSuccess = spawn(Behaviors.receiveMessage[AskingWithStatus] {
+      case AskingWithStatus("TERMINATE", _) =>
+        Behaviors.stopped
+
+      case asking =>
+        asking.replyTo ! StatusReply.success(asking.s + "!!!")
+        Behaviors.same
+    })
+
+    val replierWithError = spawn(Behaviors.receiveMessage[AskingWithStatus] {
+      case AskingWithStatus("TERMINATE", _) =>
+        Behaviors.stopped
+
+      case asking =>
+        asking.replyTo ! StatusReply.error("error!!!" + asking.s)
+        Behaviors.same
+    })
+
     "produce asked elements" in {
       val in: Future[immutable.Seq[Reply]] =
         Source
@@ -51,6 +74,72 @@ class ActorFlowSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
           .runWith(Sink.seq)
 
       in.futureValue shouldEqual List.fill(3)(Reply("hello!!!"))
+    }
+
+    "produce asked elements with context " in {
+      val in: Future[immutable.Seq[(Reply, Long)]] =
+        Source
+          .repeat("hello")
+          .zipWithIndex
+          .via(ActorFlow.askWithContext(replier)((el, replyTo: ActorRef[Reply]) => Asking(el, replyTo)))
+          .take(3)
+          .runWith(Sink.seq)
+
+      in.futureValue shouldEqual List.fill(3)(Reply("hello!!!")).zipWithIndex.map { case (r, i) => r -> i.toLong }
+    }
+
+    "produced status success elements unwrap " in {
+      val in: Future[immutable.Seq[String]] =
+        Source
+          .repeat("hello")
+          .via(ActorFlow.askWithStatus(replierWithSuccess)((el, replyTo: ActorRef[StatusReply[String]]) =>
+            AskingWithStatus(el, replyTo)))
+          .take(3)
+          .runWith(Sink.seq)
+
+      in.futureValue shouldEqual List.fill(3)("hello!!!")
+    }
+
+    "produced status success elements unwrap with context " in {
+      val in: Future[immutable.Seq[(String, Long)]] =
+        Source
+          .repeat("hello")
+          .zipWithIndex
+          .via(ActorFlow.askWithStatusAndContext(replierWithSuccess)((el, replyTo: ActorRef[StatusReply[String]]) =>
+            AskingWithStatus(el, replyTo)))
+          .take(3)
+          .runWith(Sink.seq)
+
+      in.futureValue shouldEqual List.fill(3)("hello!!!").zipWithIndex.map { case (r, i) => r -> i.toLong }
+    }
+
+    "produce status error elements unwrap " in {
+      val in: Future[immutable.Seq[String]] =
+        Source
+          .repeat("hello")
+          .via(ActorFlow.askWithStatus(replierWithError)((el, replyTo: ActorRef[StatusReply[String]]) =>
+            AskingWithStatus(el, replyTo)))
+          .take(3)
+          .runWith(Sink.seq)
+
+      val v = in.failed.futureValue
+      v shouldBe a[StatusReply.ErrorMessage]
+      v.getMessage shouldEqual "error!!!hello"
+    }
+
+    "produce status error elements unwrap with context" in {
+      val in: Future[immutable.Seq[(String, Long)]] =
+        Source
+          .repeat("hello")
+          .zipWithIndex
+          .via(ActorFlow.askWithStatusAndContext(replierWithError)((el, replyTo: ActorRef[StatusReply[String]]) =>
+            AskingWithStatus(el, replyTo)))
+          .take(3)
+          .runWith(Sink.seq)
+
+      val v = in.failed.futureValue
+      v shouldBe a[StatusReply.ErrorMessage]
+      v.getMessage shouldEqual "error!!!hello"
     }
 
     "produce asked elements in order" in {
@@ -63,7 +152,7 @@ class ActorFlowSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
       //#ask-actor
 
       //#ask
-      implicit val timeout: akka.util.Timeout = 1.second
+      implicit val timeout: Timeout = 1.second
 
       val askFlow: Flow[String, Reply, NotUsed] =
         ActorFlow.ask(ref)(Asking.apply)
@@ -85,7 +174,7 @@ class ActorFlowSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
       val dontReply = spawn(Behaviors.ignore[Asking])
 
       val c = TestSubscriber.manualProbe[Reply]()(system.toClassic)
-      implicit val timeout = akka.util.Timeout(10.millis)
+      implicit val timeout: Timeout = 10.millis
 
       Source(1 to 5)
         .map(_.toString + " nope")

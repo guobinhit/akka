@@ -1,8 +1,11 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+
 import akka.actor.ActorRef
 import akka.cluster.sharding
 import akka.cluster.sharding.Shard.Active
@@ -13,8 +16,6 @@ import akka.cluster.sharding.Shard.RememberingStart
 import akka.cluster.sharding.Shard.RememberingStop
 import akka.event.NoLogging
 import akka.util.OptionVal
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpec
 
 class EntitiesSpec extends AnyWordSpec with Matchers {
 

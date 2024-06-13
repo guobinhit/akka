@@ -1,8 +1,10 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.typed.javadsl;
+
+import static org.junit.Assert.assertEquals;
 
 import akka.Done;
 import akka.actor.testkit.typed.javadsl.TestKitJunitResource;
@@ -14,14 +16,11 @@ import akka.stream.AbruptStageTerminationException;
 import akka.stream.Materializer;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeUnit;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.scalatestplus.junit.JUnitSuite;
-
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.TimeUnit;
-
-import static org.junit.Assert.assertEquals;
 
 public class CustomGuardianAndMaterializerTest extends JUnitSuite {
 

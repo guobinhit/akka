@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence
@@ -83,7 +83,7 @@ object SnapshotSpec {
   }
 }
 
-class SnapshotSpec extends PersistenceSpec(PersistenceSpec.config("leveldb", "SnapshotSpec")) with ImplicitSender {
+class SnapshotSpec extends PersistenceSpec(PersistenceSpec.config("inmem", "SnapshotSpec")) with ImplicitSender {
   import SnapshotProtocol._
   import SnapshotSpec._
 

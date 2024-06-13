@@ -1,19 +1,18 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.typed.tutorial_4;
 
+import static org.junit.Assert.assertEquals;
+
 import akka.actor.testkit.typed.javadsl.TestKitJunitResource;
 import akka.actor.testkit.typed.javadsl.TestProbe;
 import akka.actor.typed.ActorRef;
+import java.util.Optional;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.scalatestplus.junit.JUnitSuite;
-
-import java.util.Optional;
-
-import static org.junit.Assert.assertEquals;
 
 public class DeviceTest extends JUnitSuite {
 

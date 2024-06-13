@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -7,10 +7,11 @@ package akka.stream.scaladsl
 import akka.Done
 import akka.stream.testkit.Utils.TE
 import akka.testkit.DefaultTimeout
-import com.github.ghik.silencer.silent
 import org.scalatest.time.Millis
 import org.scalatest.time.Span
 
+import scala.annotation.nowarn
+import scala.concurrent.Await
 import scala.concurrent.Future
 //#imports
 import akka.stream._
@@ -22,8 +23,9 @@ import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.EventFilter
 
 import scala.collection.immutable
+import scala.concurrent.duration._
 
-@silent // tests assigning to typed val
+@nowarn // tests assigning to typed val
 class SourceSpec extends StreamSpec with DefaultTimeout {
 
   implicit val config: PatienceConfig = PatienceConfig(timeout = Span(timeout.duration.toMillis, Millis))
@@ -89,7 +91,7 @@ class SourceSpec extends StreamSpec with DefaultTimeout {
       val out = TestSubscriber.manualProbe[Int]()
 
       val s = Source
-        .fromGraph(GraphDSL.create(source, source, source, source, source)(immutable.Seq(_, _, _, _, _)) {
+        .fromGraph(GraphDSL.createGraph(source, source, source, source, source)(immutable.Seq(_, _, _, _, _)) {
           implicit b => (i0, i1, i2, i3, i4) =>
             import GraphDSL.Implicits._
             val m = b.add(Merge[Int](5))
@@ -140,6 +142,14 @@ class SourceSpec extends StreamSpec with DefaultTimeout {
       out.expectComplete()
     }
 
+    "combine many sources into one" in {
+      val sources = Vector.tabulate(5)(_ => Source.maybe[Int])
+      val (promises, sub) = Source.combine(sources)(Concat(_)).toMat(TestSink.probe[Int])(Keep.both).run()
+      for ((promise, idx) <- promises.zipWithIndex)
+        promise.success(Some(idx))
+      sub.request(5).expectNextN(0 to 4).expectComplete()
+    }
+
     "combine from two inputs with simplified API" in {
       val probes = immutable.Seq.fill(2)(TestPublisher.manualProbe[Int]())
       val source = Source.fromPublisher(probes(0)) :: Source.fromPublisher(probes(1)) :: Nil
@@ -170,14 +180,14 @@ class SourceSpec extends StreamSpec with DefaultTimeout {
     }
 
     "combine from two inputs with combinedMat and take a materialized value" in {
-      val queueSource = Source.queue[Int](1, OverflowStrategy.dropBuffer)
+      val queueSource = Source.queue[Int](3)
       val intSeqSource = Source(1 to 3)
 
       // compiler to check the correct materialized value of type = SourceQueueWithComplete[Int] available
-      val combined1: Source[Int, SourceQueueWithComplete[Int]] =
+      val combined1: Source[Int, BoundedSourceQueue[Int]] =
         Source.combineMat(queueSource, intSeqSource)(Concat(_))(Keep.left) //Keep.left (i.e. preserve queueSource's materialized value)
 
-      val (queue1, sinkProbe1) = combined1.toMat(TestSink.probe[Int])(Keep.both).run()
+      val (queue1, sinkProbe1) = combined1.toMat(TestSink[Int]())(Keep.both).run()
       sinkProbe1.request(6)
       queue1.offer(10)
       queue1.offer(20)
@@ -191,11 +201,11 @@ class SourceSpec extends StreamSpec with DefaultTimeout {
       sinkProbe1.expectNext(3)
 
       // compiler to check the correct materialized value of type = SourceQueueWithComplete[Int] available
-      val combined2: Source[Int, SourceQueueWithComplete[Int]] =
+      val combined2: Source[Int, BoundedSourceQueue[Int]] =
         //queueSource to be the second of combined source
         Source.combineMat(intSeqSource, queueSource)(Concat(_))(Keep.right) //Keep.right (i.e. preserve queueSource's materialized value)
 
-      val (queue2, sinkProbe2) = combined2.toMat(TestSink.probe[Int])(Keep.both).run()
+      val (queue2, sinkProbe2) = combined2.toMat(TestSink[Int]())(Keep.both).run()
       sinkProbe2.request(6)
       queue2.offer(10)
       queue2.offer(20)
@@ -301,19 +311,60 @@ class SourceSpec extends StreamSpec with DefaultTimeout {
     }
 
     "use decider when iterator throws" in {
+
+      Source
+        .fromIterator(() => (1 to 5).toIterator.map(k => if (k != 3) k else throw TE("a")))
+        .withAttributes(ActorAttributes.supervisionStrategy(Supervision.stoppingDecider))
+        .grouped(10)
+        .runWith(Sink.head)
+        .failed
+        .futureValue shouldBe a[TE]
+
+      Source
+        .fromIterator(() => (1 to 5).toIterator.map(k => if (k != 3) k else throw TE("a")))
+        .withAttributes(ActorAttributes.supervisionStrategy(Supervision.stoppingDecider))
+        .recoverWithRetries(1, { case _ => Source.empty })
+        .grouped(10)
+        .runWith(Sink.head)
+        .futureValue shouldBe List(1, 2)
+
+      Source
+        .fromIterator(() => (1 to 5).toIterator.map(k => if (k != 3) k else throw TE("a")))
+        .withAttributes(ActorAttributes.supervisionStrategy(Supervision.resumingDecider))
+        .grouped(10)
+        .runWith(Sink.head)
+        .futureValue should ===(List(1, 2, 4, 5))
+
       Source
         .fromIterator(() => (1 to 5).toIterator.map(k => if (k != 3) k else throw TE("a")))
         .withAttributes(ActorAttributes.supervisionStrategy(Supervision.restartingDecider))
         .grouped(10)
         .runWith(Sink.head)
-        .futureValue should ===(List(1, 2))
+        .futureValue should ===(List(1, 2, 1, 2, 1, 2, 1, 2, 1, 2))
 
       Source
         .fromIterator(() => (1 to 5).toIterator.map(_ => throw TE("b")))
         .withAttributes(ActorAttributes.supervisionStrategy(Supervision.restartingDecider))
         .grouped(10)
         .runWith(Sink.headOption)
-        .futureValue should ===(None)
+        .failed
+        .futureValue shouldBe a[TE]
+
+      Source
+        .fromIterator(() => (1 to 5).toIterator.map(_ => throw TE("b")))
+        .withAttributes(ActorAttributes.supervisionStrategy(Supervision.stoppingDecider))
+        .grouped(10)
+        .runWith(Sink.headOption)
+        .failed
+        .futureValue shouldBe a[TE]
+
+      Source
+        .fromIterator(() => (1 to 5).toIterator.map(_ => throw TE("b")))
+        .withAttributes(ActorAttributes.supervisionStrategy(Supervision.stoppingDecider))
+        .recoverWithRetries(1, { case _ => Source.empty })
+        .grouped(10)
+        .runWith(Sink.headOption)
+        .futureValue shouldBe None
     }
   }
 
@@ -380,7 +431,7 @@ class SourceSpec extends StreamSpec with DefaultTimeout {
       val matValPoweredSource = Source.maybe[Int]
       val (mat, src) = matValPoweredSource.preMaterialize()
 
-      val probe = src.runWith(TestSink.probe[Int])
+      val probe = src.runWith(TestSink[Int]())
 
       probe.request(1)
       mat.success(Some(42))
@@ -389,37 +440,37 @@ class SourceSpec extends StreamSpec with DefaultTimeout {
     }
 
     "allow for multiple downstream materialized sources" in {
-      val matValPoweredSource = Source.queue[String](Int.MaxValue, OverflowStrategy.fail)
+      val matValPoweredSource = Source.queue[String](Int.MaxValue)
       val (mat, src) = matValPoweredSource.preMaterialize()
 
-      val probe1 = src.runWith(TestSink.probe[String])
-      val probe2 = src.runWith(TestSink.probe[String])
+      val probe1 = src.runWith(TestSink[String]())
+      val probe2 = src.runWith(TestSink[String]())
 
       probe1.request(1)
       probe2.request(1)
-      mat.offer("One").futureValue
+      mat.offer("One")
       probe1.expectNext("One")
       probe2.expectNext("One")
     }
 
     "survive cancellations of downstream materialized sources" in {
-      val matValPoweredSource = Source.queue[String](Int.MaxValue, OverflowStrategy.fail)
+      val matValPoweredSource = Source.queue[String](Int.MaxValue)
       val (mat, src) = matValPoweredSource.preMaterialize()
 
-      val probe1 = src.runWith(TestSink.probe[String])
+      val probe1 = src.runWith(TestSink[String]())
       src.runWith(Sink.cancelled)
 
       probe1.request(1)
-      mat.offer("One").futureValue
+      mat.offer("One")
       probe1.expectNext("One")
     }
 
     "propagate failures to downstream materialized sources" in {
-      val matValPoweredSource = Source.queue[String](Int.MaxValue, OverflowStrategy.fail)
+      val matValPoweredSource = Source.queue[String](Int.MaxValue)
       val (mat, src) = matValPoweredSource.preMaterialize()
 
-      val probe1 = src.runWith(TestSink.probe[String])
-      val probe2 = src.runWith(TestSink.probe[String])
+      val probe1 = src.runWith(TestSink[String]())
+      val probe2 = src.runWith(TestSink[String]())
 
       mat.fail(new RuntimeException("boom"))
 
@@ -434,6 +485,19 @@ class SourceSpec extends StreamSpec with DefaultTimeout {
       val matValPoweredSource = Source.empty.mapMaterializedValue(_ => throw new RuntimeException("boom"))
 
       a[RuntimeException] shouldBe thrownBy(matValPoweredSource.preMaterialize())
+    }
+  }
+
+  "Source.futureSource" must {
+
+    "not cancel substream twice" in {
+      val result = Source
+        .futureSource(akka.pattern.after(2.seconds)(Future.successful(Source(1 to 2))))
+        .merge(Source(3 to 4))
+        .take(1)
+        .runWith(Sink.ignore)
+
+      Await.result(result, 4.seconds) shouldBe Done
     }
   }
 }

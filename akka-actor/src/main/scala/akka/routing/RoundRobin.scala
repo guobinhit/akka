@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.routing
 
 import java.util.concurrent.atomic.AtomicLong
 
+import scala.annotation.nowarn
 import scala.collection.immutable
 
-import com.github.ghik.silencer.silent
 import com.typesafe.config.Config
 
 import akka.actor.ActorSystem
@@ -24,7 +24,7 @@ object RoundRobinRoutingLogic {
  * Uses round-robin to select a routee. For concurrent calls,
  * round robin is just a best effort.
  */
-@silent("@SerialVersionUID has no effect")
+@nowarn("msg=@SerialVersionUID has no effect")
 @SerialVersionUID(1L)
 final class RoundRobinRoutingLogic extends RoutingLogic {
   val next = new AtomicLong

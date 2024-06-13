@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.javadsl;
@@ -7,7 +7,6 @@ package akka.stream.javadsl;
 import akka.NotUsed;
 import akka.japi.Pair;
 import akka.japi.function.Function;
-
 import java.util.Optional;
 
 public class SourceUnfoldTest {

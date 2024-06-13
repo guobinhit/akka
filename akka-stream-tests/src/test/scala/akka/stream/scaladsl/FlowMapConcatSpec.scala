@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -9,7 +9,6 @@ import scala.util.control.NoStackTrace
 import akka.stream.ActorAttributes
 import akka.stream.Supervision
 import akka.stream.testkit._
-import akka.stream.testkit.scaladsl.StreamTestKit._
 import akka.stream.testkit.scaladsl.TestSink
 
 class FlowMapConcatSpec extends StreamSpec("""
@@ -40,7 +39,7 @@ class FlowMapConcatSpec extends StreamSpec("""
       TestConfig.RandomTestRange.foreach(_ => runScript(script)(_.mapConcat(x => Iterator.fill(x)(x))))
     }
 
-    "map and concat grouping with slow downstream" in assertAllStagesStopped {
+    "map and concat grouping with slow downstream" in {
       val s = TestSubscriber.manualProbe[Int]()
       val input = (1 to 20).grouped(5).toList
       Source(input).mapConcat(identity).map(x => { Thread.sleep(10); x }).runWith(Sink.fromSubscriber(s))
@@ -50,25 +49,25 @@ class FlowMapConcatSpec extends StreamSpec("""
       s.expectComplete()
     }
 
-    "be able to resume" in assertAllStagesStopped {
+    "be able to resume" in {
       val ex = new Exception("TEST") with NoStackTrace
 
       Source(1 to 5)
         .mapConcat(x => if (x == 3) throw ex else List(x))
         .withAttributes(ActorAttributes.supervisionStrategy(Supervision.resumingDecider))
-        .runWith(TestSink.probe[Int])
+        .runWith(TestSink[Int]())
         .request(4)
         .expectNext(1, 2, 4, 5)
         .expectComplete()
     }
 
-    "be able to resume (iterator)" in assertAllStagesStopped {
+    "be able to resume (iterator)" in {
       val ex = new Exception("TEST") with NoStackTrace
 
       Source(1 to 5)
         .mapConcat(x => if (x == 3) throw ex else scala.collection.Iterator(x))
         .withAttributes(ActorAttributes.supervisionStrategy(Supervision.resumingDecider))
-        .runWith(TestSink.probe[Int])
+        .runWith(TestSink[Int]())
         .request(4)
         .expectNext(1, 2, 4, 5)
         .expectComplete()

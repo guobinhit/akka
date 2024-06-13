@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.internal
 
 import java.util.function.{ Function => JFunction }
+import java.util.function.Predicate
 
 import scala.annotation.tailrec
 import scala.util.control.NonFatal
@@ -25,7 +26,7 @@ import akka.util.OptionVal
  * INTERNAL API
  */
 @InternalApi private[akka] object StashBufferImpl {
-  private final class Node[T](var next: Node[T], val message: T) {
+  private[akka] final class Node[T](var next: Node[T], val message: T) {
     def apply(f: T => Unit): Unit = f(message)
   }
 
@@ -128,6 +129,21 @@ import akka.util.OptionVal
 
   override def forEach(f: Procedure[T]): Unit = foreach(f.apply)
 
+  override def contains[U >: T](message: U): Boolean =
+    exists(_ == message)
+
+  override def exists(predicate: T => Boolean): Boolean = {
+    var hasElement = false
+    var node = _first
+    while (node != null && !hasElement) {
+      hasElement = predicate(node.message)
+      node = node.next
+    }
+    hasElement
+  }
+
+  override def anyMatch(predicate: Predicate[T]): Boolean = exists(predicate.test)
+
   override def unstashAll(behavior: Behavior[T]): Behavior[T] = {
     val behav = unstash(behavior, size, ConstantFun.scalaIdentityFunction[T])
     stashCleared(ctx)
@@ -204,8 +220,8 @@ import akka.util.OptionVal
         throw new IllegalArgumentException("Cannot unstash with unhandled as starting behavior")
       else if (started == BehaviorImpl.same) {
         currentBehaviorWhenUnstashInProgress match {
-          case OptionVal.None    => ctx.asScala.currentBehavior
           case OptionVal.Some(c) => c
+          case _                 => ctx.asScala.currentBehavior
         }
       } else started
 

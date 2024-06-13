@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.io
@@ -60,6 +60,28 @@ class SimpleDnsCacheSpec extends AnyWordSpec with Matchers {
       cache.cached(DnsProtocol.Resolve("test.local")) should ===(None)
       localClock.set(0)
       cache.cached(DnsProtocol.Resolve("test.local")) should ===(None)
+    }
+
+    "drop a specific key" in {
+      val localClock = new AtomicLong(0)
+      val cache: SimpleDnsCache = new SimpleDnsCache() {
+        override protected def clock() = localClock.get
+      }
+      val ttl = Ttl.fromPositive(5000.millis)
+      val cacheEntry1 =
+        DnsProtocol.Resolved(
+          "test.local",
+          immutable.Seq(ARecord("test.local", ttl, InetAddress.getByName("127.0.0.1"))))
+      cache.put(("test.local", Ip()), cacheEntry1, ttl)
+      val cacheEntry2 =
+        DnsProtocol.Resolved(
+          "example.com",
+          immutable.Seq(ARecord("example.com", ttl, InetAddress.getByName("127.0.0.1"))))
+      cache.put(("example.com", Ip()), cacheEntry2, ttl)
+      cache.drop(("example.com", Ip()))
+      cache.cached(DnsProtocol.Resolve("example.com")) should ===(None)
+      cache.cached(DnsProtocol.Resolve("test.local")) should ===(Some(cacheEntry1))
+
     }
 
   }

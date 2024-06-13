@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.testkit.javadsl
@@ -16,7 +16,7 @@ import akka.util.ccompat.JavaConverters._
 
 trait CommonSnapshotTests extends JavaDslUtils {
 
-  lazy val testKit = new SnapshotTestKit(system)
+  final lazy val testKit = new SnapshotTestKit(system)
   import testKit._
 
   def specificTests(): Unit

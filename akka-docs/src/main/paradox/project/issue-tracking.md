@@ -10,10 +10,6 @@ Before filing a ticket, please check the existing [Akka tickets](https://github.
 problem. You are very welcome to comment on existing tickets, especially if you
 have reproducible test cases that you can share.
 
-### Roadmaps
-
-Short and long-term plans are published in the [akka/akka-meta](https://github.com/akka/akka-meta/issues) repository.
-
 ## Creating tickets
 
 *Please include the versions of Scala and Akka and relevant configuration files.*
@@ -32,5 +28,5 @@ Thanks a lot for reporting bugs and suggesting features!
 @@@
 
 Pull Requests fixing issues or adding functionality are very welcome.
-Please read [CONTRIBUTING.md](https://github.com/akka/akka/blob/master/CONTRIBUTING.md) for
+Please read [CONTRIBUTING.md](https://github.com/akka/akka/blob/main/CONTRIBUTING.md) for
 more information about contributing to Akka.

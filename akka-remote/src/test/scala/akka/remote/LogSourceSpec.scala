@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote
@@ -26,7 +26,7 @@ object LogSourceSpec {
 class LogSourceSpec extends AkkaSpec("""
     akka.loglevel = INFO
     akka.actor.provider = remote
-    akka.remote.classic.netty.tcp.port = 0
+    akka.remote.artery.canonical.port = 0
   """) {
 
   import LogSourceSpec._

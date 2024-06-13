@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -8,14 +8,13 @@ import com.typesafe.config.{ Config, ConfigFactory }
 
 object ArterySpecSupport {
   // same for all artery enabled remoting tests
-  private val staticArteryRemotingConfig = ConfigFactory.parseString(s"""
+  private val staticArteryRemotingConfig = ConfigFactory.parseString("""
     akka {
       actor {
         provider = remote
       }
       remote.warn-about-direct-use = off
       remote.artery {
-        enabled = on
         canonical {
           hostname = localhost
           port = 0

@@ -1,10 +1,8 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.typed.tutorial_5;
-
-import java.util.Optional;
 
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.Behavior;
@@ -13,6 +11,7 @@ import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
+import java.util.Optional;
 
 public class Device extends AbstractBehavior<Device.Command> {
 

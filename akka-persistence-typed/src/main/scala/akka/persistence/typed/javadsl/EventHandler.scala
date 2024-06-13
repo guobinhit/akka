@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.javadsl
@@ -327,11 +327,11 @@ final class EventHandlerBuilderByState[S <: State, State, Event](
         }
 
         result match {
-          case OptionVal.None =>
+          case OptionVal.Some(s) => s
+          case _ =>
             val stateClass = if (state == null) "null" else state.getClass.getName
             throw new MatchError(
               s"No match found for event [${event.getClass}] and state [$stateClass]. Has this event been stored using an EventAdapter?")
-          case OptionVal.Some(s) => s
         }
       }
     }

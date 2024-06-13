@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.akka.cluster.sharding.typed
@@ -28,7 +28,7 @@ class ExternalShardAllocationCompileOnlySpec {
   val TypeKey = EntityTypeKey[Counter.Command]("Counter")
 
   val entity = Entity(TypeKey)(createBehavior = entityContext => Counter(entityContext.entityId))
-    .withAllocationStrategy(new ExternalShardAllocationStrategy(system, TypeKey.name))
+    .withAllocationStrategy(ExternalShardAllocationStrategy(system, TypeKey.name))
   // #entity
 
   val shardRegion: ActorRef[ShardingEnvelope[Counter.Command]] =

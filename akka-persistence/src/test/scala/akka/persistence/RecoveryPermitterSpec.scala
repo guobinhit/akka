@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence
@@ -44,11 +44,13 @@ object RecoveryPermitterSpec {
 
 }
 
-class RecoveryPermitterSpec extends PersistenceSpec(ConfigFactory.parseString(s"""
+class RecoveryPermitterSpec
+    extends PersistenceSpec(ConfigFactory.parseString("""
     akka.persistence.max-concurrent-recoveries = 3
     akka.persistence.journal.plugin = "akka.persistence.journal.inmem"
     akka.actor.warn-about-java-serializer-usage = off
-  """)) with ImplicitSender {
+  """))
+    with ImplicitSender {
   import RecoveryPermitter._
   import RecoveryPermitterSpec._
 

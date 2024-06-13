@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.ddata
@@ -75,7 +75,7 @@ class DurablePruningSpec extends MultiNodeSpec(DurablePruningSpec) with STMultiN
       join(first, first)
       join(second, first)
 
-      val sys2 = ActorSystem(system.name, system.settings.config)
+      val sys2 = ActorSystem(system.name, MultiNodeSpec.configureNextPortIfFixed(system.settings.config))
       val cluster2 = Cluster(sys2)
       val distributedData2 = DistributedData(sys2)
       val replicator2 = startReplicator(sys2)
@@ -162,7 +162,6 @@ class DurablePruningSpec extends MultiNodeSpec(DurablePruningSpec) with STMultiN
           system.name,
           ConfigFactory.parseString(s"""
                   akka.remote.artery.canonical.port = ${address.port.get}
-                  akka.remote.classic.netty.tcp.port = ${address.port.get}
                   """).withFallback(system.settings.config))
         val cluster3 = Cluster(sys3)
         val replicator3 = startReplicator(sys3)

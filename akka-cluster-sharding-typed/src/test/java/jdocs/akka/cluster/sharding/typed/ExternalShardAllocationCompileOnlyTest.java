@@ -1,23 +1,23 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.akka.cluster.sharding.typed;
+
+import static jdocs.akka.cluster.sharding.typed.ShardingCompileOnlyTest.Counter;
 
 import akka.Done;
 import akka.actor.Address;
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.ActorSystem;
 import akka.cluster.sharding.external.ExternalShardAllocation;
+import akka.cluster.sharding.external.ExternalShardAllocationStrategy;
 import akka.cluster.sharding.external.javadsl.ExternalShardAllocationClient;
 import akka.cluster.sharding.typed.ShardingEnvelope;
 import akka.cluster.sharding.typed.javadsl.ClusterSharding;
 import akka.cluster.sharding.typed.javadsl.Entity;
 import akka.cluster.sharding.typed.javadsl.EntityTypeKey;
-
 import java.util.concurrent.CompletionStage;
-
-import static jdocs.akka.cluster.sharding.typed.ShardingCompileOnlyTest.Counter;
 
 public class ExternalShardAllocationCompileOnlyTest {
 
@@ -30,7 +30,10 @@ public class ExternalShardAllocationCompileOnlyTest {
     EntityTypeKey<Counter.Command> typeKey = EntityTypeKey.create(Counter.Command.class, "Counter");
 
     ActorRef<ShardingEnvelope<Counter.Command>> shardRegion =
-        sharding.init(Entity.of(typeKey, ctx -> Counter.create(ctx.getEntityId())));
+        sharding.init(
+            Entity.of(typeKey, ctx -> Counter.create(ctx.getEntityId()))
+                .withAllocationStrategy(
+                    ExternalShardAllocationStrategy.create(system, typeKey.name())));
     // #entity
 
     // #client

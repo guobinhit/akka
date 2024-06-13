@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
@@ -17,12 +17,12 @@ object ShutdownAfterJoinSeedNodesSpec {
   val config = """
        akka.actor.provider = "cluster"
        akka.coordinated-shutdown.terminate-actor-system = on
-       akka.remote.classic.netty.tcp.port = 0
        akka.remote.artery.canonical.port = 0
        akka.cluster {
          seed-node-timeout = 2s
          retry-unsuccessful-join-after = 2s
          shutdown-after-unsuccessful-join-seed-nodes = 5s
+         jmx.multi-mbeans-in-same-jvm = on
        }
        """
 }

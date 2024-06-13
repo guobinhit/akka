@@ -1,13 +1,13 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
 
+import scala.annotation.nowarn
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 
-import com.github.ghik.silencer.silent
 import com.typesafe.config.ConfigFactory
 
 import akka.actor.Actor
@@ -19,9 +19,8 @@ import akka.actor.Terminated
 import akka.remote.RARP
 import akka.remote.artery.QuarantinedEvent
 import akka.remote.testconductor.RoleName
+import akka.remote.testkit.Direction
 import akka.remote.testkit.MultiNodeConfig
-import akka.remote.testkit.MultiNodeSpec
-import akka.remote.transport.ThrottlerTransportAdapter.Direction
 import akka.serialization.jackson.CborSerializable
 import akka.testkit._
 
@@ -38,9 +37,7 @@ object SurviveNetworkInstabilityMultiJvmSpec extends MultiNodeConfig {
   commonConfig(
     debugConfig(on = false)
       .withFallback(ConfigFactory.parseString("""
-      akka.remote.classic.system-message-buffer-size=100
       akka.remote.artery.advanced.system-message-buffer-size=100
-      akka.remote.classic.netty.tcp.connection-timeout = 10s
       """))
       .withFallback(MultiNodeClusterSpec.clusterConfig))
 
@@ -81,8 +78,7 @@ class SurviveNetworkInstabilityMultiJvmNode7 extends SurviveNetworkInstabilitySp
 class SurviveNetworkInstabilityMultiJvmNode8 extends SurviveNetworkInstabilitySpec
 
 abstract class SurviveNetworkInstabilitySpec
-    extends MultiNodeSpec(SurviveNetworkInstabilityMultiJvmSpec)
-    with MultiNodeClusterSpec
+    extends MultiNodeClusterSpec(SurviveNetworkInstabilityMultiJvmSpec)
     with ImplicitSender {
 
   import SurviveNetworkInstabilityMultiJvmSpec._
@@ -94,28 +90,17 @@ abstract class SurviveNetworkInstabilitySpec
 
   private val remoteSettings = RARP(system).provider.remoteSettings
 
-  @silent
-  def quarantinedEventClass: Class[_] =
-    if (remoteSettings.Artery.Enabled)
-      classOf[QuarantinedEvent]
-    else
-      classOf[akka.remote.QuarantinedEvent]
+  def quarantinedEventClass: Class[_] = classOf[QuarantinedEvent]
 
-  @silent
+  @nowarn
   def quarantinedEventFrom(event: Any): Address = {
     event match {
-      case QuarantinedEvent(uniqueAddress)          => uniqueAddress.address
-      case akka.remote.QuarantinedEvent(address, _) => address
+      case QuarantinedEvent(uniqueAddress) => uniqueAddress.address
     }
 
   }
 
-  @silent
-  def sysMsgBufferSize: Int =
-    if (RARP(system).provider.remoteSettings.Artery.Enabled)
-      remoteSettings.Artery.Advanced.SysMsgBufferSize
-    else
-      remoteSettings.SysMsgBufferSize
+  def sysMsgBufferSize: Int = remoteSettings.Artery.Advanced.SysMsgBufferSize
 
   def assertUnreachable(subjects: RoleName*): Unit = {
     val expected = subjects.toSet.map(address)

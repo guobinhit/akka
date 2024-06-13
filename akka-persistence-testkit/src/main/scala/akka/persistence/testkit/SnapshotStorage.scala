@@ -1,12 +1,12 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.testkit
 
-import akka.actor.Extension
-
 import scala.util.Success
+
+import akka.actor.Extension
 import akka.annotation.InternalApi
 import akka.persistence.{ SelectedSnapshot, SnapshotMetadata, SnapshotSelectionCriteria }
 import akka.persistence.testkit.ProcessingPolicy.DefaultPolicies

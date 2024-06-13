@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
@@ -16,9 +16,9 @@ import akka.actor.Deploy
 import akka.actor.Props
 import akka.actor.RootActorPath
 import akka.cluster.MemberStatus._
+import akka.remote.testkit.Direction
 import akka.remote.testkit.MultiNodeConfig
 import akka.remote.testkit.MultiNodeSpec
-import akka.remote.transport.ThrottlerTransportAdapter.Direction
 import akka.testkit._
 import akka.util.ccompat._
 
@@ -46,17 +46,16 @@ class RestartNode3MultiJvmNode1 extends RestartNode3Spec
 class RestartNode3MultiJvmNode2 extends RestartNode3Spec
 class RestartNode3MultiJvmNode3 extends RestartNode3Spec
 
-abstract class RestartNode3Spec
-    extends MultiNodeSpec(RestartNode3MultiJvmSpec)
-    with MultiNodeClusterSpec
-    with ImplicitSender {
+abstract class RestartNode3Spec extends MultiNodeClusterSpec(RestartNode3MultiJvmSpec) with ImplicitSender {
 
   import RestartNode3MultiJvmSpec._
 
   @volatile var secondUniqueAddress: UniqueAddress = _
 
   // use a separate ActorSystem, to be able to simulate restart
-  lazy val secondSystem = ActorSystem(system.name, system.settings.config)
+  lazy val secondSystem = ActorSystem(system.name, MultiNodeSpec.configureNextPortIfFixed(system.settings.config))
+
+  override def verifySystemShutdown: Boolean = true
 
   def seedNodes: immutable.IndexedSeq[Address] = Vector(first)
 
@@ -64,7 +63,6 @@ abstract class RestartNode3Spec
     system.name,
     ConfigFactory.parseString(s"""
         akka.remote.artery.canonical.port = ${secondUniqueAddress.address.port.get}
-        akka.remote.classic.netty.tcp.port = ${secondUniqueAddress.address.port.get}
         """).withFallback(system.settings.config))
 
   override def afterAll(): Unit = {

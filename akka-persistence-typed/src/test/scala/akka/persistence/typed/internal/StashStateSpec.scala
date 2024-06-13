@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.internal
@@ -66,6 +66,7 @@ class StashStateSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike with
       logOnStashing = false,
       recoveryEventTimeout = 3.seconds,
       journalPluginId = "",
-      snapshotPluginId = "")
+      snapshotPluginId = "",
+      useContextLoggerForInternalLogging = false)
 
 }

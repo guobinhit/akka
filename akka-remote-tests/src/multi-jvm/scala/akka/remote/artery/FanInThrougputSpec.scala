@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -29,7 +29,10 @@ object FanInThroughputSpec extends MultiNodeConfig {
 
   val barrierTimeout = 5.minutes
 
-  commonConfig(debugConfig(on = false).withFallback(ConfigFactory.parseString(s"""
+  commonConfig(
+    debugConfig(on = false)
+      .withFallback(
+        ConfigFactory.parseString("""
        # for serious measurements you should increase the totalMessagesFactor (20)
        akka.test.FanInThroughputSpec.totalMessagesFactor = 10.0
        akka.test.FanInThroughputSpec.real-message = off
@@ -37,7 +40,9 @@ object FanInThroughputSpec extends MultiNodeConfig {
        akka.remote.artery.advanced {
          # inbound-lanes = 4
        }
-       """)).withFallback(MaxThroughputSpec.cfg).withFallback(RemotingMultiNodeSpec.commonConfig))
+       """))
+      .withFallback(MaxThroughputSpec.cfg)
+      .withFallback(RemotingMultiNodeSpec.commonConfig))
 
 }
 

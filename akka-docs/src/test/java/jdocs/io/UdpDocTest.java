@@ -1,20 +1,20 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.io;
 
 // #imports
+import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
 import akka.actor.PoisonPill;
-import akka.actor.AbstractActor;
 import akka.io.Udp;
 import akka.io.UdpConnected;
 import akka.io.UdpConnectedMessage;
 import akka.io.UdpMessage;
 import akka.util.ByteString;
-
 import java.net.InetSocketAddress;
+
 // #imports
 
 public class UdpDocTest {

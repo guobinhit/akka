@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed
@@ -21,10 +21,12 @@ class TerminatedSpec extends AnyWordSpec with Matchers with LogCapturing {
 
       (childFailed match {
         case Terminated(r) => r
+        case unexpected    => throw new RuntimeException(s"Unexpected: $unexpected")
       }) shouldEqual probe.ref
 
       (childFailed match {
         case ChildFailed(ref, e) => (ref, e)
+        case unexpected          => throw new RuntimeException(s"Unexpected: $unexpected")
       }) shouldEqual ((probe.ref, ex))
 
     }

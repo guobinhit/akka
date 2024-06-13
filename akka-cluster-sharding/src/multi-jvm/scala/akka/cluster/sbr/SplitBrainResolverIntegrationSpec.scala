@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sbr
@@ -59,7 +59,6 @@ object SplitBrainResolverIntegrationSpec extends MultiNodeConfig {
       }
 
       actor.provider = cluster
-      remote.log-remote-lifecycle-events = off
     }
 
     akka.coordinated-shutdown.run-by-jvm-shutdown-hook = off
@@ -82,8 +81,7 @@ class SplitBrainResolverIntegrationSpecMultiJvmNode8 extends SplitBrainResolverI
 class SplitBrainResolverIntegrationSpecMultiJvmNode9 extends SplitBrainResolverIntegrationSpec
 
 class SplitBrainResolverIntegrationSpec
-    extends MultiNodeSpec(SplitBrainResolverIntegrationSpec)
-    with MultiNodeClusterSpec
+    extends MultiNodeClusterSpec(SplitBrainResolverIntegrationSpec)
     with ImplicitSender
     with BeforeAndAfterEach {
   import GlobalRegistry._
@@ -120,9 +118,10 @@ class SplitBrainResolverIntegrationSpec
 
       val sys = ActorSystem(
         system.name + "-" + c,
-        scenario.cfg
-          .withValue("akka.cluster.multi-data-center.self-data-center", ConfigValueFactory.fromAnyRef(dcName))
-          .withFallback(system.settings.config))
+        MultiNodeSpec.configureNextPortIfFixed(
+          scenario.cfg
+            .withValue("akka.cluster.multi-data-center.self-data-center", ConfigValueFactory.fromAnyRef(dcName))
+            .withFallback(system.settings.config)))
       val gremlinController = sys.actorOf(GremlinController.props, "gremlinController")
       system.actorOf(GremlinControllerProxy.props(gremlinController), s"gremlinControllerProxy-$c")
       sys
@@ -163,12 +162,12 @@ class SplitBrainResolverIntegrationSpec
     }
 
     def sysAddress(at: RoleName): Address = {
-      implicit val timeout = Timeout(3.seconds)
+      implicit val timeout: Timeout = 3.seconds
       Await.result((gremlinControllerProxy(at) ? GetAddress).mapTo[Address], timeout.duration)
     }
 
     def blackhole(from: RoleName, to: RoleName): Unit = {
-      implicit val timeout = Timeout(3.seconds)
+      implicit val timeout: Timeout = 3.seconds
       import system.dispatcher
       val f = for {
         target <- (gremlinControllerProxy(to) ? GetAddress).mapTo[Address]
@@ -396,6 +395,7 @@ class SplitBrainResolverIntegrationSpec
         lease-majority {
           lease-implementation = test-lease
           acquire-lease-delay-for-minority = 3s
+          release-after = 20s          
         }
       }
       test-lease {
@@ -457,6 +457,12 @@ class SplitBrainResolverIntegrationSpec
 
     for (scenario <- scenarios) {
       scenario.toString taggedAs LongRunningTest in {
+        // temporarily disabled for aeron-udp in multi-node: https://github.com/akka/akka/pull/30706/
+        val arteryConfig = system.settings.config.getConfig("akka.remote.artery")
+        if (arteryConfig.getInt("canonical.port") == 6000 &&
+            arteryConfig.getString("transport") == "aeron-udp") {
+          pending
+        }
         DisposableSys(scenario).verify()
       }
     }

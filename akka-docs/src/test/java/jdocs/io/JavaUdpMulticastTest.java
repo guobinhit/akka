@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.io;
@@ -9,17 +9,15 @@ import akka.actor.ActorSystem;
 import akka.actor.Props;
 import akka.io.Udp;
 import akka.testkit.SocketUtil;
-
-import jdocs.AbstractJavaTest;
 import akka.testkit.javadsl.TestKit;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
-
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.util.*;
+import jdocs.AbstractJavaTest;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
 public class JavaUdpMulticastTest extends AbstractJavaTest {
 
@@ -64,7 +62,7 @@ public class JavaUdpMulticastTest extends AbstractJavaTest {
               interfaceIterator.hasNext(); ) {
             NetworkInterface ipv6Iface = interfaceIterator.next();
             // host assigned link local multicast address
-            // http://tools.ietf.org/html/rfc3307#section-4.3.2
+            // https://www.rfc-editor.org/rfc/rfc3307#section-4.3.2
             // generate a random 32 bit multicast address with the high order bit set
             final String randomAddress =
                 Long.toHexString(((long) Math.abs(new Random().nextInt())) | (1L << 31))

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.testkit
@@ -13,9 +13,10 @@ import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
 
-import akka.actor.ClassicActorSystemProvider
 import org.reactivestreams.{ Publisher, Subscriber, Subscription }
+
 import akka.actor.{ ActorRef, ActorSystem, DeadLetterSuppression, NoSerializationVerificationNeeded }
+import akka.actor.ClassicActorSystemProvider
 import akka.stream._
 import akka.stream.impl._
 import akka.testkit.{ TestActor, TestProbe }
@@ -138,26 +139,6 @@ object TestPublisher {
      */
     def expectRequest(subscription: Subscription, n: Int): Self = executeAfterSubscription {
       probe.expectMsg(RequestMore(subscription, n))
-      self
-    }
-
-    /**
-     * Expect no messages.
-     * NOTE! Timeout value is automatically multiplied by timeFactor.
-     */
-    @deprecated(message = "Use expectNoMessage instead", since = "2.5.5")
-    def expectNoMsg(): Self = executeAfterSubscription {
-      probe.expectNoMsg()
-      self
-    }
-
-    /**
-     * Expect no messages for a given duration.
-     * NOTE! Timeout value is automatically multiplied by timeFactor.
-     */
-    @deprecated(message = "Use expectNoMessage instead", since = "2.5.5")
-    def expectNoMsg(max: FiniteDuration): Self = executeAfterSubscription {
-      probe.expectNoMsg(max)
       self
     }
 
@@ -587,6 +568,7 @@ object TestSubscriber {
       } match {
         case OnNext(n: I @unchecked) => Right(n)
         case OnError(err)            => Left(err)
+        case _                       => throw new RuntimeException() // compiler exhaustiveness check pleaser
       }
     }
 
@@ -601,6 +583,7 @@ object TestSubscriber {
       } match {
         case OnNext(n: I @unchecked) => Right(n)
         case OnError(err)            => Left(err)
+        case _                       => throw new RuntimeException() // compiler exhaustiveness check pleaser
       }
     }
 
@@ -614,6 +597,7 @@ object TestSubscriber {
       } match {
         case OnComplete              => Left(OnComplete)
         case OnNext(n: I @unchecked) => Right(n)
+        case _                       => throw new RuntimeException() // compiler exhaustiveness check pleaser
       }
     }
 
@@ -627,30 +611,6 @@ object TestSubscriber {
         case OnNext(`element`) => true
         case OnComplete        => true
       }
-      self
-    }
-
-    /**
-     * Fluent DSL
-     *
-     * Same as `expectNoMsg(remaining)`, but correctly treating the timeFactor.
-     * NOTE! Timeout value is automatically multiplied by timeFactor.
-     */
-    @deprecated(message = "Use expectNoMessage instead", since = "2.5.5")
-    def expectNoMsg(): Self = {
-      probe.expectNoMsg()
-      self
-    }
-
-    /**
-     * Fluent DSL
-     *
-     * Assert that no message is received for the specified time.
-     * NOTE! Timeout value is automatically multiplied by timeFactor.
-     */
-    @deprecated(message = "Use expectNoMessage instead", since = "2.5.5")
-    def expectNoMsg(remaining: FiniteDuration): Self = {
-      probe.expectNoMsg(remaining)
       self
     }
 
@@ -766,6 +726,7 @@ object TestSubscriber {
           case OnNext(i: I @unchecked) =>
             b += i
             drain()
+          case _ => throw new RuntimeException() // compiler exhaustiveness check pleaser
         }
 
       // if no subscription was obtained yet, we expect it
@@ -872,7 +833,7 @@ object TestSubscriber {
 /**
  * INTERNAL API
  */
-private[testkit] object StreamTestKit {
+private[stream] object StreamTestKit {
   import TestPublisher._
 
   final case class CompletedSubscription[T](subscriber: Subscriber[T]) extends Subscription {
@@ -914,8 +875,6 @@ private[testkit] object StreamTestKit {
       val probe = TestPublisher.probe[T]()
       (probe, probe)
     }
-    override protected def newInstance(shape: SourceShape[T]): SourceModule[T, TestPublisher.Probe[T]] =
-      new ProbeSource[T](attributes, shape)
     override def withAttributes(attr: Attributes): SourceModule[T, TestPublisher.Probe[T]] =
       new ProbeSource[T](attr, amendShape(attr))
   }
@@ -926,8 +885,6 @@ private[testkit] object StreamTestKit {
       val probe = TestSubscriber.probe[T]()
       (probe, probe)
     }
-    override protected def newInstance(shape: SinkShape[T]): SinkModule[T, TestSubscriber.Probe[T]] =
-      new ProbeSink[T](attributes, shape)
     override def withAttributes(attr: Attributes): SinkModule[T, TestSubscriber.Probe[T]] =
       new ProbeSink[T](attr, amendShape(attr))
   }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.routing
@@ -15,7 +15,6 @@ import akka.actor.Props
 import akka.cluster.MultiNodeClusterSpec
 import akka.pattern.ask
 import akka.remote.testkit.MultiNodeConfig
-import akka.remote.testkit.MultiNodeSpec
 import akka.routing.ActorRefRoutee
 import akka.routing.ConsistentHashingPool
 import akka.routing.ConsistentHashingRouter.ConsistentHashMapping
@@ -61,8 +60,7 @@ class ClusterConsistentHashingRouterMultiJvmNode2 extends ClusterConsistentHashi
 class ClusterConsistentHashingRouterMultiJvmNode3 extends ClusterConsistentHashingRouterSpec
 
 abstract class ClusterConsistentHashingRouterSpec
-    extends MultiNodeSpec(ClusterConsistentHashingRouterMultiJvmSpec)
-    with MultiNodeClusterSpec
+    extends MultiNodeClusterSpec(ClusterConsistentHashingRouterMultiJvmSpec)
     with ImplicitSender
     with DefaultTimeout {
   import ClusterConsistentHashingRouterMultiJvmSpec._
@@ -91,7 +89,7 @@ abstract class ClusterConsistentHashingRouterSpec
         // it may take some time until router receives cluster member events
         awaitAssert { currentRoutees(router1).size should ===(4) }
         val routees = currentRoutees(router1)
-        routees.map { case ActorRefRoutee(ref) => fullAddress(ref) }.toSet should ===(
+        routees.collect { case ActorRefRoutee(ref) => fullAddress(ref) }.toSet should ===(
           Set(address(first), address(second)))
       }
       enterBarrier("after-2")
@@ -115,7 +113,7 @@ abstract class ClusterConsistentHashingRouterSpec
         // it may take some time until router receives cluster member events
         awaitAssert { currentRoutees(router1).size should ===(6) }
         val routees = currentRoutees(router1)
-        routees.map { case ActorRefRoutee(ref) => fullAddress(ref) }.toSet should ===(roles.map(address).toSet)
+        routees.collect { case ActorRefRoutee(ref) => fullAddress(ref) }.toSet should ===(roles.map(address).toSet)
       }
 
       enterBarrier("after-3")
@@ -132,7 +130,7 @@ abstract class ClusterConsistentHashingRouterSpec
         // it may take some time until router receives cluster member events
         awaitAssert { currentRoutees(router2).size should ===(6) }
         val routees = currentRoutees(router2)
-        routees.map { case ActorRefRoutee(ref) => fullAddress(ref) }.toSet should ===(roles.map(address).toSet)
+        routees.collect { case ActorRefRoutee(ref) => fullAddress(ref) }.toSet should ===(roles.map(address).toSet)
       }
 
       enterBarrier("after-4")
@@ -180,7 +178,7 @@ abstract class ClusterConsistentHashingRouterSpec
       // it may take some time until router receives cluster member events
       awaitAssert { currentRoutees(router).size should ===(6) }
       val routees = currentRoutees(router)
-      routees.map { case ActorRefRoutee(ref) => fullAddress(ref) }.toSet should ===(roles.map(address).toSet)
+      routees.collect { case ActorRefRoutee(ref) => fullAddress(ref) }.toSet should ===(roles.map(address).toSet)
 
       router ! "a"
       val destinationA = expectMsgType[ActorRef]

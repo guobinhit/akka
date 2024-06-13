@@ -1,8 +1,11 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed;
+
+import static akka.Done.done;
+import static org.junit.Assert.assertEquals;
 
 import akka.Done;
 import akka.actor.testkit.typed.javadsl.LogCapturing;
@@ -14,15 +17,11 @@ import akka.persistence.testkit.PersistenceTestKitPlugin;
 import akka.persistence.testkit.query.javadsl.PersistenceTestKitReadJournal;
 import akka.persistence.typed.javadsl.*;
 import com.typesafe.config.ConfigFactory;
+import java.util.*;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.scalatestplus.junit.JUnitSuite;
-
-import java.util.*;
-
-import static akka.Done.done;
-import static org.junit.Assert.assertEquals;
 
 public class ReplicatedEventSourcingTest extends JUnitSuite {
 
@@ -180,8 +179,8 @@ public class ReplicatedEventSourcingTest extends JUnitSuite {
           replicaA.tell(new TestBehavior.GetState(probe.ref().narrow()));
           TestBehavior.State reply = probe.expectMessageClass(TestBehavior.State.class);
           assertEquals(
-              reply.texts,
-              new HashSet<String>(Arrays.asList("stored-to-a", "stored-to-b", "stored-to-c")));
+              new HashSet<>(Arrays.asList("stored-to-a", "stored-to-b", "stored-to-c")),
+              reply.texts);
           return null;
         });
     probe.awaitAssert(
@@ -189,8 +188,8 @@ public class ReplicatedEventSourcingTest extends JUnitSuite {
           replicaB.tell(new TestBehavior.GetState(probe.ref().narrow()));
           TestBehavior.State reply = probe.expectMessageClass(TestBehavior.State.class);
           assertEquals(
-              reply.texts,
-              new HashSet<String>(Arrays.asList("stored-to-a", "stored-to-b", "stored-to-c")));
+              new HashSet<>(Arrays.asList("stored-to-a", "stored-to-b", "stored-to-c")),
+              reply.texts);
           return null;
         });
     probe.awaitAssert(
@@ -198,8 +197,8 @@ public class ReplicatedEventSourcingTest extends JUnitSuite {
           replicaC.tell(new TestBehavior.GetState(probe.ref().narrow()));
           TestBehavior.State reply = probe.expectMessageClass(TestBehavior.State.class);
           assertEquals(
-              reply.texts,
-              new HashSet<String>(Arrays.asList("stored-to-a", "stored-to-b", "stored-to-c")));
+              new HashSet<>(Arrays.asList("stored-to-a", "stored-to-b", "stored-to-c")),
+              reply.texts);
           return null;
         });
   }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
@@ -39,6 +39,7 @@ object ClusterShardingLeavingSpec {
 
   val extractShardId: ShardRegion.ExtractShardId = {
     case Ping(id: String) => id.charAt(0).toString
+    case _                => throw new IllegalArgumentException()
   }
 }
 
@@ -100,7 +101,7 @@ abstract class ClusterShardingLeavingSpec(multiNodeConfig: ClusterShardingLeavin
 
   lazy val region = ClusterSharding(system).shardRegion("Entity")
 
-  s"Cluster sharding ($mode) with leaving member" must {
+  s"Cluster sharding (${multiNodeConfig.mode}) with leaving member" must {
 
     "join cluster" in within(20.seconds) {
       startPersistenceIfNeeded(startOn = first, setStoreOn = roles)

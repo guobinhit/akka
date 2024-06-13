@@ -1,14 +1,13 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.actor.typed;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-
 import akka.actor.typed.*;
 import akka.actor.typed.javadsl.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 // #separate-dispatcher
 class SeparateDispatcherFutureActor extends AbstractBehavior<Integer> {

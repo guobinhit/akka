@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sbr
@@ -11,9 +11,8 @@ import com.typesafe.config.ConfigFactory
 import akka.cluster.Cluster
 import akka.cluster.MemberStatus
 import akka.cluster.MultiNodeClusterSpec
+import akka.remote.testkit.Direction
 import akka.remote.testkit.MultiNodeConfig
-import akka.remote.testkit.MultiNodeSpec
-import akka.remote.transport.ThrottlerTransportAdapter
 
 object IndirectlyConnected5NodeSpec extends MultiNodeConfig {
   val node1 = role("node1")
@@ -48,7 +47,7 @@ class IndirectlyConnected5NodeSpecMultiJvmNode3 extends IndirectlyConnected5Node
 class IndirectlyConnected5NodeSpecMultiJvmNode4 extends IndirectlyConnected5NodeSpec
 class IndirectlyConnected5NodeSpecMultiJvmNode5 extends IndirectlyConnected5NodeSpec
 
-class IndirectlyConnected5NodeSpec extends MultiNodeSpec(IndirectlyConnected5NodeSpec) with MultiNodeClusterSpec {
+class IndirectlyConnected5NodeSpec extends MultiNodeClusterSpec(IndirectlyConnected5NodeSpec) {
   import IndirectlyConnected5NodeSpec._
 
   "A 5-node cluster" should {
@@ -74,13 +73,13 @@ class IndirectlyConnected5NodeSpec extends MultiNodeSpec(IndirectlyConnected5Nod
 
       runOn(node1) {
         for (x <- List(node1, node2, node3); y <- List(node4, node5)) {
-          testConductor.blackhole(x, y, ThrottlerTransportAdapter.Direction.Both).await
+          testConductor.blackhole(x, y, Direction.Both).await
         }
       }
       enterBarrier("blackholed-clean-partition")
 
       runOn(node1) {
-        testConductor.blackhole(node2, node3, ThrottlerTransportAdapter.Direction.Both).await
+        testConductor.blackhole(node2, node3, Direction.Both).await
       }
       enterBarrier("blackholed-indirectly-connected")
 

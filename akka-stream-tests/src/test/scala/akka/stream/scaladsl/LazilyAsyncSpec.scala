@@ -1,30 +1,29 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
 import java.util.concurrent.atomic.AtomicBoolean
 
+import scala.annotation.nowarn
 import scala.concurrent.Future
 
-import com.github.ghik.silencer.silent
 import org.scalatest.concurrent.ScalaFutures
 
 import akka.Done
 import akka.stream.testkit.StreamSpec
 import akka.stream.testkit.TestSubscriber
-import akka.stream.testkit.scaladsl.StreamTestKit._
 import akka.testkit.DefaultTimeout
 
-@silent("deprecated") // tests deprecated methods
+@nowarn("msg=deprecated") // tests deprecated methods
 class LazilyAsyncSpec extends StreamSpec with DefaultTimeout with ScalaFutures {
 
   import system.dispatcher
 
   "A lazy async source" should {
 
-    "work in happy path scenario" in assertAllStagesStopped {
+    "work in happy path scenario" in {
       val stream = Source
         .lazilyAsync { () =>
           Future(42)
@@ -34,7 +33,7 @@ class LazilyAsyncSpec extends StreamSpec with DefaultTimeout with ScalaFutures {
       stream.futureValue should ===(42)
     }
 
-    "call factory method on demand only" in assertAllStagesStopped {
+    "call factory method on demand only" in {
       val probe = TestSubscriber.probe[Int]()
       val constructed = new AtomicBoolean(false)
 
@@ -48,7 +47,7 @@ class LazilyAsyncSpec extends StreamSpec with DefaultTimeout with ScalaFutures {
       constructed.get() should ===(false)
     }
 
-    "fail materialized value when downstream cancels without ever consuming any element" in assertAllStagesStopped {
+    "fail materialized value when downstream cancels without ever consuming any element" in {
       val materialization = Source
         .lazilyAsync { () =>
           Future(42)
@@ -61,7 +60,7 @@ class LazilyAsyncSpec extends StreamSpec with DefaultTimeout with ScalaFutures {
       }
     }
 
-    "materialize when the source has been created" in assertAllStagesStopped {
+    "materialize when the source has been created" in {
       val probe = TestSubscriber.probe[Int]()
 
       val materialization: Future[Done] =
@@ -81,7 +80,7 @@ class LazilyAsyncSpec extends StreamSpec with DefaultTimeout with ScalaFutures {
       probe.cancel()
     }
 
-    "propagate failed future from factory" in assertAllStagesStopped {
+    "propagate failed future from factory" in {
       val probe = TestSubscriber.probe[Int]()
       val failure = new RuntimeException("too bad")
       Source

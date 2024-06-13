@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence
@@ -7,6 +7,7 @@ package akka.persistence
 import java.io.File
 import java.util.concurrent.TimeUnit
 
+import scala.annotation.nowarn
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
@@ -49,6 +50,7 @@ class LevelDbBatchingBenchmark {
   val batch_200 = List.fill(200) { AtomicWrite(PersistentRepr("data", 12, "pa")) }
 
   @Setup(Level.Trial)
+  @nowarn("msg=deprecated")
   def setup(): Unit = {
     sys = ActorSystem("sys")
     deleteStorage(sys)

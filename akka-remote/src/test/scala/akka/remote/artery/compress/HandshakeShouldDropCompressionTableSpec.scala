@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery.compress
@@ -19,7 +19,7 @@ import akka.testkit._
 import akka.util.Timeout
 
 object HandshakeShouldDropCompressionTableSpec {
-  val commonConfig = ConfigFactory.parseString(s"""
+  val commonConfig = ConfigFactory.parseString("""
      akka {
        remote.artery.advanced.handshake-timeout = 10s
        remote.artery.advanced.aeron.image-liveness-timeout = 7s
@@ -136,8 +136,9 @@ class HandshakeShouldDropCompressionTableSpec
   def identify(_system: String, port: Int, name: String) = {
     val selection =
       system.actorSelection(s"akka://${_system}@localhost:$port/user/$name")
-    val ActorIdentity(1, ref) = Await.result(selection ? Identify(1), 3.seconds)
-    ref.get
+    val identity = Await.result((selection ? Identify(1)).mapTo[ActorIdentity], 3.seconds)
+    if (identity.correlationId != 1) throw new RuntimeException("Got the wrong identity back")
+    identity.ref.get
   }
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote
@@ -99,4 +99,5 @@ private[akka] abstract class RemoteTransport(val system: ExtendedActorSystem, va
   @InternalStableApi
   def quarantine(address: Address, uid: Option[Long], reason: String): Unit
 
+  def systemUid: Long
 }

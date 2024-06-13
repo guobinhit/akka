@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -7,7 +7,6 @@ package akka.stream.scaladsl
 import scala.concurrent.duration._
 
 import akka.stream.testkit._
-import akka.stream.testkit.scaladsl.StreamTestKit._
 
 class FlowTakeWithinSpec extends StreamSpec {
 
@@ -43,7 +42,7 @@ class FlowTakeWithinSpec extends StreamSpec {
       c.expectNoMessage(200.millis)
     }
 
-    "deliver buffered elements onComplete before the timeout" in assertAllStagesStopped {
+    "deliver buffered elements onComplete before the timeout" in {
       val c = TestSubscriber.manualProbe[Int]()
       Source(1 to 3).takeWithin(1.second).to(Sink.fromSubscriber(c)).run()
       val cSub = c.expectSubscription()

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.testkit.scaladsl
@@ -7,7 +7,9 @@ package akka.persistence.testkit.scaladsl
 import scala.collection.immutable
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
+
 import com.typesafe.config.Config
+
 import akka.actor.ActorSystem
 import akka.actor.ClassicActorSystemProvider
 import akka.actor.ExtendedActorSystem
@@ -442,7 +444,8 @@ class PersistenceTestKit(system: ActorSystem)
 
   import PersistenceTestKit._
 
-  override protected val storage = InMemStorageExtension(system).storageFor(PersistenceTestKitPlugin.PluginId)
+  override protected val storage: EventStorage =
+    InMemStorageExtension(system).storageFor(PersistenceTestKitPlugin.PluginId)
 
   private final lazy val settings = Settings(system)
 

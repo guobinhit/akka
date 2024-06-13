@@ -1,12 +1,12 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.japi.pf;
 
 import scala.PartialFunction;
-import scala.runtime.BoxedUnit;
 import scala.Tuple2;
+import scala.runtime.BoxedUnit;
 
 /**
  * Builder used to create a partial function for {@link akka.actor.FSM#onTransition}.

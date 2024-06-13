@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.delivery.internal
@@ -193,7 +193,7 @@ object ProducerControllerImpl {
       .narrow
   }
 
-  private def askLoadState[A: ClassTag](
+  private def askLoadState[A](
       context: ActorContext[InternalCommand],
       durableQueueBehavior: Option[Behavior[DurableProducerQueue.Command[A]]],
       settings: ProducerController.Settings): Option[ActorRef[DurableProducerQueue.Command[A]]] = {
@@ -206,7 +206,7 @@ object ProducerControllerImpl {
     }
   }
 
-  private def askLoadState[A: ClassTag](
+  private def askLoadState[A](
       context: ActorContext[InternalCommand],
       durableQueue: Option[ActorRef[DurableProducerQueue.Command[A]]],
       settings: ProducerController.Settings,
@@ -222,11 +222,11 @@ object ProducerControllerImpl {
     }
   }
 
-  private def createInitialState[A: ClassTag](hasDurableQueue: Boolean) = {
+  private def createInitialState[A](hasDurableQueue: Boolean) = {
     if (hasDurableQueue) None else Some(DurableProducerQueue.State.empty[A])
   }
 
-  private def createState[A: ClassTag](
+  private def createState[A](
       self: ActorRef[InternalCommand],
       producerId: String,
       send: SequencedMessage[A] => Unit,
@@ -346,10 +346,10 @@ object ProducerControllerImpl {
     val manifest = Serializers.manifestFor(ser, mAnyRef)
     val serializerId = ser.identifier
     if (bytes.length <= chunkSize) {
-      ChunkedMessage(ByteString(bytes), firstChunk = true, lastChunk = true, serializerId, manifest) :: Nil
+      ChunkedMessage(ByteString.fromArrayUnsafe(bytes), firstChunk = true, lastChunk = true, serializerId, manifest) :: Nil
     } else {
       val builder = Vector.newBuilder[ChunkedMessage]
-      val chunksIter = ByteString(bytes).grouped(chunkSize)
+      val chunksIter = ByteString.fromArrayUnsafe(bytes).grouped(chunkSize)
       var first = true
       while (chunksIter.hasNext) {
         val chunk = chunksIter.next()
@@ -696,7 +696,7 @@ private class ProducerControllerImpl[A: ClassTag](
         context.self ! ResendFirst
       }
       // update the send function
-      val newSend = consumerController ! _
+      val newSend = consumerController.tell(_)
       active(s.copy(firstSeqNr = newFirstSeqNr, send = newSend))
     }
 
@@ -796,7 +796,7 @@ private class ProducerControllerImpl[A: ClassTag](
       case StoreMessageSentCompleted(sent: MessageSent[_]) =>
         receiveStoreMessageSentCompleted(sent.seqNr)
 
-      case f: StoreMessageSentFailed[A] =>
+      case f: StoreMessageSentFailed[A @unchecked] =>
         receiveStoreMessageSentFailed(f)
 
       case Request(newConfirmedSeqNr, newRequestedSeqNr, supportResend, viaTimeout) =>
@@ -817,7 +817,7 @@ private class ProducerControllerImpl[A: ClassTag](
       case ResendFirstUnconfirmed =>
         receiveResendFirstUnconfirmed()
 
-      case start: Start[A] =>
+      case start: Start[A @unchecked] =>
         receiveStart(start)
 
       case RegisterConsumer(consumerController: ActorRef[ConsumerController.Command[A]] @unchecked) =>
@@ -825,6 +825,9 @@ private class ProducerControllerImpl[A: ClassTag](
 
       case DurableQueueTerminated =>
         throw new IllegalStateException("DurableQueue was unexpectedly terminated.")
+
+      case unexpected =>
+        throw new RuntimeException(s"Unexpected message: $unexpected")
     }
   }
 

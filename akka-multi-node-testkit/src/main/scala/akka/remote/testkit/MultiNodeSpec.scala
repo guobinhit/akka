@@ -1,31 +1,35 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.testkit
 
-import java.net.{ InetAddress, InetSocketAddress }
-
-import scala.collection.immutable
-import scala.concurrent.{ Await, Awaitable }
-import scala.concurrent.duration._
-import scala.util.control.NonFatal
-
-import com.typesafe.config.{ Config, ConfigFactory, ConfigObject }
-import language.implicitConversions
-import org.jboss.netty.channel.ChannelException
-
-import akka.actor._
 import akka.actor.RootActorPath
-import akka.event.{ Logging, LoggingAdapter }
+import akka.actor._
+import akka.event.Logging
+import akka.event.LoggingAdapter
 import akka.remote.RemoteTransportException
-import akka.remote.testconductor.{ TestConductor, TestConductorExt }
 import akka.remote.testconductor.RoleName
-import akka.testkit._
+import akka.remote.testconductor.TestConductor
+import akka.remote.testconductor.TestConductorExt
 import akka.testkit.TestEvent._
 import akka.testkit.TestKit
+import akka.testkit._
 import akka.util.Timeout
 import akka.util.ccompat._
+import com.typesafe.config.Config
+import com.typesafe.config.ConfigFactory
+import com.typesafe.config.ConfigObject
+import io.netty.channel.ChannelException
+
+import java.net.InetAddress
+import java.net.InetSocketAddress
+import scala.collection.immutable
+import scala.concurrent.duration._
+import scala.concurrent.Await
+import scala.concurrent.Awaitable
+import scala.language.implicitConversions
+import scala.util.control.NonFatal
 
 /**
  * Configure the role names and participants of the test, including configuration settings.
@@ -73,7 +77,6 @@ abstract class MultiNodeConfig {
           receive = on
           fsm = on
         }
-        akka.remote.log-remote-lifecycle-events = on
         """)
     else
       ConfigFactory.empty
@@ -110,7 +113,6 @@ abstract class MultiNodeConfig {
   private[akka] def config: Config = {
     val transportConfig =
       if (_testTransport) ConfigFactory.parseString("""
-           akka.remote.classic.netty.tcp.applied-adapters = [trttl, gremlin]
            akka.remote.artery.advanced.test-mode = on
         """)
       else ConfigFactory.empty
@@ -162,15 +164,41 @@ object MultiNodeSpec {
   require(selfName != "", "multinode.host must not be empty")
 
   /**
-   * Port number of this node. Defaults to 0 which means a random port.
+   * TCP Port number to be used when running tests on TCP. 0 means a random port.
    *
    * {{{
    * -Dmultinode.port=0
    * }}}
    */
-  val selfPort: Int = Integer.getInteger("multinode.port", 0)
+  val tcpPort: Int = Integer.getInteger("multinode.port", 0)
 
-  require(selfPort >= 0 && selfPort < 65535, "multinode.port is out of bounds: " + selfPort)
+  require(tcpPort >= 0 && tcpPort < 65535, "multinode.port is out of bounds: " + tcpPort)
+
+  /**
+   * UDP Port number to be used when running tests on UDP. 0 means a random port.
+   *
+   * {{{
+   * -Dmultinode.udp.port=0
+   * }}}
+   */
+  val udpPort: Option[Int] =
+    Option(System.getProperty("multinode.udp.port")).map { _ =>
+      Integer.getInteger("multinode.udp.port", 0)
+    }
+
+  require(udpPort.getOrElse(1) >= 0 && udpPort.getOrElse(1) < 65535, "multinode.udp.port is out of bounds: " + udpPort)
+
+  /**
+   * Port number of this node.
+   *
+   * This is defined in function of property `multinode.protocol`.
+   * If set to 'udp', udpPort will be used. If unset or any other value, it will default to tcpPort.
+   */
+  val selfPort: Int =
+    System.getProperty("multinode.protocol") match {
+      case "udp" => udpPort.getOrElse(0)
+      case _     => tcpPort
+    }
 
   /**
    * Name (or IP address; must be resolvable using InetAddress.getByName)
@@ -214,8 +242,6 @@ object MultiNodeSpec {
     Map(
       "akka.actor.provider" -> "remote",
       "akka.remote.artery.canonical.hostname" -> selfName,
-      "akka.remote.classic.netty.tcp.hostname" -> selfName,
-      "akka.remote.classic.netty.tcp.port" -> selfPort,
       "akka.remote.artery.canonical.port" -> selfPort))
 
   private[testkit] val baseConfig: Config =
@@ -245,6 +271,23 @@ object MultiNodeSpec {
     ConfigFactory.parseMap(map.asJava)
   }
 
+  // Multi node tests on kubernetes require fixed ports to be mapped and exposed
+  // This method change the port bindings to avoid conflicts
+  // Please note that with the current setup only port 5000 and 5001 (or 6000 and 6001 when using UDP)
+  // are exposed in kubernetes
+  def configureNextPortIfFixed(config: Config): Config = {
+    val arteryPortConfig = getNextPortString("akka.remote.artery.canonical.port", config)
+    ConfigFactory.parseString(s"""{
+      $arteryPortConfig
+      }""").withFallback(config)
+  }
+
+  private def getNextPortString(key: String, config: Config): String = {
+    val port = config.getInt(key)
+    if (port != 0)
+      s"""$key = ${port + 1}"""
+    else ""
+  }
 }
 
 /**
@@ -287,7 +330,7 @@ abstract class MultiNodeSpec(
         }
     })
 
-  val log: LoggingAdapter = Logging(system, this.getClass)
+  val log: LoggingAdapter = Logging(system, this)(_.getClass.getName)
 
   /**
    * Enrich `.await()` onto all Awaitables, using remaining duration from the innermost
@@ -497,7 +540,7 @@ abstract class MultiNodeSpec(
    */
   protected def startNewSystem(): ActorSystem = {
     val config = ConfigFactory
-      .parseString(s"akka.remote.classic.netty.tcp{port=${myAddress.port.get}\nhostname=${myAddress.host.get}}")
+      .parseString(s"akka.remote.artery.canonical{port=${myAddress.port.get}\nhostname=${myAddress.host.get}}")
       .withFallback(system.settings.config)
     val sys = ActorSystem(system.name, config)
     injectDeployments(sys, myself)

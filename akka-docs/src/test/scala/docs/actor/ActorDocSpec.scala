@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.actor
@@ -276,41 +276,6 @@ final case class Give(thing: Any)
 
 //#receive-orElse
 
-//#fiddle_code
-import akka.actor.{ Actor, ActorRef, ActorSystem, PoisonPill, Props }
-import language.postfixOps
-import scala.concurrent.duration._
-
-case object Ping
-case object Pong
-
-class Pinger extends Actor {
-  var countDown = 100
-
-  def receive = {
-    case Pong =>
-      println(s"${self.path} received pong, count down $countDown")
-
-      if (countDown > 0) {
-        countDown -= 1
-        sender() ! Ping
-      } else {
-        sender() ! PoisonPill
-        self ! PoisonPill
-      }
-  }
-}
-
-class Ponger(pinger: ActorRef) extends Actor {
-  def receive = {
-    case Ping =>
-      println(s"${self.path} received ping")
-      pinger ! Pong
-  }
-}
-
-//#fiddle_code
-
 //#immutable-message-definition
 case class User(name: String)
 
@@ -365,29 +330,6 @@ class ActorDocSpec extends AkkaSpec("""
     system.stop(myActor)
   }
 
-  "run basic Ping Pong" in {
-    //#fiddle_code
-    val system = ActorSystem("pingpong")
-
-    val pinger = system.actorOf(Props[Pinger](), "pinger")
-
-    val ponger = system.actorOf(Props(classOf[Ponger], pinger), "ponger")
-
-    import system.dispatcher
-    system.scheduler.scheduleOnce(500 millis) {
-      ponger ! Ping
-    }
-
-    //#fiddle_code
-
-    val testProbe = new TestProbe(system)
-    testProbe.watch(pinger)
-    testProbe.expectTerminated(pinger)
-    testProbe.watch(ponger)
-    testProbe.expectTerminated(ponger)
-    system.terminate()
-  }
-
   "instantiates a case class" in {
     //#immutable-message-instantiation
     val user = User("Mike")
@@ -431,6 +373,9 @@ class ActorDocSpec extends AkkaSpec("""
     //#system-actorOf
     shutdown(system)
   }
+  private abstract class DummyActorProxy {
+    def actorRef: ActorRef
+  }
 
   "creating actor with IndirectActorProducer" in {
     class Echo(name: String) extends Actor {
@@ -444,7 +389,8 @@ class ActorDocSpec extends AkkaSpec("""
       }
     }
 
-    val a: { def actorRef: ActorRef } = new AnyRef {
+    import scala.language.existentials
+    val a: DummyActorProxy = new DummyActorProxy() {
       val applicationContext = this
 
       //#creating-indirectly
@@ -453,7 +399,7 @@ class ActorDocSpec extends AkkaSpec("""
       class DependencyInjector(applicationContext: AnyRef, beanName: String) extends IndirectActorProducer {
 
         override def actorClass = classOf[Actor]
-        override def produce =
+        override def produce() =
           //#obtain-fresh-Actor-instance-from-DI-framework
           new Echo(beanName)
 
@@ -461,13 +407,12 @@ class ActorDocSpec extends AkkaSpec("""
         //#obtain-fresh-Actor-instance-from-DI-framework
       }
 
-      val actorRef = system.actorOf(Props(classOf[DependencyInjector], applicationContext, "hello"), "helloBean")
+      val actorRef: ActorRef =
+        system.actorOf(Props(classOf[DependencyInjector], applicationContext, "hello"), "helloBean")
       //#creating-indirectly
     }
-    val actorRef = {
-      import scala.language.reflectiveCalls
-      a.actorRef
-    }
+
+    val actorRef = a.actorRef
 
     val message = 42
     implicit val self = testActor
@@ -485,7 +430,7 @@ class ActorDocSpec extends AkkaSpec("""
     import scala.concurrent.duration._
     import akka.util.Timeout
     import akka.pattern.ask
-    implicit val timeout = Timeout(5 seconds)
+    implicit val timeout: Timeout = 5.seconds
     val future = myActor ? "hello"
     //#using-implicit-timeout
     Await.result(future, timeout.duration) should be("hello")
@@ -578,15 +523,16 @@ class ActorDocSpec extends AkkaSpec("""
 
         def receive = {
           case "kill" =>
-            context.stop(child); lastSender = sender()
-          case Terminated(`child`) => lastSender ! "finished"
+            context.stop(child)
+            lastSender = sender()
+          case Terminated(`child`) =>
+            lastSender ! "finished"
         }
       }
       //#watch
 
       val victim = system.actorOf(Props(classOf[WatchActor], this))
-      implicit val sender = testActor
-      victim ! "kill"
+      victim.tell("kill", testActor)
       expectMsg("finished")
     }
   }
@@ -682,7 +628,7 @@ class ActorDocSpec extends AkkaSpec("""
     final case class Result(x: Int, s: String, d: Double)
     case object Request
 
-    implicit val timeout = Timeout(5 seconds) // needed for `?` below
+    implicit val timeout: Timeout = 5.seconds // needed for `?` below
 
     val f: Future[Result] =
       for {
@@ -701,7 +647,7 @@ class ActorDocSpec extends AkkaSpec("""
       case ref: ActorRef =>
         //#reply-with-sender
         sender().tell("reply", context.parent) // replies will go back to parent
-        sender().!("reply")(context.parent) // alternative syntax (beware of the parens!)
+        sender().!("reply")(context.parent) // alternative syntax
       //#reply-with-sender
       case x =>
         //#reply-without-sender

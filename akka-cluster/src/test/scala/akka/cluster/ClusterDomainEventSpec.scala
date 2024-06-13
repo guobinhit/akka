@@ -1,14 +1,16 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
 
 import scala.collection.immutable.SortedSet
+
+import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+
 import akka.actor.Address
-import org.scalatest.BeforeAndAfterAll
 
 class ClusterDomainEventSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
 
@@ -127,12 +129,12 @@ class ClusterDomainEventSpec extends AnyWordSpec with Matchers with BeforeAndAft
         diffUnreachableDataCenter(
           MembershipState(g1, member.uniqueAddress, member.dataCenter, crossDcConnections = 5),
           MembershipState(g2, member.uniqueAddress, member.dataCenter, crossDcConnections = 5)) should ===(
-          otherDc.map(UnreachableDataCenter))
+          otherDc.map(UnreachableDataCenter.apply))
 
         diffReachableDataCenter(
           MembershipState(g2, member.uniqueAddress, member.dataCenter, crossDcConnections = 5),
           MembershipState(g1, member.uniqueAddress, member.dataCenter, crossDcConnections = 5)) should ===(
-          otherDc.map(ReachableDataCenter))
+          otherDc.map(ReachableDataCenter.apply))
       }
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.internal
@@ -91,8 +91,9 @@ private[akka] trait ExtensionsImpl extends Extensions { self: ActorSystem[_] wit
             }
             .getOrElse(ext.createExtension(self))
           instance match {
-            case null                   => throw new IllegalStateException(s"Extension instance created as 'null' for extension [$ext]")
-            case instance: T @unchecked =>
+            case null => throw new IllegalStateException(s"Extension instance created as 'null' for extension [$ext]")
+            case nonNull =>
+              val instance = nonNull.asInstanceOf[T]
               // Replace our in process signal with the initialized extension
               extensions.replace(ext, inProcessOfRegistration, instance)
               instance

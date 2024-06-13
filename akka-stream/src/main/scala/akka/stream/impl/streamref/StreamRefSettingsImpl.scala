@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl.streamref
@@ -12,7 +12,7 @@ import akka.stream.StreamRefSettings
 
 /** INTERNAL API */
 @InternalApi
-private[akka] final case class StreamRefSettingsImpl private (
+private[akka] final case class StreamRefSettingsImpl(
     override val bufferCapacity: Int,
     override val demandRedeliveryInterval: FiniteDuration,
     override val subscriptionTimeout: FiniteDuration,

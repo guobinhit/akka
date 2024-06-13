@@ -1,15 +1,14 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
+import scala.concurrent.duration._
+
 import akka.stream.ThrottleMode.Shaping
 import akka.stream.testkit._
-import akka.stream.testkit.scaladsl.StreamTestKit._
 import akka.stream.testkit.scaladsl.TestSink
-
-import scala.concurrent.duration._
 
 class FlowWithContextThrottleSpec extends StreamSpec("""
     akka.stream.materializer.initial-input-buffer-size = 2
@@ -22,7 +21,7 @@ class FlowWithContextThrottleSpec extends StreamSpec("""
 
   "throttle() on FlowWithContextOps" must {
     "on FlowWithContext" must {
-      "work for the happy case" in assertAllStagesStopped {
+      "work for the happy case" in {
         val throttle = FlowWithContext[Message, Long].throttle(19, 1000.millis, -1, Shaping)
         val input = (1 to 5).map(toMessage)
         val expected = input.map(message => (message, message.offset))
@@ -31,13 +30,13 @@ class FlowWithContextThrottleSpec extends StreamSpec("""
           .asSourceWithContext(m => m.offset)
           .via(throttle)
           .asSource
-          .runWith(TestSink.probe[(Message, Long)])
+          .runWith(TestSink[(Message, Long)]())
           .request(5)
           .expectNextN(expected)
           .expectComplete()
       }
 
-      "accept very high rates" in assertAllStagesStopped {
+      "accept very high rates" in {
         val throttle = FlowWithContext[Message, Long].throttle(1, 1.nanos, 0, Shaping)
         val input = (1 to 5).map(toMessage)
         val expected = input.map(message => (message, message.offset))
@@ -46,13 +45,13 @@ class FlowWithContextThrottleSpec extends StreamSpec("""
           .asSourceWithContext(m => m.offset)
           .via(throttle)
           .asSource
-          .runWith(TestSink.probe[(Message, Long)])
+          .runWith(TestSink[(Message, Long)]())
           .request(5)
           .expectNextN(expected)
           .expectComplete()
       }
 
-      "accept very low rates" in assertAllStagesStopped {
+      "accept very low rates" in {
         val throttle = FlowWithContext[Message, Long].throttle(1, 100.days, 1, Shaping)
         val input = (1 to 5).map(toMessage)
         val expected = (input.head, input.head.offset)
@@ -61,14 +60,14 @@ class FlowWithContextThrottleSpec extends StreamSpec("""
           .asSourceWithContext(m => m.offset)
           .via(throttle)
           .asSource
-          .runWith(TestSink.probe[(Message, Long)])
+          .runWith(TestSink[(Message, Long)]())
           .request(5)
           .expectNext(expected)
           .expectNoMessage(100.millis)
           .cancel() // We won't wait 100 days, sorry
       }
 
-      "emit single element per tick" in assertAllStagesStopped {
+      "emit single element per tick" in {
         val upstream = TestPublisher.probe[Message]()
         val downstream = TestSubscriber.probe[(Message, Long)]()
         val throttle = FlowWithContext[Message, Long].throttle(1, 300.millis, 0, Shaping)
@@ -93,7 +92,7 @@ class FlowWithContextThrottleSpec extends StreamSpec("""
         downstream.expectComplete()
       }
 
-      "emit elements according to cost" in assertAllStagesStopped {
+      "emit elements according to cost" in {
         val list = (1 to 4).map(i => genMessage(i * 2, i))
         val throttle = FlowWithContext[Message, Long].throttle(2, 200.millis, 0, _.data.length, Shaping)
 
@@ -102,7 +101,7 @@ class FlowWithContextThrottleSpec extends StreamSpec("""
           .via(throttle)
           .asSource
           .map(_._1)
-          .runWith(TestSink.probe[Message])
+          .runWith(TestSink[Message]())
           .request(4)
           .expectNext(list(0))
           .expectNoMessage(300.millis)
@@ -116,7 +115,7 @@ class FlowWithContextThrottleSpec extends StreamSpec("""
     }
 
     "on SourceWithContext" must {
-      "work for the happy case" in assertAllStagesStopped {
+      "work for the happy case" in {
         val input = (1 to 5).map(toMessage)
         val expected = input.map(message => (message, message.offset))
 
@@ -124,13 +123,13 @@ class FlowWithContextThrottleSpec extends StreamSpec("""
           .asSourceWithContext(m => m.offset)
           .throttle(19, 1000.millis, -1, Shaping)
           .asSource
-          .runWith(TestSink.probe[(Message, Long)])
+          .runWith(TestSink[(Message, Long)]())
           .request(5)
           .expectNextN(expected)
           .expectComplete()
       }
 
-      "accept very high rates" in assertAllStagesStopped {
+      "accept very high rates" in {
         val input = (1 to 5).map(toMessage)
         val expected = input.map(message => (message, message.offset))
 
@@ -138,13 +137,13 @@ class FlowWithContextThrottleSpec extends StreamSpec("""
           .asSourceWithContext(m => m.offset)
           .throttle(1, 1.nanos, 0, Shaping)
           .asSource
-          .runWith(TestSink.probe[(Message, Long)])
+          .runWith(TestSink[(Message, Long)]())
           .request(5)
           .expectNextN(expected)
           .expectComplete()
       }
 
-      "accept very low rates" in assertAllStagesStopped {
+      "accept very low rates" in {
         val input = (1 to 5).map(toMessage)
         val expected = (input.head, input.head.offset)
 
@@ -152,14 +151,14 @@ class FlowWithContextThrottleSpec extends StreamSpec("""
           .asSourceWithContext(m => m.offset)
           .throttle(1, 100.days, 1, Shaping)
           .asSource
-          .runWith(TestSink.probe[(Message, Long)])
+          .runWith(TestSink[(Message, Long)]())
           .request(5)
           .expectNext(expected)
           .expectNoMessage(100.millis)
           .cancel() // We won't wait 100 days, sorry
       }
 
-      "emit single element per tick" in assertAllStagesStopped {
+      "emit single element per tick" in {
         val upstream = TestPublisher.probe[Message]()
         val downstream = TestSubscriber.probe[(Message, Long)]()
 
@@ -183,7 +182,7 @@ class FlowWithContextThrottleSpec extends StreamSpec("""
         downstream.expectComplete()
       }
 
-      "emit elements according to cost" in assertAllStagesStopped {
+      "emit elements according to cost" in {
         val list = (1 to 4).map(i => genMessage(i * 2, i))
 
         Source(list)
@@ -191,7 +190,7 @@ class FlowWithContextThrottleSpec extends StreamSpec("""
           .throttle(2, 200.millis, 0, _.data.length, Shaping)
           .asSource
           .map(_._1)
-          .runWith(TestSink.probe[Message])
+          .runWith(TestSink[Message]())
           .request(4)
           .expectNext(list(0))
           .expectNoMessage(300.millis)

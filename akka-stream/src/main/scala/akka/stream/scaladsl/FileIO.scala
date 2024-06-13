@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -51,6 +51,9 @@ object FileIO {
    * and a possible exception if IO operation was not completed successfully. Note that bytes having been read by the source does
    * not give any guarantee that the bytes were seen by downstream stages.
    *
+   * It is not possible to read FIFOs, also known as named pipes, with `fromPath`, trying to do so will potentially first block
+   * and then fail the stream.
+   *
    * @param f         the file path to read from
    * @param chunkSize the size of each read operation, defaults to 8192
    */
@@ -68,6 +71,9 @@ object FileIO {
    * It materializes a [[Future]] of [[IOResult]] containing the number of bytes read from the source file upon completion,
    * and a possible exception if IO operation was not completed successfully. Note that bytes having been read by the source does
    * not give any guarantee that the bytes were seen by downstream stages.
+   *
+   * It is not possible to read FIFOs, also known as named pipes, with `fromPath`, trying to do so will potentially first block
+   * and then fail the stream.
    *
    * @param f         the file path to read from
    * @param chunkSize the size of each read operation, defaults to 8192

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.dispatch
@@ -7,10 +7,9 @@ package akka.dispatch
 import java.util.concurrent.{ ExecutorService, RejectedExecutionException }
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater
 
+import scala.annotation.nowarn
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
-
-import com.github.ghik.silencer.silent
 
 import akka.actor.ActorCell
 import akka.dispatch.sysmsg.SystemMessage
@@ -49,7 +48,7 @@ class Dispatcher(
    * At first glance this var does not seem to be updated anywhere, but in
    * fact it is, via the esUpdater [[AtomicReferenceFieldUpdater]] below.
    */
-  @silent("never updated")
+  @nowarn("msg=never updated")
   @volatile private var executorServiceDelegate: LazyExecutorServiceDelegate =
     new LazyExecutorServiceDelegate(executorServiceFactoryProvider.createExecutorServiceFactory(id, threadFactory))
 
@@ -61,7 +60,7 @@ class Dispatcher(
   protected[akka] def dispatch(receiver: ActorCell, invocation: Envelope): Unit = {
     val mbox = receiver.mailbox
     mbox.enqueue(receiver.self, invocation)
-    registerForExecution(mbox, true, false)
+    registerForExecution(mbox, hasMessageHint = true, hasSystemMessageHint = false)
   }
 
   /**
@@ -70,7 +69,7 @@ class Dispatcher(
   protected[akka] def systemDispatch(receiver: ActorCell, invocation: SystemMessage): Unit = {
     val mbox = receiver.mailbox
     mbox.systemEnqueue(receiver.self, invocation)
-    registerForExecution(mbox, false, true)
+    registerForExecution(mbox, hasMessageHint = false, hasSystemMessageHint = true)
   }
 
   /**

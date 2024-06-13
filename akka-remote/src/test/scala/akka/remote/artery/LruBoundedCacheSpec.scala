@@ -1,17 +1,16 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
 
+import scala.annotation.nowarn
 import scala.util.Random
-
-import com.github.ghik.silencer.silent
 
 import akka.testkit.AkkaSpec
 import akka.util.Unsafe
 
-@silent
+@nowarn
 class LruBoundedCacheSpec extends AkkaSpec {
 
   class TestCache(_capacity: Int, threshold: Int, hashSeed: String = "")
@@ -27,6 +26,7 @@ class LruBoundedCacheSpec extends AkkaSpec {
     override protected def hash(k: String): Int = Unsafe.fastHash(hashSeed + k + hashSeed)
 
     override protected def isCacheable(v: String): Boolean = !v.startsWith("#")
+    override protected def isKeyCacheable(k: String): Boolean = !k.startsWith("!")
 
     def internalProbeDistanceOf(idealSlot: Int, actualSlot: Int): Int = probeDistanceOf(idealSlot, actualSlot)
 
@@ -198,6 +198,37 @@ class LruBoundedCacheSpec extends AkkaSpec {
       cache.expectComputedOnly("#A", "#A:10")
       cache.expectComputedOnly("#A", "#A:11")
       cache.expectComputedOnly("#A", "#A:12")
+
+      // Cacheable values are not affected
+      cache.expectCached("B", "B:5")
+      cache.expectCached("C", "C:6")
+      cache.expectCached("D", "D:7")
+      cache.expectCached("E", "E:8")
+    }
+
+    "not cache non cacheable keys" in {
+      val cache = new TestCache(4, 4)
+
+      cache.expectComputedOnly("!A", "!A:0")
+      cache.expectComputedOnly("!A", "!A:1")
+      cache.expectComputedOnly("!A", "!A:2")
+      cache.expectComputedOnly("!A", "!A:3")
+
+      cache.expectComputed("A", "A:4")
+      cache.expectComputed("B", "B:5")
+      cache.expectComputed("C", "C:6")
+      cache.expectComputed("D", "D:7")
+      cache.expectComputed("E", "E:8")
+
+      cache.expectCached("B", "B:5")
+      cache.expectCached("C", "C:6")
+      cache.expectCached("D", "D:7")
+      cache.expectCached("E", "E:8")
+
+      cache.expectComputedOnly("!A", "!A:9")
+      cache.expectComputedOnly("!A", "!A:10")
+      cache.expectComputedOnly("!A", "!A:11")
+      cache.expectComputedOnly("!A", "!A:12")
 
       // Cacheable values are not affected
       cache.expectCached("B", "B:5")

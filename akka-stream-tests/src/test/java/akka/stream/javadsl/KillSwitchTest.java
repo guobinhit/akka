@@ -1,24 +1,23 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.javadsl;
+
+import static akka.Done.done;
+import static org.junit.Assert.*;
 
 import akka.Done;
 import akka.stream.*;
 import akka.stream.testkit.TestPublisher;
 import akka.stream.testkit.TestSubscriber;
 import akka.stream.testkit.Utils;
+import akka.testkit.AkkaJUnitActorSystemResource;
 import akka.testkit.AkkaSpec;
-import org.junit.ClassRule;
-import org.junit.Test;
-
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
-import akka.testkit.AkkaJUnitActorSystemResource;
-
-import static akka.Done.done;
-import static org.junit.Assert.*;
+import org.junit.ClassRule;
+import org.junit.Test;
 
 public class KillSwitchTest extends StreamTest {
   public KillSwitchTest() {

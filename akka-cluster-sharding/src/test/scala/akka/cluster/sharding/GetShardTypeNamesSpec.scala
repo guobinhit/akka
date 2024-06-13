@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
@@ -16,17 +16,18 @@ object GetShardTypeNamesSpec {
     akka.loglevel = DEBUG
     akka.loggers = ["akka.testkit.SilenceAllTestEventListener"]
     akka.actor.provider = "cluster"
-    akka.remote.classic.netty.tcp.port = 0
     akka.remote.artery.canonical.port = 0
     akka.cluster.sharding.fail-on-invalid-entity-state-transition = on
     """
 
   val extractEntityId: ShardRegion.ExtractEntityId = {
     case msg: Int => (msg.toString, msg)
+    case _        => throw new IllegalArgumentException()
   }
 
   val extractShardId: ShardRegion.ExtractShardId = {
     case msg: Int => (msg % 10).toString
+    case _        => throw new IllegalArgumentException()
   }
 }
 
@@ -35,7 +36,7 @@ class GetShardTypeNamesSpec extends AkkaSpec(GetShardTypeNamesSpec.config) with 
 
   "GetShardTypeNames" must {
     "contain empty when join cluster without shards" in {
-      ClusterSharding(system).shardTypeNames should ===(Set())
+      ClusterSharding(system).shardTypeNames should ===(Set.empty[String])
     }
 
     "contain started shards when started 2 shards" in {

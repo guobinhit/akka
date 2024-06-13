@@ -1,14 +1,15 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.testkit.typed.internal
 
+import scala.annotation.tailrec
+
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
-import akka.annotation.InternalApi
 
-import scala.annotation.tailrec
+import akka.annotation.InternalApi
 
 /**
  * INTERNAL API
@@ -25,7 +26,7 @@ import scala.annotation.tailrec
     LoggerFactory.getLogger(loggerNameOrRoot(loggerName)) match {
       case logger: ch.qos.logback.classic.Logger              => logger
       case _: org.slf4j.helpers.SubstituteLogger if count > 0 =>
-        // Wait for logging initialisation http://www.slf4j.org/codes.html#substituteLogger
+        // Wait for logging initialisation https://www.slf4j.org/codes.html#substituteLogger
         Thread.sleep(50)
         getLogbackLoggerInternal(loggerName, count - 1)
       case null =>

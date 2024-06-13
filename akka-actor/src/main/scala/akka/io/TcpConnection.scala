@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.io
@@ -11,12 +11,11 @@ import java.nio.channels.{ FileChannel, SocketChannel }
 import java.nio.channels.SelectionKey._
 import java.nio.file.{ Path, Paths }
 
+import scala.annotation.nowarn
 import scala.annotation.tailrec
 import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.util.control.{ NoStackTrace, NonFatal }
-
-import com.github.ghik.silencer.silent
 
 import akka.actor._
 import akka.dispatch.{ RequiresMessageQueue, UnboundedMessageQueueSemantics }
@@ -74,11 +73,12 @@ private[io] abstract class TcpConnection(val tcp: TcpExt, val channel: SocketCha
 
       val info = ConnectionInfo(registration, handler, keepOpenOnPeerClosed, useResumeWriting)
 
-      // if we are in push mode or already have resumed reading in pullMode while waiting for Register
-      // then register OP_READ interest
-      if (!pullMode || (/*pullMode && */ !readingSuspended)) resumeReading(info)
       context.setReceiveTimeout(Duration.Undefined)
       context.become(connected(info))
+
+      // if we are in push mode or already have resumed reading in pullMode while waiting for Register
+      // then register OP_READ interest
+      if (!pullMode || (/*pullMode && */ !readingSuspended)) resumeReading(info, None)
 
     case ResumeReading =>
       readingSuspended = false
@@ -101,7 +101,7 @@ private[io] abstract class TcpConnection(val tcp: TcpExt, val channel: SocketCha
   def connected(info: ConnectionInfo): Receive =
     handleWriteMessages(info).orElse {
       case SuspendReading    => suspendReading(info)
-      case ResumeReading     => resumeReading(info)
+      case ResumeReading     => resumeReading(info, None)
       case ChannelReadable   => doRead(info, None)
       case cmd: CloseCommand => handleClose(info, Some(sender()), cmd.event)
     }
@@ -109,8 +109,8 @@ private[io] abstract class TcpConnection(val tcp: TcpExt, val channel: SocketCha
   /** the peer sent EOF first, but we may still want to send */
   def peerSentEOF(info: ConnectionInfo): Receive =
     handleWriteMessages(info).orElse {
-      case cmd: CloseCommand => handleClose(info, Some(sender()), cmd.event)
-      case ResumeReading     => // ignore, no more data to read
+      case cmd: CloseCommand               => handleClose(info, Some(sender()), cmd.event)
+      case ResumeReading | ChannelReadable => // ignore, no more data to read
     }
 
   /** connection is closing but a write has to be finished first */
@@ -119,7 +119,7 @@ private[io] abstract class TcpConnection(val tcp: TcpExt, val channel: SocketCha
       closeCommander: Option[ActorRef],
       closedEvent: ConnectionClosed): Receive = {
     case SuspendReading  => suspendReading(info)
-    case ResumeReading   => resumeReading(info)
+    case ResumeReading   => resumeReading(info, closeCommander)
     case ChannelReadable => doRead(info, closeCommander)
 
     case ChannelWritable =>
@@ -141,7 +141,7 @@ private[io] abstract class TcpConnection(val tcp: TcpExt, val channel: SocketCha
   /** connection is closed on our side and we're waiting from confirmation from the other side */
   def closing(info: ConnectionInfo, closeCommander: Option[ActorRef]): Receive = {
     case SuspendReading  => suspendReading(info)
-    case ResumeReading   => resumeReading(info)
+    case ResumeReading   => resumeReading(info, closeCommander)
     case ChannelReadable => doRead(info, closeCommander)
     case Close           => doCloseConnection(info.handler, closeCommander, Close.event)
     case Abort           => handleClose(info, Some(sender()), Aborted)
@@ -160,11 +160,11 @@ private[io] abstract class TcpConnection(val tcp: TcpExt, val channel: SocketCha
     case write: WriteCommand =>
       if (writingSuspended) {
         if (TraceLogging) log.debug("Dropping write because writing is suspended")
-        sender() ! write.failureMessage.withCause(DroppingWriteBecauseWritingIsSuspendedException)
+        sender() ! CommandFailed(write).withCause(DroppingWriteBecauseWritingIsSuspendedException)
 
       } else if (writePending) {
         if (TraceLogging) log.debug("Dropping write because queue is full")
-        sender() ! write.failureMessage.withCause(DroppingWriteBecauseQueueIsFullException)
+        sender() ! CommandFailed(write).withCause(DroppingWriteBecauseQueueIsFullException)
         if (info.useResumeWriting) writingSuspended = true
 
       } else {
@@ -199,15 +199,17 @@ private[io] abstract class TcpConnection(val tcp: TcpExt, val channel: SocketCha
 
   /** stopWith sets this state while waiting for the SelectionHandler to execute the `cancelAndClose` thunk */
   def unregistering: Receive = {
-    case Unregistered                                                               => context.stop(self) // postStop will notify interested parties
-    case ChannelReadable | ChannelWritable | ChannelAcceptable | ChannelConnectable => // ignore, we are going away soon anyway
-    case _: DeadLetterSuppression                                                   => // ignore
+    case Unregistered => context.stop(self) // postStop will notify interested parties
+    case _            =>
+    // Ignore everything else, we might end up here without user interaction, e.g. if the peer sends a RST packet
+    // In this case, we notify the user handler, which might have already concurrently sent us more commands
+    // that we can only drop at this point.
   }
 
   // AUXILIARIES and IMPLEMENTATION
 
   /** used in subclasses to start the common machinery above once a channel is connected */
-  @silent("deprecated")
+  @nowarn("msg=deprecated")
   def completeConnect(
       registration: ChannelRegistration,
       commander: ActorRef,
@@ -240,9 +242,9 @@ private[io] abstract class TcpConnection(val tcp: TcpExt, val channel: SocketCha
     readingSuspended = true
     info.registration.disableInterest(OP_READ)
   }
-  def resumeReading(info: ConnectionInfo): Unit = {
+  def resumeReading(info: ConnectionInfo, closeCommander: Option[ActorRef]): Unit = {
     readingSuspended = false
-    info.registration.enableInterest(OP_READ)
+    doRead(info, closeCommander)
   }
 
   /**
@@ -267,8 +269,15 @@ private[io] abstract class TcpConnection(val tcp: TcpExt, val channel: SocketCha
           readBytes match {
             case `maxBufferSpace` =>
               if (pullMode) MoreDataWaiting else innerRead(buffer, remainingLimit - maxBufferSpace)
-            case x if x >= 0 => AllRead
-            case -1          => EndOfStream
+            case x if x >= 0 =>
+              if (!pullMode || x == 0)
+                // if (pullMode) we reach here by probing from resumeReading,
+                // otherwise we have just exhausted the network receive buffer.
+                // In any case, we now want to be notified about more data being available
+                info.registration.enableInterest(OP_READ)
+
+              AllRead
+            case -1 => EndOfStream
             case _ =>
               throw new IllegalStateException("Unexpected value returned from read: " + readBytes)
           }
@@ -276,8 +285,7 @@ private[io] abstract class TcpConnection(val tcp: TcpExt, val channel: SocketCha
 
       val buffer = bufferPool.acquire()
       try innerRead(buffer, ReceivedMessageSizeLimit) match {
-        case AllRead =>
-          if (!pullMode) info.registration.enableInterest(OP_READ)
+        case AllRead => // nothing to do
         case MoreDataWaiting =>
           if (!pullMode) self ! ChannelReadable
         case EndOfStream if channel.socket.isOutputShutdown =>
@@ -319,7 +327,7 @@ private[io] abstract class TcpConnection(val tcp: TcpExt, val channel: SocketCha
         // If peer closed first, the socket is now fully closed.
         // Also, if shutdownOutput threw an exception we expect this to be an indication
         // that the peer closed first or concurrently with this code running.
-        // also see http://bugs.sun.com/view_bug.do?bug_id=4516760
+        // also see https://bugs.java.com/bugdatabase/view_bug.do?bug_id=4516760
         if (peerClosed || !safeShutdownOutput())
           doCloseConnection(info.handler, closeCommander, closedEvent)
         else context.become(closing(info, closeCommander))
@@ -358,7 +366,7 @@ private[io] abstract class TcpConnection(val tcp: TcpExt, val channel: SocketCha
     try channel.socket.setSoLinger(true, 0) // causes the following close() to send TCP RST
     catch {
       case NonFatal(e) =>
-        // setSoLinger can fail due to http://bugs.sun.com/view_bug.do?bug_id=6799574
+        // setSoLinger can fail due to https://bugs.java.com/bugdatabase/view_bug.do?bug_id=6799574
         // (also affected: OS/X Java 1.6.0_37)
         if (TraceLogging) log.debug("setSoLinger(true, 0) failed with [{}]", e)
     }
@@ -414,6 +422,7 @@ private[io] abstract class TcpConnection(val tcp: TcpExt, val channel: SocketCha
   override def postRestart(reason: Throwable): Unit =
     throw new IllegalStateException("Restarting not supported for connection actors.")
 
+  @nowarn("cat=deprecation")
   def PendingWrite(commander: ActorRef, write: WriteCommand): PendingWrite = {
     @tailrec def create(head: WriteCommand, tail: WriteCommand): PendingWrite =
       head match {

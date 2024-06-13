@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.dispatch
@@ -30,6 +30,7 @@ object StablePriorityDispatcherSpec {
         case i: Int if i <= 100 => i // Small integers have high priority
         case _: Int             => 101 // Don't care for other integers
         case Result             => Int.MaxValue
+        case _                  => throw new RuntimeException() // compiler exhaustiveness check pleaser
       }: Any => Int))
 
   class Bounded(@unused settings: ActorSystem.Settings, @unused config: Config)
@@ -37,6 +38,7 @@ object StablePriorityDispatcherSpec {
         case i: Int if i <= 100 => i // Small integers have high priority
         case _: Int             => 101 // Don't care for other integers
         case Result             => Int.MaxValue
+        case _                  => throw new RuntimeException() // compiler exhaustiveness check pleaser
       }: Any => Int), 1000, 10 seconds)
 
 }
@@ -90,7 +92,7 @@ class StablePriorityDispatcherSpec extends AkkaSpec(StablePriorityDispatcherSpec
       // should come out in the same order in which they were sent.
       val lo = (1 to 100) toList
       val hi = shuffled.filter { _ > 100 }
-      expectMsgType[List[Int]] should ===(lo ++ hi)
+      (expectMsgType[List[Int]]: List[Int]) should ===(lo ++ hi)
     }
   }
 }

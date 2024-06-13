@@ -1,13 +1,13 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.util;
 
+import static junit.framework.TestCase.assertEquals;
+
 import org.junit.Test;
 import org.scalatestplus.junit.JUnitSuite;
-
-import static junit.framework.TestCase.assertEquals;
 
 public class ByteStringTest extends JUnitSuite {
 

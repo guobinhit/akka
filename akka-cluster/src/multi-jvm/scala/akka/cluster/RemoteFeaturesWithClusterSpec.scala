@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
@@ -21,17 +21,17 @@ import akka.remote.testkit.MultiNodeConfig
 import akka.remote.testkit.MultiNodeSpec
 import akka.testkit.ImplicitSender
 
-class ClusterRemoteFeaturesConfig(artery: Boolean) extends MultiNodeConfig {
+object ClusterRemoteFeaturesConfig extends MultiNodeConfig {
   val first = role("first")
   val second = role("second")
   val third = role("third")
 
-  private val baseConfig = ConfigFactory.parseString(s"""
-      akka.remote.log-remote-lifecycle-events = off
-      akka.remote.artery.enabled = $artery
-      akka.remote.artery.canonical.port = 0
+  private val baseConfig = {
+    ConfigFactory.parseString(s"""
+      akka.remote.artery.canonical.port = ${MultiNodeSpec.selfPort}
       akka.log-dead-letters-during-shutdown = off
       """).withFallback(MultiNodeClusterSpec.clusterConfig)
+  }
 
   commonConfig(debugConfig(on = false).withFallback(baseConfig))
 
@@ -49,24 +49,16 @@ object ClusterRemoteFeatures {
   }
 }
 
-class ArteryClusterRemoteFeaturesMultiJvmNode1 extends ClusterRemoteFeaturesSpec(new ClusterRemoteFeaturesConfig(true))
-class ArteryClusterRemoteFeaturesMultiJvmNode2 extends ClusterRemoteFeaturesSpec(new ClusterRemoteFeaturesConfig(true))
-class ArteryClusterRemoteFeaturesMultiJvmNode3 extends ClusterRemoteFeaturesSpec(new ClusterRemoteFeaturesConfig(true))
+class ClusterRemoteFeaturesMultiJvmNode1 extends ClusterRemoteFeaturesSpec
+class ClusterRemoteFeaturesMultiJvmNode2 extends ClusterRemoteFeaturesSpec
+class ClusterRemoteFeaturesMultiJvmNode3 extends ClusterRemoteFeaturesSpec
 
-class ClassicClusterRemoteFeaturesMultiJvmNode1
-    extends ClusterRemoteFeaturesSpec(new ClusterRemoteFeaturesConfig(false))
-class ClassicClusterRemoteFeaturesMultiJvmNode2
-    extends ClusterRemoteFeaturesSpec(new ClusterRemoteFeaturesConfig(false))
-class ClassicClusterRemoteFeaturesMultiJvmNode3
-    extends ClusterRemoteFeaturesSpec(new ClusterRemoteFeaturesConfig(false))
-
-abstract class ClusterRemoteFeaturesSpec(multiNodeConfig: ClusterRemoteFeaturesConfig)
-    extends MultiNodeSpec(multiNodeConfig)
-    with MultiNodeClusterSpec
+abstract class ClusterRemoteFeaturesSpec
+    extends MultiNodeClusterSpec(ClusterRemoteFeaturesConfig)
     with ImplicitSender
     with ScalaFutures {
 
-  import multiNodeConfig._
+  import ClusterRemoteFeaturesConfig._
 
   override def initialParticipants: Int = roles.size
 

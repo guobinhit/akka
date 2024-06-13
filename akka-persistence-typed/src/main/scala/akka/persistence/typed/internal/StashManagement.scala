@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.internal
@@ -80,6 +80,13 @@ private[akka] trait StashManagement[C, E, S] {
   }
 
   /**
+   * @return false if `tryUnstashOne` will unstash a message
+   */
+  protected def isStashEmpty: Boolean =
+    if (stashState.isUnstashAllInProgress) stashState.userStashBuffer.isEmpty
+    else stashState.internalStashBuffer.isEmpty
+
+  /**
    * Subsequent `tryUnstashOne` will drain the user stash buffer before using the
    * internal stash buffer. It will unstash as many commands as are in the buffer when
    * `unstashAll` was called, i.e. if subsequent commands stash more, those will
@@ -99,7 +106,7 @@ private[akka] trait StashManagement[C, E, S] {
 
   private def logStashMessage(msg: InternalProtocol, buffer: StashBuffer[InternalProtocol]): Unit = {
     if (setup.settings.logOnStashing)
-      setup.log.debugN(
+      setup.internalLogger.debugN(
         "Stashing message to {} stash: [{}] ",
         if (buffer eq stashState.internalStashBuffer) "internal" else "user",
         msg)
@@ -107,7 +114,7 @@ private[akka] trait StashManagement[C, E, S] {
 
   private def logUnstashMessage(buffer: StashBuffer[InternalProtocol]): Unit = {
     if (setup.settings.logOnStashing)
-      setup.log.debugN(
+      setup.internalLogger.debugN(
         "Unstashing message from {} stash: [{}]",
         if (buffer eq stashState.internalStashBuffer) "internal" else "user",
         buffer.head)
@@ -115,7 +122,7 @@ private[akka] trait StashManagement[C, E, S] {
 
   private def logUnstashAll(): Unit = {
     if (setup.settings.logOnStashing)
-      setup.log.debug2(
+      setup.internalLogger.debug2(
         "Unstashing all [{}] messages from user stash, first is: [{}]",
         stashState.userStashBuffer.size,
         stashState.userStashBuffer.head)

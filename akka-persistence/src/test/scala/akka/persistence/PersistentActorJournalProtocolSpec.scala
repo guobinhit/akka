@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence
@@ -117,6 +117,7 @@ class PersistentActorJournalProtocolSpec extends AkkaSpec(config) with ImplicitS
           writes.zip(msg.msg).foreach {
             case (PersistentRepr(evt, _), m) =>
               evt should ===(m)
+            case _ =>
           }
         case x => fail(s"unexpected $x")
       }

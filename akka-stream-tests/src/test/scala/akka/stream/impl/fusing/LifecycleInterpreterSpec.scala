@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl.fusing
@@ -98,7 +98,7 @@ class LifecycleInterpreterSpec extends StreamSpec with GraphInterpreterSpecKit {
 
     "continue with stream shutdown when postStop fails" in new OneBoundedSetup[String](PostStopFailer(() =>
       throw TE("Boom!"))) {
-      lastEvents() should ===(Set())
+      lastEvents() should ===(Set.empty[TestEvent])
 
       upstream.onComplete()
       lastEvents() should ===(Set(OnComplete))

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor
@@ -18,14 +18,17 @@ import scala.concurrent.duration._
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 import scala.util.control.NonFatal
+
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
+
 import akka.Done
 import akka.annotation.InternalApi
 import akka.dispatch.ExecutionContexts
 import akka.event.Logging
 import akka.pattern.after
 import akka.util.OptionVal
+import akka.util.TopologicalSort
 
 object CoordinatedShutdown extends ExtensionId[CoordinatedShutdown] with ExtensionIdProvider {
 
@@ -186,6 +189,24 @@ object CoordinatedShutdown extends ExtensionId[CoordinatedShutdown] with Extensi
     val conf = system.settings.config.getConfig("akka.coordinated-shutdown")
     val phases = phasesFromConfig(conf)
     val coord = new CoordinatedShutdown(system, phases)
+    init(system, conf, coord)
+    coord
+  }
+
+  // locate reason-specific overrides and merge with defaults.
+  @InternalApi private[akka] def confWithOverrides(conf: Config, reason: Option[Reason]): Config = {
+    reason
+      .flatMap { r =>
+        val basePath = s"""reason-overrides."${r.getClass.getName}""""
+        if (conf.hasPath(basePath)) Some(conf.getConfig(basePath).withFallback(conf)) else None
+      }
+      .getOrElse(conf)
+  }
+
+  /** INTERNAL API */
+  @InternalApi
+  private[akka] def init(system: ExtendedActorSystem, conf: Config, coord: CoordinatedShutdown): Unit = {
+    // separated for testability
     initPhaseActorSystemTerminate(system, conf, coord)
     initJvmHook(system, conf, coord)
     // Avoid leaking actor system references when system is terminated before JVM is #23384
@@ -204,17 +225,6 @@ object CoordinatedShutdown extends ExtensionId[CoordinatedShutdown] with Extensi
     catch {
       case _: RejectedExecutionException => cleanupActorSystemJvmHook()
     }
-    coord
-  }
-
-  // locate reason-specific overrides and merge with defaults.
-  @InternalApi private[akka] def confWithOverrides(conf: Config, reason: Option[Reason]): Config = {
-    reason
-      .flatMap { r =>
-        val basePath = s"""reason-overrides."${r.getClass.getName}""""
-        if (conf.hasPath(basePath)) Some(conf.getConfig(basePath).withFallback(conf)) else None
-      }
-      .getOrElse(conf)
   }
 
   private def initPhaseActorSystemTerminate(
@@ -280,6 +290,7 @@ object CoordinatedShutdown extends ExtensionId[CoordinatedShutdown] with Extensi
   /**
    * INTERNAL API
    */
+  @InternalApi
   private[akka] final case class Phase(
       dependsOn: Set[String],
       timeout: FiniteDuration,
@@ -316,44 +327,47 @@ object CoordinatedShutdown extends ExtensionId[CoordinatedShutdown] with Extensi
    * INTERNAL API: https://en.wikipedia.org/wiki/Topological_sorting
    */
   private[akka] def topologicalSort(phases: Map[String, Phase]): List[String] = {
-    var result = List.empty[String]
-    var unmarked = phases.keySet ++ phases.values.flatMap(_.dependsOn) // in case phase is not defined as key
-    var tempMark = Set.empty[String] // for detecting cycles
-
-    while (unmarked.nonEmpty) {
-      depthFirstSearch(unmarked.head)
-    }
-
-    def depthFirstSearch(u: String): Unit = {
-      if (tempMark(u))
-        throw new IllegalArgumentException(
-          "Cycle detected in graph of phases. It must be a DAG. " +
-          s"phase [$u] depends transitively on itself. All dependencies: $phases")
-      if (unmarked(u)) {
-        tempMark += u
-        phases.get(u) match {
-          case Some(p) => p.dependsOn.foreach(depthFirstSearch)
-          case None    =>
-        }
-        unmarked -= u // permanent mark
-        tempMark -= u
-        result = u :: result
-      }
-    }
-
-    result.reverse
+    val all = (phases.keySet ++ phases.values.flatMap(_.dependsOn)).toList // in case phase is not defined as key
+    TopologicalSort
+      .topologicalSort[String](all, phases.get(_) match {
+        case Some(phase) => phase.dependsOn
+        case None        => Set.empty
+      })
+      .toList
   }
 
 }
 
+/**
+ * INTERNAL API
+ */
+@InternalApi
+private[akka] trait JVMShutdownHooks {
+  def addHook(t: Thread): Unit
+  def removeHook(t: Thread): Boolean
+}
+
+/**
+ * INTERNAL API
+ */
+@InternalApi
+private[akka] object JVMShutdownHooks extends JVMShutdownHooks {
+  override def addHook(t: Thread): Unit = Runtime.getRuntime.addShutdownHook(t)
+  override def removeHook(t: Thread): Boolean = Runtime.getRuntime.removeShutdownHook(t)
+}
+
+/**
+ * Not for user instantiation, use the extension to access
+ */
 final class CoordinatedShutdown private[akka] (
     system: ExtendedActorSystem,
-    phases: Map[String, CoordinatedShutdown.Phase])
+    phases: Map[String, CoordinatedShutdown.Phase],
+    jvmShutdownHooks: JVMShutdownHooks = JVMShutdownHooks)
     extends Extension {
-  import CoordinatedShutdown.{ Reason, UnknownReason }
+  import CoordinatedShutdown.Reason
 
   /** INTERNAL API */
-  private[akka] val log = Logging(system, getClass)
+  private[akka] val log = Logging(system, classOf[CoordinatedShutdown])
   private val knownPhases = phases.keySet ++ phases.values.flatMap(_.dependsOn)
 
   /** INTERNAL API */
@@ -659,9 +673,6 @@ final class CoordinatedShutdown private[akka] (
    */
   def run(reason: Reason): Future[Done] = run(reason, None)
 
-  @deprecated("Use the method with `reason` parameter instead", since = "2.5.8")
-  def run(): Future[Done] = run(UnknownReason)
-
   /**
    * Java API: Run tasks of all phases. The returned
    * `CompletionStage` is completed when all tasks have been completed,
@@ -670,9 +681,6 @@ final class CoordinatedShutdown private[akka] (
    * It's safe to call this method multiple times. It will only run the shutdown sequence once.
    */
   def runAll(reason: Reason): CompletionStage[Done] = run(reason).toJava
-
-  @deprecated("Use the method with `reason` parameter instead", since = "2.5.8")
-  def runAll(): CompletionStage[Done] = runAll(UnknownReason)
 
   /**
    * Scala API: Run tasks of all phases including and after the given phase.
@@ -685,7 +693,7 @@ final class CoordinatedShutdown private[akka] (
     if (runStarted.compareAndSet(None, Some(reason))) {
       implicit val ec: ExecutionContext = system.dispatchers.internalDispatcher
       val debugEnabled = log.isDebugEnabled
-      log.debug("Running CoordinatedShutdown with reason [{}]", reason)
+      log.info("Running CoordinatedShutdown with reason [{}]", reason)
       def loop(remainingPhases: List[String]): Future[Done] = {
         remainingPhases match {
           case Nil => Future.successful(Done)
@@ -745,10 +753,6 @@ final class CoordinatedShutdown private[akka] (
     runPromise.future
   }
 
-  @deprecated("Use the method with `reason` parameter instead", since = "2.5.8")
-  def run(fromPhase: Option[String]): Future[Done] =
-    run(UnknownReason, fromPhase)
-
   /**
    * Java API: Run tasks of all phases including and after the given phase.
    * The returned `CompletionStage` is completed when all such tasks have been completed,
@@ -758,10 +762,6 @@ final class CoordinatedShutdown private[akka] (
    */
   def run(reason: Reason, fromPhase: Optional[String]): CompletionStage[Done] =
     run(reason, fromPhase.asScala).toJava
-
-  @deprecated("Use the method with `reason` parameter instead", since = "2.5.8")
-  def run(fromPhase: Optional[String]): CompletionStage[Done] =
-    run(UnknownReason, fromPhase)
 
   /**
    * The configured timeout for a given `phase`.
@@ -815,12 +815,12 @@ final class CoordinatedShutdown private[akka] (
         }
         thread.setName(s"${system.name}-shutdown-hook-${newLatch.getCount}")
         try {
-          Runtime.getRuntime.addShutdownHook(thread)
+          jvmShutdownHooks.addHook(thread)
           new Cancellable {
             @volatile var cancelled = false
             def cancel(): Boolean = {
               try {
-                if (Runtime.getRuntime.removeShutdownHook(thread)) {
+                if (jvmShutdownHooks.removeHook(thread)) {
                   cancelled = true
                   _jvmHooksLatch.get.countDown()
                   true

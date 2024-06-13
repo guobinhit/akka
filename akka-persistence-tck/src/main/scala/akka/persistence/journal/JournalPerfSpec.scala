@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.journal
@@ -128,7 +128,7 @@ abstract class JournalPerfSpec(config: Config)
   private val testProbe = TestProbe()
 
   def benchActor(replyAfter: Int): ActorRef =
-    system.actorOf(Props(classOf[BenchActor], pid, testProbe.ref, replyAfter))
+    system.actorOf(Props(new BenchActor(pid, testProbe.ref, replyAfter)))
 
   def feedAndExpectLast(actor: ActorRef, mode: String, cmnds: immutable.Seq[Int]): Unit = {
     cmnds.foreach { c =>

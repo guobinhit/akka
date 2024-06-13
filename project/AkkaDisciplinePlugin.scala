@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka
@@ -25,8 +25,6 @@ object AkkaDisciplinePlugin extends AutoPlugin {
     "akka-actor-typed-tests",
     // references to deprecated PARSER fields in generated message formats?
     "akka-cluster-typed",
-    // use of deprecated akka.protobuf.GeneratedMessage
-    "akka-protobuf",
     "akka-protobuf-v3",
     // references to deprecated PARSER fields in generated message formats?
     "akka-remote",
@@ -36,7 +34,11 @@ object AkkaDisciplinePlugin extends AutoPlugin {
     "akka-cluster-sharding-typed",
     // references to deprecated PARSER fields in generated message formats?
     "akka-persistence-typed",
-    "akka-docs")
+    // references to deprecated PARSER fields in generated message formats?
+    "akka-persistence-query",
+    "akka-docs",
+    // use varargs of `Graph` in alsoTo and etc operators
+    "akka-stream-tests")
 
   val looseProjects = Set(
     "akka-actor",
@@ -63,37 +65,67 @@ object AkkaDisciplinePlugin extends AutoPlugin {
     "akka-stream-tests-tck",
     "akka-testkit")
 
-  lazy val silencerSettings = {
-    val silencerVersion = "1.7.1"
+  // cat=lint-deprecation: we want to keep using both Java and Scala deprecation annotations
+  val defaultScala2Options = "-Wconf:cat=unused-nowarn:s,cat=lint-infer-any:s,cat=lint-deprecation:s,any:e"
+  // cat=lint-named-booleans: naming all boolean params across all tests is quite a bit of extra work and noise
+  // cat=other-shadowing: a good warning, but we do re-use names so much all over the tests that it is a ton of work to fix
+  val defaultScala2TestOptions =
+    "-Wconf:cat=unused-nowarn:s,cat=lint-infer-any:s,cat=lint-named-booleans:s,cat=other-shadowing:s,any:e"
+
+  // deprecation doesn't quite seem to work, warns for the location of the annotation
+  // We have SerialVersionUID on traits which doesn't make sense but needs to stay for historical/compat reasons
+  val defaultScala3Options = "-Wconf:cat=deprecation:s,msg=SerialVersionUID does nothing:s,any:e"
+
+  lazy val nowarnSettings = Seq(
+    Compile / scalacOptions += (
+        if (scalaVersion.value.startsWith("3.")) defaultScala3Options
+        else defaultScala2Options
+      ),
+    Test / scalacOptions ++= (
+        if (scalaVersion.value.startsWith("3.")) Seq.empty
+        else Seq(defaultScala2TestOptions)
+      ),
+    Compile / doc / scalacOptions := Seq())
+
+  /**
+   * We are a little less strict in docs
+   */
+  val docs =
     Seq(
-      libraryDependencies ++= Seq(
-          compilerPlugin(("com.github.ghik" %% "silencer-plugin" % silencerVersion).cross(CrossVersion.patch)),
-          ("com.github.ghik" %% "silencer-lib" % silencerVersion % Provided).cross(CrossVersion.patch)))
-  }
+      Compile / scalacOptions --= Seq(defaultScala2Options, defaultScala3Options),
+      Compile / scalacOptions += "-Wconf:cat=unused:s,cat=deprecation:s,cat=unchecked:s,any:e",
+      Test / scalacOptions --= Seq("-Xlint", "-unchecked", "-deprecation"),
+      Test / scalacOptions --= Seq(defaultScala2Options, defaultScala3Options),
+      Test / scalacOptions +=
+        (if (scalaVersion.value.startsWith("3.")) defaultScala3Options
+         else "-Wconf:cat=unused:s,cat=deprecation:s,cat=unchecked:s,any:e"),
+      Compile / doc / scalacOptions := Seq())
 
   lazy val disciplineSettings =
     if (enabled) {
-      silencerSettings ++ Seq(
+      nowarnSettings ++ Seq(
         Compile / scalacOptions ++= Seq("-Xfatal-warnings"),
-        Test / scalacOptions --= testUndicipline,
+        Test / scalacOptions --= testUndiscipline,
         Compile / javacOptions ++= (
-            if (!nonFatalJavaWarningsFor(name.value)) Seq("-Werror", "-Xlint:deprecation", "-Xlint:unchecked")
-            else Seq.empty
+            if (scalaVersion.value.startsWith("3.")) {
+              Seq()
+            } else {
+              if (!nonFatalJavaWarningsFor(name.value)) Seq("-Werror", "-Xlint:deprecation", "-Xlint:unchecked")
+              else Seq.empty
+            }
           ),
-        Compile / javacOptions in doc := Seq("-Xdoclint:none"),
+        Compile / doc / javacOptions := Seq("-Xdoclint:none"),
         Compile / scalacOptions ++= (CrossVersion.partialVersion(scalaVersion.value) match {
             case Some((2, 13)) =>
-              disciplineScalacOptions -- Set(
+              disciplineScalac2Options -- Set(
                 "-Ywarn-inaccessible",
                 "-Ywarn-infer-any",
                 "-Ywarn-nullary-override",
                 "-Ywarn-nullary-unit",
                 "-Ypartial-unification",
                 "-Yno-adapted-args")
-            case Some((2, 12)) =>
-              disciplineScalacOptions
             case _ =>
-              Nil
+              disciplineScalac3Options
           }).toSeq,
         Compile / scalacOptions --=
           (if (looseProjects.contains(name.value)) undisciplineScalacOptions.toSeq
@@ -102,15 +134,25 @@ object AkkaDisciplinePlugin extends AutoPlugin {
         // different compiler phases from the regular run), and in particular
         // '-Ywarn-unused:explicits' breaks 'sbt ++2.13.0-M5 akka-actor/doc'
         // https://github.com/akka/akka/issues/26119
-        Compile / doc / scalacOptions --= disciplineScalacOptions.toSeq :+ "-Xfatal-warnings",
+        Compile / doc / scalacOptions --= (
+            if (scalaVersion.value.startsWith("3.")) disciplineScalac3Options.toSeq
+            else disciplineScalac2Options.toSeq :+ "-Xfatal-warnings"
+          ),
         // having discipline warnings in console is just an annoyance
-        Compile / console / scalacOptions --= disciplineScalacOptions.toSeq)
+        Compile / console / scalacOptions --= (
+            if (scalaVersion.value.startsWith("3.")) disciplineScalac3Options.toSeq
+            else disciplineScalac2Options.toSeq
+          ),
+        Test / console / scalacOptions --= (
+            if (scalaVersion.value.startsWith("3.")) disciplineScalac3Options.toSeq
+            else disciplineScalac2Options.toSeq
+          ))
     } else {
       // we still need these in opt-out since the annotations are present
-      silencerSettings ++ Seq(Compile / scalacOptions += "-deprecation")
+      nowarnSettings ++ Seq(Compile / scalacOptions += "-deprecation")
     }
 
-  val testUndicipline = Seq("-Ywarn-dead-code" // '???' used in compile only specs
+  val testUndiscipline = Seq("-Ywarn-dead-code" // '???' used in compile only specs
   )
 
   /**
@@ -119,7 +161,7 @@ object AkkaDisciplinePlugin extends AutoPlugin {
   val undisciplineScalacOptions = Set("-Ywarn-numeric-widen")
 
   /** These options are desired, but some are excluded for the time being*/
-  val disciplineScalacOptions = Set(
+  val disciplineScalac2Options = Set(
     "-Ywarn-numeric-widen",
     "-Yno-adapted-args",
     "-deprecation",
@@ -133,23 +175,5 @@ object AkkaDisciplinePlugin extends AutoPlugin {
     "-Ypartial-unification",
     "-Ywarn-extra-implicit")
 
-  /**
-   * We are a little less strict in docs
-   */
-  val docs = Seq(
-    scalacOptions ++= Seq(
-      // In docs, 'unused' variables can be useful for naming and showing the type
-      "-P:silencer:globalFilters=is never used",
-      // Import statements are often duplicated across multiple snippets in one file
-      "-P:silencer:globalFilters=Unused import",
-      // We keep documentation for this old API around for a while:
-      "-P:silencer:globalFilters=in object Dns is deprecated",
-      "-P:silencer:globalFilters=in class Dns is deprecated",
-      // Because we sometimes wrap things in a class:
-      "-P:silencer:globalFilters=The outer reference in this type test cannot be checked at run time",
-      // Because we show some things that are deprecated in
-      // 2.13 but don't have a replacement that was in 2.12:
-      "-P:silencer:globalFilters=deprecated \\(since 2.13.0\\)"
-    )
-  )
+  val disciplineScalac3Options = Set.empty
 }

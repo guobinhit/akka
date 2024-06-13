@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.typed.internal.receptionist
@@ -117,7 +117,7 @@ import akka.cluster.typed.internal.receptionist.ClusterReceptionist.{ DDataKey, 
 
   def keysFor(address: UniqueAddress)(implicit node: SelfUniqueAddress): Set[ServiceKey[_]] =
     entries.entries.collect {
-      case (key, entries) if entries.exists(_.uniqueAddress(node.uniqueAddress.address) == address) =>
+      case (key, entriesForKey) if entriesForKey.exists(_.uniqueAddress(node.uniqueAddress.address) == address) =>
         key
     }.toSet
 

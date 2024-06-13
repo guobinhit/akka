@@ -1,10 +1,10 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl
 
-import akka.actor.{ ActorRef, PoisonPill }
+import akka.actor.ActorRef
 import akka.annotation.InternalApi
 import akka.stream._
 import akka.stream.OverflowStrategies._
@@ -36,7 +36,8 @@ private object ActorRefSource {
   private[akka] override def createLogicAndMaterializedValue(
       inheritedAttributes: Attributes,
       eagerMaterializer: Materializer): (GraphStageLogic, ActorRef) = {
-    val stage: GraphStageLogic with StageLogging with ActorRefStage = new GraphStageLogic(shape)
+    val stage: GraphStageLogic with OutHandler with StageLogging with ActorRefStage = new GraphStageLogic(shape)
+      with OutHandler
       with StageLogging
       with ActorRefStage {
       override protected def logSource: Class[_] = classOf[ActorRefSource[_]]
@@ -52,11 +53,7 @@ private object ActorRefSource {
       override protected def stageActorName: String = inheritedAttributes.nameForActorRef(super.stageActorName)
 
       private val name = inheritedAttributes.nameOrDefault(getClass.toString)
-      override val ref: ActorRef = getEagerStageActor(eagerMaterializer, poisonPillCompatibility = true) {
-        case (_, PoisonPill) =>
-          log.warning(
-            "PoisonPill only completes ActorRefSource for backwards compatibility and not be supported in the future. Send Status.Success(CompletionStrategy) instead")
-          completeStage()
+      override val ref: ActorRef = getEagerStageActor(eagerMaterializer) {
         case (_, m) if failureMatcher.isDefinedAt(m) =>
           failStage(failureMatcher(m))
         case (_, m) if completionMatcher.isDefinedAt(m) =>
@@ -69,18 +66,6 @@ private object ActorRefSource {
           }
         case (_, m: T @unchecked) =>
           buffer match {
-            case OptionVal.None =>
-              if (isCompleting) {
-                log.warning("Dropping element because Status.Success received already: [{}] in stream [{}]", m, name)
-              } else if (isAvailable(out)) {
-                push(out, m)
-              } else {
-                log.debug(
-                  "Dropping element because there is no downstream demand and no buffer: [{}] in stream [{}]",
-                  m,
-                  name)
-              }
-
             case OptionVal.Some(buf) =>
               if (isCompleting) {
                 log.warning(
@@ -134,7 +119,20 @@ private object ActorRefSource {
                     // there is a precondition check in Source.actorRefSource factory method to not allow backpressure as strategy
                     failStage(new IllegalStateException("Backpressure is not supported"))
                 }
+            case _ =>
+              if (isCompleting) {
+                log.warning("Dropping element because Status.Success received already: [{}] in stream [{}]", m, name)
+              } else if (isAvailable(out)) {
+                push(out, m)
+              } else {
+                log.debug(
+                  "Dropping element because there is no downstream demand and no buffer: [{}] in stream [{}]",
+                  m,
+                  name)
+              }
           }
+
+        case _ => throw new IllegalArgumentException() // won't happen, compiler exhaustiveness check pleaser
       }.ref
 
       private def tryPush(): Unit = {
@@ -148,11 +146,9 @@ private object ActorRefSource {
         }
       }
 
-      setHandler(out, new OutHandler {
-        override def onPull(): Unit = {
-          tryPush()
-        }
-      })
+      override def onPull(): Unit = tryPush()
+
+      setHandler(out, this)
     }
 
     (stage, stage.ref)

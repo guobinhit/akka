@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.event
@@ -7,8 +7,6 @@ package akka.event
 import java.util.concurrent.atomic.AtomicReference
 
 import scala.annotation.tailrec
-
-import com.github.ghik.silencer.silent
 
 import akka.actor.{ ActorRef, ActorSystem }
 import akka.event.Logging.simpleName
@@ -40,13 +38,15 @@ class EventStream(sys: ActorSystem, private val debug: Boolean) extends LoggingB
 
   protected def classify(event: Any): Class[_] = event.getClass
 
-  // TODO consider avoiding the deprecated `isTerminated`?
-  @silent("deprecated")
   protected def publish(event: Any, subscriber: ActorRef) = {
     if (sys == null && subscriber.isTerminated) unsubscribe(subscriber)
     else subscriber ! event
   }
 
+  /**
+   * Subscribe an actor to listen for types and subtypes by passing Class to channel argument.
+   * The same actor can create multiple subscriptions for different Class.
+   */
   override def subscribe(subscriber: ActorRef, channel: Class[_]): Boolean = {
     if (subscriber eq null) throw new IllegalArgumentException("subscriber is null")
     if (debug)
@@ -55,22 +55,28 @@ class EventStream(sys: ActorSystem, private val debug: Boolean) extends LoggingB
     super.subscribe(subscriber, channel)
   }
 
+  /**
+   * Unsubscribe specific types subscriptions created by this actor from the event stream.
+   */
   override def unsubscribe(subscriber: ActorRef, channel: Class[_]): Boolean = {
     if (subscriber eq null) throw new IllegalArgumentException("subscriber is null")
     val ret = super.unsubscribe(subscriber, channel)
+    unregisterIfNoMoreSubscribedChannels(subscriber)
     if (debug)
       publish(
         Logging.Debug(simpleName(this), this.getClass, "unsubscribing " + subscriber + " from channel " + channel))
-    unregisterIfNoMoreSubscribedChannels(subscriber)
     ret
   }
 
+  /**
+   * Unsubscribe all subscriptions created by this actor from the event stream.
+   */
   override def unsubscribe(subscriber: ActorRef): Unit = {
     if (subscriber eq null) throw new IllegalArgumentException("subscriber is null")
     super.unsubscribe(subscriber)
+    unregisterIfNoMoreSubscribedChannels(subscriber)
     if (debug)
       publish(Logging.Debug(simpleName(this), this.getClass, "unsubscribing " + subscriber + " from all channels"))
-    unregisterIfNoMoreSubscribedChannels(subscriber)
   }
 
   /**

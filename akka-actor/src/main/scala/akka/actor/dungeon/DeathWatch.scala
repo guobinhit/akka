@@ -1,15 +1,20 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.dungeon
 
 import akka.actor.{ Actor, ActorCell, ActorRef, ActorRefScope, Address, InternalActorRef, Terminated }
+import akka.annotation.InternalApi
 import akka.dispatch.sysmsg.{ DeathWatchNotification, Unwatch, Watch }
 import akka.event.AddressTerminatedTopic
 import akka.event.Logging.{ Debug, Warning }
 import akka.util.unused
 
+/**
+ * INTERNAL API
+ */
+@InternalApi
 private[akka] trait DeathWatch { this: ActorCell =>
 
   /**
@@ -33,6 +38,8 @@ private[akka] trait DeathWatch { this: ActorCell =>
           checkWatchingSame(a, None)
       }
       a
+    case unexpected =>
+      throw new IllegalArgumentException(s"ActorRef is not internal: $unexpected") // will not happen, for exhaustiveness check
   }
 
   override final def watchWith(subject: ActorRef, msg: Any): ActorRef = subject match {
@@ -46,6 +53,8 @@ private[akka] trait DeathWatch { this: ActorCell =>
           checkWatchingSame(a, Some(msg))
       }
       a
+    case unexpected =>
+      throw new IllegalArgumentException(s"ActorRef is not internal: $unexpected") // will not happen, for exhaustiveness check
   }
 
   override final def unwatch(subject: ActorRef): ActorRef = subject match {
@@ -58,6 +67,8 @@ private[akka] trait DeathWatch { this: ActorCell =>
       }
       terminatedQueued -= a
       a
+    case unexpected =>
+      throw new IllegalArgumentException(s"ActorRef is not internal: $unexpected") // will not happen, for exhaustiveness check
   }
 
   protected def receivedTerminated(t: Terminated): Unit =

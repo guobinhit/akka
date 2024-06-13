@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.remoting
@@ -21,7 +21,6 @@ object RemoteDeploymentDocSpec {
 
 class RemoteDeploymentDocSpec extends AkkaSpec("""
     akka.actor.provider = remote
-    akka.remote.classic.netty.tcp.port = 0
     akka.remote.artery.canonical.port = 0
     akka.remote.use-unsafe-remote-features-outside-cluster = on
 """) with ImplicitSender {

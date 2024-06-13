@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -10,7 +10,6 @@ import akka.actor.Status
 import akka.stream.CompletionStrategy
 import akka.stream.testkit.StreamSpec
 import akka.stream.testkit.Utils.TE
-import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestProbe
 
@@ -23,13 +22,13 @@ class ActorRefBackpressureSourceSpec extends StreamSpec {
 
   "An Source.actorRefWithBackpressure" must {
 
-    "emit received messages to the stream and ack" in assertAllStagesStopped {
+    "emit received messages to the stream and ack" in {
       val probe = TestProbe()
       val (ref, s) = Source
         .actorRefWithBackpressure[Int](
           AckMsg, { case "ok" => CompletionStrategy.draining }: PartialFunction[Any, CompletionStrategy],
           PartialFunction.empty)
-        .toMat(TestSink.probe[Int])(Keep.both)
+        .toMat(TestSink[Int]())(Keep.both)
         .run()
 
       val sub = s.expectSubscription()
@@ -48,14 +47,15 @@ class ActorRefBackpressureSourceSpec extends StreamSpec {
       s.expectComplete()
     }
 
-    "fail when consumer does not await ack" in assertAllStagesStopped {
+    "fail when consumer does not await ack" in {
+      val probe = TestProbe()
       val (ref, s) = Source
         .actorRefWithBackpressure[Int](AckMsg, PartialFunction.empty, PartialFunction.empty)
-        .toMat(TestSink.probe[Int])(Keep.both)
+        .toMat(TestSink[Int]())(Keep.both)
         .run()
 
       val sub = s.expectSubscription()
-      for (n <- 1 to 20) ref ! n
+      for (n <- 1 to 20) probe.send(ref, n)
       sub.request(1)
 
       @scala.annotation.tailrec
@@ -66,19 +66,22 @@ class ActorRefBackpressureSourceSpec extends StreamSpec {
           s.expectNextOrError() match {
             case Right(`n`) => verifyNext(n + 1)
             case Right(x)   => fail(s"expected $n, got $x")
-            case Left(t)    => t.getMessage shouldBe "Received new element before ack was signaled back"
+            case Left(e: IllegalStateException) =>
+              e.getMessage shouldBe "Received new element before ack was signaled back"
+            case Left(e) =>
+              fail(s"Expected IllegalStateException, got ${e.getClass}", e)
           }
       }
       verifyNext(1)
     }
 
-    "complete after receiving Status.Success" in assertAllStagesStopped {
+    "complete after receiving Status.Success" in {
       val probe = TestProbe()
       val (ref, s) = Source
         .actorRefWithBackpressure[Int](
           AckMsg, { case "ok" => CompletionStrategy.draining }: PartialFunction[Any, CompletionStrategy],
           PartialFunction.empty)
-        .toMat(TestSink.probe[Int])(Keep.both)
+        .toMat(TestSink[Int]())(Keep.both)
         .run()
 
       val sub = s.expectSubscription()
@@ -92,13 +95,13 @@ class ActorRefBackpressureSourceSpec extends StreamSpec {
       s.expectComplete()
     }
 
-    "fail after receiving Status.Failure" in assertAllStagesStopped {
+    "fail after receiving Status.Failure" in {
       val probe = TestProbe()
       val (ref, s) = Source
         .actorRefWithBackpressure[Int](
           AckMsg,
           PartialFunction.empty, { case Status.Failure(f) => f }: PartialFunction[Any, Throwable])
-        .toMat(TestSink.probe[Int])(Keep.both)
+        .toMat(TestSink[Int]())(Keep.both)
         .run()
 
       val sub = s.expectSubscription()
@@ -112,13 +115,13 @@ class ActorRefBackpressureSourceSpec extends StreamSpec {
       s.expectError(TE("test"))
     }
 
-    "not buffer elements after receiving Status.Success" in assertAllStagesStopped {
+    "not buffer elements after receiving Status.Success" in {
       val probe = TestProbe()
       val (ref, s) = Source
         .actorRefWithBackpressure[Int](
           AckMsg, { case "ok" => CompletionStrategy.draining }: PartialFunction[Any, CompletionStrategy],
           PartialFunction.empty)
-        .toMat(TestSink.probe[Int])(Keep.both)
+        .toMat(TestSink[Int]())(Keep.both)
         .run()
 
       val sub = s.expectSubscription()

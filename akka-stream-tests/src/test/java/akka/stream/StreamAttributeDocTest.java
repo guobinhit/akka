@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream;
@@ -13,13 +13,12 @@ import akka.stream.scaladsl.TcpAttributes;
 import akka.testkit.AkkaJUnitActorSystemResource;
 import akka.testkit.AkkaSpec;
 import com.typesafe.config.ConfigFactory;
-import org.junit.ClassRule;
-import org.junit.Test;
-
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
+import org.junit.ClassRule;
+import org.junit.Test;
 
 public class StreamAttributeDocTest extends StreamTest {
 

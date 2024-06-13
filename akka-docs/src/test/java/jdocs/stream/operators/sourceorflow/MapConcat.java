@@ -1,12 +1,11 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.stream.operators.sourceorflow;
 
 import akka.actor.ActorSystem;
 import akka.stream.javadsl.Source;
-
 import java.util.Arrays;
 
 public class MapConcat {
@@ -29,6 +28,7 @@ public class MapConcat {
     // 1
     // 2
     // 2
+    // 3
     // 3
     // #map-concat
   }

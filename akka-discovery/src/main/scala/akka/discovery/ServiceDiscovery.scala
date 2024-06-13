@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.discovery
@@ -10,12 +10,14 @@ import java.util.concurrent.CompletionStage
 import java.util.concurrent.TimeUnit
 
 import scala.collection.immutable
+import scala.compat.java8.FutureConverters._
 import scala.compat.java8.OptionConverters._
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
 import akka.actor.{ DeadLetterSuppression, NoSerializationVerificationNeeded }
 import akka.util.HashCode
+import akka.util.JavaDurationConverters._
 
 object ServiceDiscovery {
 
@@ -67,8 +69,8 @@ object ServiceDiscovery {
   object ResolvedTarget {
     // Simply compare the bytes of the address.
     // This may not work in exotic cases such as IPv4 addresses encoded as IPv6 addresses.
-    import com.github.ghik.silencer.silent
-    @silent("deprecated")
+    import scala.annotation.nowarn
+    @nowarn("msg=deprecated")
     private implicit val inetAddressOrdering: Ordering[InetAddress] =
       Ordering.by[InetAddress, Iterable[Byte]](_.getAddress)
 
@@ -132,9 +134,18 @@ object ServiceDiscovery {
  * Akka remoting ports and HTTP ports.
  *
  * @param serviceName must not be 'null' or an empty String
+ * @param discardCache Ask the discovery implementation to drop any cached result and do a new resolution.
+ *                     Optionally supported by implementations.
  */
-final class Lookup(val serviceName: String, val portName: Option[String], val protocol: Option[String])
+final class Lookup(
+    val serviceName: String,
+    val portName: Option[String],
+    val protocol: Option[String],
+    val discardCache: Boolean)
     extends NoSerializationVerificationNeeded {
+
+  def this(serviceName: String, portName: Option[String], protocol: Option[String]) =
+    this(serviceName, portName, protocol, discardCache = false)
 
   require(serviceName != null, "'serviceName' cannot be null")
   require(serviceName.trim.nonEmpty, "'serviceName' cannot be empty")
@@ -152,6 +163,12 @@ final class Lookup(val serviceName: String, val portName: Option[String], val pr
   def withProtocol(value: String): Lookup = copy(protocol = Some(value))
 
   /**
+   * Ask the discovery implementation to drop any cached result and do a new resolution.
+   * Optionally supported by implementations.
+   */
+  def withDiscardCache: Lookup = copy(discardCache = true)
+
+  /**
    * Java API
    */
   def getPortName: Optional[String] =
@@ -166,7 +183,8 @@ final class Lookup(val serviceName: String, val portName: Option[String], val pr
   private def copy(
       serviceName: String = serviceName,
       portName: Option[String] = portName,
-      protocol: Option[String] = protocol): Lookup =
+      protocol: Option[String] = protocol,
+      discardCache: Boolean = discardCache): Lookup =
     new Lookup(serviceName, portName, protocol)
 
   override def toString: String = s"Lookup($serviceName,$portName,$protocol)"
@@ -297,10 +315,17 @@ abstract class ServiceDiscovery {
   /**
    * Scala API: Perform lookup using underlying discovery implementation.
    *
-   * Convenience for when only a name is required.
+   * Convenience lookup accepting a name. If the name is a valid SRV entry, an SRV lookup is done, otherwise
+   * a regular lookup. For more control use the overload accepting a [[Lookup]].
    */
-  def lookup(serviceName: String, resolveTimeout: FiniteDuration): Future[Resolved] =
-    lookup(Lookup(serviceName), resolveTimeout)
+  def lookup(serviceName: String, resolveTimeout: FiniteDuration): Future[Resolved] = {
+    val parsedLookup =
+      if (Lookup.isValidSrv(serviceName))
+        Lookup.parseSrv(serviceName)
+      else
+        Lookup(serviceName)
+    lookup(parsedLookup, resolveTimeout)
+  }
 
   /**
    * Java API: Perform basic lookup using underlying discovery implementation.
@@ -320,11 +345,14 @@ abstract class ServiceDiscovery {
   /**
    * Java API
    *
+   * Convenience lookup accepting a name. If the name is a valid SRV entry, an SRV lookup is done, otherwise
+   * a regular lookup. For more control use the overload accepting a [[Lookup]].
+   *
    * @param serviceName           A name, see discovery-method's docs for how this is interpreted
    * @param resolveTimeout Timeout. Up to the discovery-method to adhere to this and complete the CompletionStage with a
    *                                [DiscoveryTimeoutException]
    */
   def lookup(serviceName: String, resolveTimeout: java.time.Duration): CompletionStage[Resolved] =
-    lookup(Lookup(serviceName), resolveTimeout)
+    lookup(serviceName, resolveTimeout.asScala).toJava
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -10,6 +10,7 @@ import scala.concurrent.duration._
 
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.Span
+import org.scalatest.time.Span.convertSpanToDuration
 
 import akka.actor.ActorRef
 import akka.actor.ActorSystem
@@ -21,7 +22,8 @@ import akka.testkit.ImplicitSender
 import akka.testkit.TestActors
 import akka.testkit.TestProbe
 
-class OutboundIdleShutdownSpec extends ArteryMultiNodeSpec(s"""
+class OutboundIdleShutdownSpec
+    extends ArteryMultiNodeSpec("""
   akka.loglevel=INFO
   akka.remote.artery.advanced.stop-idle-outbound-after = 1 s
   akka.remote.artery.advanced.connection-timeout = 2 s
@@ -29,10 +31,14 @@ class OutboundIdleShutdownSpec extends ArteryMultiNodeSpec(s"""
   akka.remote.artery.advanced.compression {
     actor-refs.advertisement-interval = 5 seconds
   }
-  """) with ImplicitSender with Eventually {
+  """)
+    with ImplicitSender
+    with Eventually {
 
-  override implicit val patience: PatienceConfig =
-    PatienceConfig(testKitSettings.DefaultTimeout.duration * 2, Span(200, org.scalatest.time.Millis))
+  override implicit val patience: PatienceConfig = {
+    import akka.testkit.TestDuration
+    PatienceConfig(testKitSettings.DefaultTimeout.duration.dilated * 2, Span(200, org.scalatest.time.Millis))
+  }
 
   private def isArteryTcp: Boolean =
     RARP(system).provider.transport.asInstanceOf[ArteryTransport].settings.Transport == ArterySettings.Tcp
@@ -193,7 +199,8 @@ class OutboundIdleShutdownSpec extends ArteryMultiNodeSpec(s"""
 
         def remoteEcho = system.actorSelection(RootActorPath(remoteAddress) / "user" / "echo")
 
-        val echoRef = remoteEcho.resolveOne(3.seconds).futureValue
+        // use little less resolve timeout than the patience timeout for good error messages
+        val echoRef = remoteEcho.resolveOne(convertSpanToDuration(patience.timeout) - 200.millis).futureValue
         val localProbe = new TestProbe(localSystem)
 
         echoRef.tell("ping", localProbe.ref)

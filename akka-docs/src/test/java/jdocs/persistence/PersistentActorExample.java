@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.persistence;
@@ -11,7 +11,6 @@ import akka.actor.ActorSystem;
 import akka.actor.Props;
 import akka.persistence.AbstractPersistentActor;
 import akka.persistence.SnapshotOffer;
-
 import java.io.Serializable;
 import java.util.ArrayList;
 

@@ -1,9 +1,10 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.scaladsl
 
+import scala.annotation.tailrec
 import akka.actor.typed.BackoffSupervisorStrategy
 import akka.actor.typed.Behavior
 import akka.actor.typed.Signal
@@ -19,8 +20,6 @@ import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.SnapshotAdapter
 import akka.persistence.typed.SnapshotSelectionCriteria
 import akka.persistence.typed.internal._
-
-import scala.annotation.tailrec
 
 object EventSourcedBehavior {
 
@@ -176,8 +175,20 @@ object EventSourcedBehavior {
    * [[EventSourcedBehavior.withRetention]] with [[RetentionCriteria.snapshotEvery]] is used together with
    * `snapshotWhen`. Such deletes are only triggered by snapshots matching the `numberOfEvents` in the
    * [[RetentionCriteria]].
+   *
+   * Events can be deleted if `snapshotWhen(predicate, deleteEventsOnSnapshot = true)` is used.
    */
   def snapshotWhen(predicate: (State, Event, Long) => Boolean): EventSourcedBehavior[Command, Event, State]
+
+  /**
+   * Can be used to delete events after `shouldSnapshot`.
+   *
+   * Can be used in combination with `[[EventSourcedBehavior.retentionCriteria]]` in a way that events are triggered
+   * up the the oldest snapshot based on `[[RetentionCriteria.snapshotEvery]]` config.
+   */
+  def snapshotWhen(
+      predicate: (State, Event, Long) => Boolean,
+      deleteEventsOnSnapshot: Boolean): EventSourcedBehavior[Command, Event, State]
 
   /**
    * Criteria for retention/deletion of snapshots and events.
@@ -189,6 +200,13 @@ object EventSourcedBehavior {
    * The `tagger` function should give event tags, which will be used in persistence query
    */
   def withTagger(tagger: Event => Set[String]): EventSourcedBehavior[Command, Event, State]
+
+  /**
+   * The `tagger` function should give event tags, which will be used in persistence query.
+   * The state passed to the tagger allows for toggling a tag with one event but keep all events after it tagged
+   * based on a property or the type of the state.
+   */
+  def withTaggerForState(tagger: (State, Event) => Set[String]): EventSourcedBehavior[Command, Event, State]
 
   /**
    * Transform the event to another type before giving to the journal. Can be used to wrap events
@@ -207,6 +225,9 @@ object EventSourcedBehavior {
    *
    * Specifically BackOff to prevent resume being used. Resume is not allowed as
    * it will be unknown if the event has been persisted.
+   *
+   * This supervision is only around the event sourced behavior not any outer setup/withTimers
+   * block. If using restart, any actions e.g. scheduling timers, can be done on the PreRestart
    *
    * If not specified the actor will be stopped on failure.
    */
@@ -229,4 +250,10 @@ object EventSourcedBehavior {
    */
   @InternalApi
   private[akka] def withReplication(context: ReplicationContextImpl): EventSourcedBehavior[Command, Event, State]
+
+  /**
+   * Define a custom stash capacity per entity.
+   * If not defined, the default `akka.persistence.typed.stash-capacity` will be used.
+   */
+  def withStashCapacity(size: Int): EventSourcedBehavior[Command, Event, State]
 }

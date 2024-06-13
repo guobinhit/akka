@@ -1,10 +1,9 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.stream.operators.source;
 
-import akka.Done;
 import akka.NotUsed;
 import akka.actor.ActorSystem;
 import akka.japi.Pair;
@@ -12,7 +11,6 @@ import akka.stream.javadsl.RunnableGraph;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.SinkQueueWithCancel;
 import akka.stream.javadsl.Source;
-
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 

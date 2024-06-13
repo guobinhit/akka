@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -14,7 +14,7 @@ import akka.testkit._
 
 object HandshakeDenySpec {
 
-  val commonConfig = ConfigFactory.parseString(s"""
+  val commonConfig = ConfigFactory.parseString("""
      akka.loglevel = WARNING
      akka.remote.artery.advanced.handshake-timeout = 2s
      akka.remote.artery.advanced.aeron.image-liveness-timeout = 1.9s

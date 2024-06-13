@@ -1,14 +1,12 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.journal.japi;
 
-import java.util.function.Consumer;
-
-import scala.concurrent.Future;
-
 import akka.persistence.PersistentRepr;
+import java.util.function.Consumer;
+import scala.concurrent.Future;
 
 interface AsyncRecoveryPlugin {
   // #async-replay-plugin-api

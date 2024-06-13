@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.io
@@ -78,7 +78,7 @@ private[io] class TcpListener(
         } else {
           e
         }
-        bindCommander ! bind.failureMessage.withCause(exception)
+        bindCommander ! CommandFailed(bind).withCause(exception)
         log.error(exception, "Bind failed for TCP channel on endpoint [{}]", bind.localAddress)
         context.stop(self)
     }
@@ -134,7 +134,7 @@ private[io] class TcpListener(
       log.debug("New connection accepted")
       socketChannel.configureBlocking(false)
       def props(registry: ChannelRegistry) =
-        Props(classOf[TcpIncomingConnection], tcp, socketChannel, registry, bind.handler, bind.options, bind.pullMode)
+        Props(new TcpIncomingConnection(tcp, socketChannel, registry, bind.handler, bind.options, bind.pullMode))
       selectorRouter ! WorkerForCommand(RegisterIncoming(socketChannel), self, props)
       acceptAllPending(registration, limit - 1)
     } else if (bind.pullMode) limit

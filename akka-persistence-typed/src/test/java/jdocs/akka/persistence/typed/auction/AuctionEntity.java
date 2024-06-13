@@ -1,21 +1,20 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.akka.persistence.typed.auction;
 
-import akka.Done;
-import akka.persistence.typed.PersistenceId;
-import akka.persistence.typed.javadsl.*;
-
 import static jdocs.akka.persistence.typed.auction.AuctionCommand.*;
 import static jdocs.akka.persistence.typed.auction.AuctionEvent.*;
 
+import akka.Done;
+import akka.actor.typed.ActorRef;
+import akka.persistence.typed.PersistenceId;
+import akka.persistence.typed.javadsl.*;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.UUID;
-import akka.actor.typed.ActorRef;
 
 /**
  * Based on

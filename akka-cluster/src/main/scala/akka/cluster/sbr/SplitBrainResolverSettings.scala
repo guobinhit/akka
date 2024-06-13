@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sbr
@@ -96,7 +96,16 @@ import akka.util.Helpers.Requiring
     val acquireLeaseDelayForMinority =
       FiniteDuration(c.getDuration("acquire-lease-delay-for-minority").toMillis, TimeUnit.MILLISECONDS)
 
-    LeaseMajoritySettings(leaseImplementation, acquireLeaseDelayForMinority, role(c))
+    val leaseName = c.getString("lease-name").trim match {
+      case ""   => None
+      case name => Some(name)
+    }
+
+    val releaseAfter =
+      FiniteDuration(c.getDuration("release-after").toMillis, TimeUnit.MILLISECONDS)
+
+    LeaseMajoritySettings(leaseImplementation, acquireLeaseDelayForMinority, releaseAfter, role(c), leaseName)
+
   }
 
   private def strategyConfig(strategyName: String): Config = cc.getConfig(strategyName)
@@ -124,4 +133,8 @@ import akka.util.Helpers.Requiring
 @InternalApi private[sbr] final case class LeaseMajoritySettings(
     leaseImplementation: String,
     acquireLeaseDelayForMinority: FiniteDuration,
-    role: Option[String])
+    releaseAfter: FiniteDuration,
+    role: Option[String],
+    leaseName: Option[String]) {
+  def safeLeaseName(systemName: String) = leaseName.getOrElse(s"$systemName-akka-sbr")
+}

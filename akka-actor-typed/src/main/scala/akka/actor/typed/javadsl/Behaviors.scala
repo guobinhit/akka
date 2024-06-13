@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.javadsl
@@ -383,7 +383,7 @@ object Behaviors {
     }
 
     val mdcForMessageFun: T => Map[String, String] =
-      if (mdcForMessage == null) Map.empty
+      if (mdcForMessage == null) _ => Map.empty
       else { message =>
         asScalaMap(mdcForMessage.apply(message))
       }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.io
@@ -7,9 +7,8 @@ package akka.io
 import java.lang.{ Iterable => JIterable }
 import java.net.InetSocketAddress
 
+import scala.annotation.nowarn
 import scala.collection.immutable
-
-import com.github.ghik.silencer.silent
 
 import akka.actor._
 import akka.io.Inet.SocketOption
@@ -25,7 +24,7 @@ import akka.util.ccompat._
  * from whom data can be received. For “unconnected” UDP mode see [[Udp]].
  *
  * For a full description of the design and philosophy behind this IO
- * implementation please refer to <a href="http://doc.akka.io/">the Akka online documentation</a>.
+ * implementation please refer to <a href="https://akka.io/docs/">the Akka online documentation</a>.
  *
  * The Java API for generating UDP commands is available at [[UdpConnectedMessage]].
  */
@@ -94,7 +93,7 @@ object UdpConnected extends ExtensionId[UdpConnectedExt] with ExtensionIdProvide
    * which is restricted to sending to and receiving from the given `remoteAddress`.
    * All received datagrams will be sent to the designated `handler` actor.
    */
-  @silent("deprecated")
+  @nowarn("msg=deprecated")
   final case class Connect(
       handler: ActorRef,
       remoteAddress: InetSocketAddress,
@@ -163,9 +162,8 @@ class UdpConnectedExt(system: ExtendedActorSystem) extends IO.Extension {
 
   val manager: ActorRef = {
     system.systemActorOf(
-      props = Props(classOf[UdpConnectedManager], this)
-        .withDispatcher(settings.ManagementDispatcher)
-        .withDeploy(Deploy.local),
+      props =
+        Props(new UdpConnectedManager(this)).withDispatcher(settings.ManagementDispatcher).withDeploy(Deploy.local),
       name = "IO-UDP-CONN")
   }
 

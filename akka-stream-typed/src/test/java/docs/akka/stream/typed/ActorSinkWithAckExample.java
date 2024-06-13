@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.akka.stream.typed;
@@ -11,13 +11,16 @@ import akka.actor.typed.ActorSystem;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 import akka.stream.typed.javadsl.ActorSink;
+
 // #actor-sink-ref-with-backpressure
 
 public class ActorSinkWithAckExample {
 
   // #actor-sink-ref-with-backpressure
 
-  class Ack {}
+  enum Ack {
+    INSTANCE;
+  }
 
   interface Protocol {}
 
@@ -58,7 +61,6 @@ public class ActorSinkWithAckExample {
     final ActorRef<Protocol> actorRef = // spawned actor
         null; // #hidden
 
-    final Ack ackMessage = new Ack();
     final Complete completeMessage = new Complete();
 
     final Sink<String, NotUsed> sink =
@@ -66,7 +68,7 @@ public class ActorSinkWithAckExample {
             actorRef,
             (responseActorRef, element) -> new Message(responseActorRef, element),
             (responseActorRef) -> new Init(responseActorRef),
-            ackMessage,
+            Ack.INSTANCE,
             completeMessage,
             (exception) -> new Fail(exception));
 

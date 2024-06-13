@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
@@ -9,8 +9,8 @@ import scala.concurrent.duration._
 import com.typesafe.config.ConfigFactory
 
 import akka.cluster.MemberStatus.Up
-import akka.remote.testkit.{ MultiNodeConfig, MultiNodeSpec }
-import akka.remote.transport.ThrottlerTransportAdapter.Direction
+import akka.remote.testkit.Direction
+import akka.remote.testkit.MultiNodeConfig
 
 class MultiDcSpecConfig(crossDcConnections: Int = 5) extends MultiNodeConfig {
   val first = role("first")
@@ -50,7 +50,7 @@ class MultiDcFewCrossDcMultiJvmNode3 extends MultiDcSpec(MultiDcFewCrossDcConnec
 class MultiDcFewCrossDcMultiJvmNode4 extends MultiDcSpec(MultiDcFewCrossDcConnectionsConfig)
 class MultiDcFewCrossDcMultiJvmNode5 extends MultiDcSpec(MultiDcFewCrossDcConnectionsConfig)
 
-abstract class MultiDcSpec(config: MultiDcSpecConfig) extends MultiNodeSpec(config) with MultiNodeClusterSpec {
+abstract class MultiDcSpec(config: MultiDcSpecConfig) extends MultiNodeClusterSpec(config) {
 
   import config._
 

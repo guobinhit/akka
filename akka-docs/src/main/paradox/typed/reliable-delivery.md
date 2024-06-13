@@ -15,9 +15,18 @@ warning or deprecation period. It is also not recommended to use this module in 
 
 ## Module info
 
+The Akka dependencies are available from Akka's library repository. To access them there, you need to configure the URL for this repository.
+
+@@repository [sbt,Maven,Gradle] {
+id="akka-repository"
+name="Akka library repository"
+url="https://repo.akka.io/maven"
+}
+
 To use reliable delivery, add the module to your project:
 
 @@dependency[sbt,Maven,Gradle] {
+  bomGroup=com.typesafe.akka bomArtifact=akka-bom_$scala.binary.version$ bomVersionSymbols=AkkaVersion
   symbol1=AkkaVersion
   value1="$akka.version$"
   group=com.typesafe.akka
@@ -254,6 +263,7 @@ In that case some of these may already have been processed by the previous worke
 To use reliable delivery with Cluster Sharding, add the following module to your project:
 
 @@dependency[sbt,Maven,Gradle] {
+  bomGroup=com.typesafe.akka bomArtifact=akka-bom_$scala.binary.version$ bomVersionSymbols=AkkaVersion
   symbol1=AkkaVersion
   value1="$akka.version$"
   group=com.typesafe.akka
@@ -354,7 +364,7 @@ Until sent messages have been confirmed the producer side keeps them in memory t
 resend them. If the JVM of the producer side crashes those unconfirmed messages are lost.
 To make sure the messages can be delivered also in that scenario a @apidoc[DurableProducerQueue$] can be used.
 Then the unconfirmed messages are stored in a durable way so that they can be redelivered when the producer
-is started again. An implementation of the `DurableProducerQueue` is provided by @apidoc[EventSourcedProducerQueue]
+is started again. An implementation of the `DurableProducerQueue` is provided by @apidoc[EventSourcedProducerQueue$]
 in `akka-persistence-typed`.
 
 Be aware of that a `DurableProducerQueue` will add a substantial performance overhead. 
@@ -362,6 +372,7 @@ Be aware of that a `DurableProducerQueue` will add a substantial performance ove
 When using the `EventSourcedProducerQueue` the following dependency is needed:
 
 @@dependency[sbt,Maven,Gradle] {
+  bomGroup=com.typesafe.akka bomArtifact=akka-bom_$scala.binary.version$ bomVersionSymbols=AkkaVersion
   symbol1=AkkaVersion
   value1="$akka.version$"
   group=com.typesafe.akka

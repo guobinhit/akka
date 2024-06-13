@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.dispatch
@@ -96,7 +96,7 @@ private[akka] class BalancingDispatcher(
 
   override protected[akka] def dispatch(receiver: ActorCell, invocation: Envelope) = {
     messageQueue.enqueue(receiver.self, invocation)
-    if (!registerForExecution(receiver.mailbox, false, false)) teamWork()
+    if (!registerForExecution(receiver.mailbox, hasMessageHint = false, hasSystemMessageHint = false)) teamWork()
   }
 
   protected def teamWork(): Unit =
@@ -108,7 +108,7 @@ private[akka] class BalancingDispatcher(
               case lm: LoadMetrics => !lm.atFullThrottle()
               case _               => true
             })
-            && !registerForExecution(i.next.mailbox, false, false))
+            && !registerForExecution(i.next.mailbox, hasMessageHint = false, hasSystemMessageHint = false))
           scheduleOne(i)
 
       scheduleOne()

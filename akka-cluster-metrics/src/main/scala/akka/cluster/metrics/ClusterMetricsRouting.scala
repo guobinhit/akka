@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.metrics
@@ -8,10 +8,10 @@ import java.util.Arrays
 import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.atomic.AtomicReference
 
+import scala.annotation.nowarn
 import scala.annotation.tailrec
 import scala.collection.immutable
 
-import com.github.ghik.silencer.silent
 import com.typesafe.config.Config
 
 import akka.actor.Actor
@@ -420,7 +420,7 @@ object MetricsSelector {
 /**
  * A MetricsSelector is responsible for producing weights from the node metrics.
  */
-@silent("@SerialVersionUID has no effect")
+@nowarn("msg=@SerialVersionUID")
 @SerialVersionUID(1L)
 trait MetricsSelector extends Serializable {
 
@@ -434,7 +434,7 @@ trait MetricsSelector extends Serializable {
  * A MetricsSelector producing weights from remaining capacity.
  * The weights are typically proportional to the remaining capacity.
  */
-@silent("deprecated")
+@nowarn("msg=deprecated")
 @SerialVersionUID(1L)
 abstract class CapacityMetricsSelector extends MetricsSelector {
 
@@ -489,6 +489,7 @@ private[metrics] class WeightedRoutees(
       val a = routee match {
         case ActorRefRoutee(ref)       => ref.path.address
         case ActorSelectionRoutee(sel) => sel.anchor.path.address
+        case _                         => throw new RuntimeException()
       }
       a match {
         case Address(_, _, None, None) => selfAddress

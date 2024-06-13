@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.delivery.internal
@@ -140,7 +140,7 @@ import akka.util.Timeout
       .narrow
   }
 
-  private def createInitialState[A: ClassTag](hasDurableQueue: Boolean) = {
+  private def createInitialState[A](hasDurableQueue: Boolean) = {
     if (hasDurableQueue) None else Some(DurableProducerQueue.State.empty[A])
   }
 
@@ -158,6 +158,7 @@ import akka.util.Timeout
       s.unconfirmed.foreach {
         case DurableProducerQueue.MessageSent(oldSeqNr, msg, _, oldConfirmationQualifier, _) =>
           context.self ! ResendDurableMsg(msg, oldConfirmationQualifier, oldSeqNr)
+        case _ => // please compiler exhaustiveness check
       }
 
       val msgAdapter: ActorRef[A] = context.messageAdapter(msg => Msg(msg, wasStashed = false, replyTo = None))
@@ -191,7 +192,7 @@ import akka.util.Timeout
           case Some(p) =>
             becomeActive(p, load.state)
           case None =>
-            // waiting for LoadStateReply
+            // waiting for Start
             waitingForStart(producerId, context, stashBuffer, durableQueue, settings, producer, Some(load.state))
         }
 
@@ -220,12 +221,12 @@ import akka.util.Timeout
     }
   }
 
-  private def checkStashFull[A: ClassTag](stashBuffer: StashBuffer[InternalCommand]): Unit = {
+  private def checkStashFull[A](stashBuffer: StashBuffer[InternalCommand]): Unit = {
     if (stashBuffer.isFull)
       throw new IllegalArgumentException(s"Buffer is full, size [${stashBuffer.size}].")
   }
 
-  private def askLoadState[A: ClassTag](
+  private def askLoadState[A](
       context: ActorContext[InternalCommand],
       durableQueueBehavior: Option[Behavior[DurableProducerQueue.Command[A]]],
       settings: WorkPullingProducerController.Settings): Option[ActorRef[DurableProducerQueue.Command[A]]] = {
@@ -238,7 +239,7 @@ import akka.util.Timeout
     }
   }
 
-  private def askLoadState[A: ClassTag](
+  private def askLoadState[A](
       context: ActorContext[InternalCommand],
       durableQueue: Option[ActorRef[DurableProducerQueue.Command[A]]],
       settings: WorkPullingProducerController.Settings,
@@ -365,7 +366,7 @@ private class WorkPullingProducerControllerImpl[A: ClassTag](
               // wait until more demand
               false
             } else if (s.requested && wasStashed) {
-              // msg was unstashed, but pending request alread in progress
+              // msg was unstashed, but pending request already in progress
               true
             } else if (durableQueue.isDefined && !s.requested && !wasStashed) {
               // msg ResendDurableMsg, and stashed before storage
@@ -434,7 +435,7 @@ private class WorkPullingProducerControllerImpl[A: ClassTag](
       selectWorker() match {
         case Some((outKey, out)) =>
           storeMessageSent(
-            MessageSent(s.currentSeqNr, resend.msg, false, out.confirmationQualifier, System.currentTimeMillis()),
+            MessageSent(s.currentSeqNr, resend.msg, ack = false, out.confirmationQualifier, System.currentTimeMillis()),
             attempt = 1)
           // When StoreMessageSentCompleted (oldConfirmationQualifier, oldSeqNr) confirmation will be stored
           active(
@@ -460,14 +461,18 @@ private class WorkPullingProducerControllerImpl[A: ClassTag](
         replyTo ! Done
       }
 
-      s.handOver.get(seqNr).foreach {
-        case HandOver(oldConfirmationQualifier, oldSeqNr) =>
-          durableQueue.foreach { d =>
-            d ! StoreMessageConfirmed(oldSeqNr, oldConfirmationQualifier, System.currentTimeMillis())
-          }
-      }
+      val wasHandOver =
+        s.handOver.get(seqNr) match {
+          case Some(HandOver(oldConfirmationQualifier, oldSeqNr)) =>
+            durableQueue.foreach { d =>
+              d ! StoreMessageConfirmed(oldSeqNr, oldConfirmationQualifier, System.currentTimeMillis())
+            }
+            true
+          case None =>
+            false
+        }
 
-      val newState = onMessage(m, wasStashed = false, replyTo = None, seqNr)
+      val newState = onMessage(m, wasStashed = wasHandOver, replyTo = None, seqNr)
       active(newState.copy(replyAfterStore = newState.replyAfterStore - seqNr, handOver = newState.handOver - seqNr))
     }
 
@@ -616,22 +621,22 @@ private class WorkPullingProducerControllerImpl[A: ClassTag](
         else
           onMessageBeforeDurableQueue(msg, Some(replyTo))
 
-      case m: ResendDurableMsg[A] =>
+      case m: ResendDurableMsg[A @unchecked] =>
         onResendDurableMsg(m)
 
       case StoreMessageSentCompleted(MessageSent(seqNr, m: A, _, _, _)) =>
         receiveStoreMessageSentCompleted(seqNr, m)
 
-      case f: StoreMessageSentFailed[A] =>
+      case f: StoreMessageSentFailed[A @unchecked] =>
         receiveStoreMessageSentFailed(f)
 
       case ack: Ack =>
         receiveAck(ack)
 
-      case w: WorkerRequestNext[A] =>
+      case w: WorkerRequestNext[A @unchecked] =>
         receiveWorkerRequestNext(w)
 
-      case curr: CurrentWorkers[A] =>
+      case curr: CurrentWorkers[A @unchecked] =>
         receiveCurrentWorkers(curr)
 
       case GetWorkerStats(replyTo) =>
@@ -641,7 +646,7 @@ private class WorkPullingProducerControllerImpl[A: ClassTag](
       case RegisterConsumerDone =>
         Behaviors.same
 
-      case start: Start[A] =>
+      case start: Start[A @unchecked] =>
         receiveStart(start)
 
       case AskTimeout(outKey, outSeqNr) =>
@@ -654,6 +659,8 @@ private class WorkPullingProducerControllerImpl[A: ClassTag](
       case DurableQueueTerminated =>
         throw new IllegalStateException("DurableQueue was unexpectedly terminated.")
 
+      case unexpected =>
+        throw new RuntimeException(s"Unexpected message: $unexpected")
     }
   }
 

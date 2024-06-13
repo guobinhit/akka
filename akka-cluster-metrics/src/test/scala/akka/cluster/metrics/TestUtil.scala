@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.metrics
@@ -24,7 +24,6 @@ import akka.actor.Props
 import akka.dispatch.Dispatchers
 import akka.dispatch.RequiresMessageQueue
 import akka.dispatch.UnboundedMessageQueueSemantics
-import akka.remote.RARP
 import akka.testkit.AkkaSpec
 
 /**
@@ -79,8 +78,8 @@ case class MockitoSigarProvider(
     // Note "thenReturn(0)" invocation is consumed in collector construction.
 
     val cpuPerc = mock[CpuPerc]
-    when(cpuPerc.getCombined).thenReturn(0, increase(cpuCombined): _*)
-    when(cpuPerc.getStolen).thenReturn(0, increase(cpuStolen): _*)
+    when(cpuPerc.getCombined).thenReturn(0.0, increase(cpuCombined): _*)
+    when(cpuPerc.getStolen).thenReturn(0.0, increase(cpuStolen): _*)
 
     val sigar = mock[SigarProxy]
     when(sigar.getPid).thenReturn(pid)
@@ -138,7 +137,7 @@ trait MetricsCollectorFactory { this: AkkaSpec =>
  */
 class MockitoSigarMetricsCollector(system: ActorSystem)
     extends SigarMetricsCollector(
-      Address(if (RARP(system).provider.remoteSettings.Artery.Enabled) "akka" else "akka.tcp", system.name),
+      Address("akka", system.name),
       MetricsConfig.defaultDecayFactor,
       MockitoSigarProvider().createSigarInstance) {}
 
@@ -159,6 +158,7 @@ object MetricsConfig {
       }
     }
     akka.actor.provider = remote
+    akka.remote.artery.canonical.port = 0
   """
 
   /** Test w/o cluster, with collection disabled. */
@@ -169,6 +169,7 @@ object MetricsConfig {
       }
     }
     akka.actor.provider = remote
+    akka.remote.artery.canonical.port = 0
   """
 
   /** Test in cluster, with manual collection activation, collector mock, fast. */
@@ -184,6 +185,7 @@ object MetricsConfig {
       }
     }
     akka.actor.provider = "cluster"
+    akka.remote.artery.canonical.port = 0
   """
 }
 

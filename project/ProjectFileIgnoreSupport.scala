@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka
@@ -7,44 +7,34 @@ package akka
 import java.io.File
 
 import com.typesafe.config.ConfigFactory
-import sbt.internal.sbtscalafix.Compat
+import sbt.ConsoleLogger
 
+// used by JavaFormatter
 class ProjectFileIgnoreSupport(ignoreConfigFile: File, descriptor: String) {
-  private val stdoutLogger = Compat.ConsoleLogger(System.out)
+  private val stdoutLogger = ConsoleLogger(System.out)
 
-  private val javaSourceDirectories = Set(
-    "java",
-    Jdk9.JAVA_SOURCE_DIRECTORY,
-    Jdk9.JAVA_TEST_SOURCE_DIRECTORY
-  )
+  private val javaSourceDirectories = Set("java")
 
-  private val scalaSourceDirectories = Set(
-    "scala",
-    Jdk9.SCALA_SOURCE_DIRECTORY,
-    Jdk9.SCALA_TEST_SOURCE_DIRECTORY
-  )
+  private val scalaSourceDirectories = Set("scala")
 
   private lazy val ignoreConfig = {
-    require(ignoreConfigFile.exists(), s"Expected ignore configuration for $descriptor at ${ignoreConfigFile.getAbsolutePath} but was missing")
+    require(
+      ignoreConfigFile.exists(),
+      s"Expected ignore configuration for $descriptor at ${ignoreConfigFile.getAbsolutePath} but was missing")
     ConfigFactory.parseFile(ignoreConfigFile)
   }
 
   private lazy val ignoredFiles: Set[String] = {
     import scala.collection.JavaConverters._
     stdoutLogger.debug(s"Loading ignored-files from $ignoreConfigFile:[${ignoreConfig.origin().url().toURI.getPath}]")
-    ignoreConfig
-      .getStringList("ignored-files")
-      .asScala
-      .toSet
+    ignoreConfig.getStringList("ignored-files").asScala.toSet
   }
 
   private lazy val ignoredPackages: Set[String] = {
     import scala.collection.JavaConverters._
-    stdoutLogger.debug(s"Loading ignored-packages from $ignoreConfigFile:[${ignoreConfig.origin().url().toURI.getPath}]")
-    ignoreConfig
-      .getStringList("ignored-packages")
-      .asScala
-      .toSet
+    stdoutLogger.debug(
+      s"Loading ignored-packages from $ignoreConfigFile:[${ignoreConfig.origin().url().toURI.getPath}]")
+    ignoreConfig.getStringList("ignored-packages").asScala.toSet
   }
 
   def isIgnoredByFileOrPackages(file: File): Boolean =
@@ -64,7 +54,8 @@ class ProjectFileIgnoreSupport(ignoreConfigFile: File, descriptor: String) {
         case Some(packageName) =>
           val ignored = packageName.startsWith(pkg)
           if (ignored) {
-            stdoutLogger.debug(s"$descriptor ignored file with pkg:$pkg for package:$packageName file:[${file.toPath}] ")
+            stdoutLogger.debug(
+              s"$descriptor ignored file with pkg:$pkg for package:$packageName file:[${file.toPath}] ")
           }
           ignored
         case None => false
@@ -74,9 +65,10 @@ class ProjectFileIgnoreSupport(ignoreConfigFile: File, descriptor: String) {
   }
 
   private def getPackageName(fileName: String): Option[String] = {
-    def getPackageName0(sourceDirectories:Set[String]): String = {
-      import java.io.{File => JFile}
-      val packageName = fileName.split(JFile.separatorChar)
+    def getPackageName0(sourceDirectories: Set[String]): String = {
+      import java.io.{ File => JFile }
+      val packageName = fileName
+        .split(JFile.separatorChar)
         .dropWhile(part => !sourceDirectories(part))
         .drop(1)
         .dropRight(1)

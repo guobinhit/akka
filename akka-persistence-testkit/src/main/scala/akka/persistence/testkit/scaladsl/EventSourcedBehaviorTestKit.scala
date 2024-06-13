@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.testkit.scaladsl
@@ -17,6 +17,7 @@ import akka.actor.typed.Behavior
 import akka.annotation.ApiMayChange
 import akka.annotation.DoNotInherit
 import akka.persistence.testkit.PersistenceTestKitPlugin
+import akka.persistence.testkit.PersistenceTestKitSnapshotPlugin
 import akka.persistence.testkit.internal.EventSourcedBehaviorTestKitImpl
 
 /**
@@ -37,7 +38,8 @@ object EventSourcedBehaviorTestKit {
    */
   val config: Config = ConfigFactory.parseString("""
     akka.persistence.testkit.events.serialize = off
-    """).withFallback(PersistenceTestKitPlugin.config)
+    akka.persistence.testkit.snapshots.serialize = off
+    """).withFallback(PersistenceTestKitPlugin.config).withFallback(PersistenceTestKitSnapshotPlugin.config)
 
   object SerializationSettings {
     val enabled: SerializationSettings = new SerializationSettings(
@@ -172,6 +174,12 @@ object EventSourcedBehaviorTestKit {
      * if the reply is of a different type.
      */
     def replyOfType[R <: Reply: ClassTag]: R
+
+    /**
+     * `true` if there is no reply.
+     */
+    def hasNoReply: Boolean
+
   }
 
   /**
@@ -221,9 +229,22 @@ object EventSourcedBehaviorTestKit {
   def clear(): Unit
 
   /**
-   * The underlying `PersistenceTestKit` for the in-memory journal and snapshot storage.
+   * The underlying `PersistenceTestKit` for the in-memory journal.
    * Can be useful for advanced testing scenarios, such as simulating failures or
    * populating the journal with events that are used for replay.
    */
   def persistenceTestKit: PersistenceTestKit
+
+  /**
+   * The underlying `SnapshotTestKit` for snapshot storage. Present only if snapshots are enabled.
+   * Can be useful for advanced testing scenarios, such as simulating failures or
+   * populating the storage with snapshots that are used for replay.
+   */
+  def snapshotTestKit: Option[SnapshotTestKit]
+
+  /**
+   * Initializes behavior from provided state and/or events.
+   */
+  def initialize(state: State, events: Event*): Unit
+  def initialize(events: Event*): Unit
 }

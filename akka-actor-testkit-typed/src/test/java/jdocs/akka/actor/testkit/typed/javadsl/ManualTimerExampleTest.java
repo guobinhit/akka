@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.akka.actor.testkit.typed.javadsl;
@@ -7,19 +7,16 @@ package jdocs.akka.actor.testkit.typed.javadsl;
 // #manual-scheduling-simple
 
 import akka.actor.testkit.typed.javadsl.LogCapturing;
-import akka.actor.typed.Behavior;
 import akka.actor.testkit.typed.javadsl.ManualTime;
 import akka.actor.testkit.typed.javadsl.TestKitJunitResource;
+import akka.actor.testkit.typed.javadsl.TestProbe;
+import akka.actor.typed.Behavior;
+import akka.actor.typed.javadsl.Behaviors;
+import java.time.Duration;
 import org.junit.ClassRule;
 import org.junit.Rule;
-import org.scalatestplus.junit.JUnitSuite;
-import java.time.Duration;
-
-import akka.actor.typed.javadsl.Behaviors;
-
 import org.junit.Test;
-
-import akka.actor.testkit.typed.javadsl.TestProbe;
+import org.scalatestplus.junit.JUnitSuite;
 
 public class ManualTimerExampleTest extends JUnitSuite {
 

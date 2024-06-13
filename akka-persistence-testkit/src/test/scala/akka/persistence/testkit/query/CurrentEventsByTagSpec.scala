@@ -1,8 +1,10 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.testkit.query
+
+import org.scalatest.wordspec.AnyWordSpecLike
 
 import akka.Done
 import akka.actor.testkit.typed.scaladsl.LogCapturing
@@ -14,29 +16,16 @@ import akka.persistence.testkit.query.EventsByPersistenceIdSpec.Command
 import akka.persistence.testkit.query.EventsByPersistenceIdSpec.testBehaviour
 import akka.persistence.testkit.query.scaladsl.PersistenceTestKitReadJournal
 import akka.stream.scaladsl.Sink
-import org.scalatest.wordspec.AnyWordSpecLike
 
 class CurrentEventsByTagSpec
     extends ScalaTestWithActorTestKit(EventsByPersistenceIdSpec.config)
     with LogCapturing
     with AnyWordSpecLike {
 
-  implicit val classic = system.classicSystem
+  implicit val classic: akka.actor.ActorSystem = system.classicSystem
 
-  val queries =
+  private val queries =
     PersistenceQuery(system).readJournalFor[PersistenceTestKitReadJournal](PersistenceTestKitReadJournal.Identifier)
-
-  def setup(persistenceId: String): ActorRef[Command] = {
-    val probe = createTestProbe[Done]()
-    val ref = setupEmpty(persistenceId)
-    ref ! Command(s"$persistenceId-1", probe.ref)
-    ref ! Command(s"$persistenceId-2", probe.ref)
-    ref ! Command(s"$persistenceId-3", probe.ref)
-    probe.expectMessage(Done)
-    probe.expectMessage(Done)
-    probe.expectMessage(Done)
-    ref
-  }
 
   def setupEmpty(persistenceId: String): ActorRef[Command] = {
     spawn(

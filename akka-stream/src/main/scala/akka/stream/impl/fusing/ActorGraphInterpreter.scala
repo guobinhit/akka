@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl.fusing
@@ -45,7 +45,12 @@ import akka.util.OptionVal
 
   trait BoundaryEvent extends DeadLetterSuppression with NoSerializationVerificationNeeded {
     def shell: GraphInterpreterShell
+
+    @InternalStableApi
     def execute(eventLimit: Int): Int
+
+    @InternalStableApi
+    def cancel(): Unit
   }
 
   trait SimpleBoundaryEvent extends BoundaryEvent {
@@ -81,6 +86,8 @@ import akka.util.OptionVal
       }
 
       override def logic: GraphStageLogic = BatchingActorInputBoundary.this
+
+      override def cancel(): Unit = ()
     }
     // can't be final because of SI-4440
     case class OnComplete(shell: GraphInterpreterShell) extends SimpleBoundaryEvent {
@@ -90,6 +97,8 @@ import akka.util.OptionVal
       }
 
       override def logic: GraphStageLogic = BatchingActorInputBoundary.this
+
+      override def cancel(): Unit = ()
     }
     // can't be final because of SI-4440
     case class OnNext(shell: GraphInterpreterShell, e: Any) extends SimpleBoundaryEvent {
@@ -99,6 +108,8 @@ import akka.util.OptionVal
       }
 
       override def logic: GraphStageLogic = BatchingActorInputBoundary.this
+
+      override def cancel(): Unit = ()
     }
     // can't be final because of SI-4440
     case class OnSubscribe(shell: GraphInterpreterShell, subscription: Subscription) extends SimpleBoundaryEvent {
@@ -109,6 +120,8 @@ import akka.util.OptionVal
       }
 
       override def logic: GraphStageLogic = BatchingActorInputBoundary.this
+
+      override def cancel(): Unit = ()
     }
 
     if (size <= 0) throw new IllegalArgumentException("buffer size cannot be zero")
@@ -269,6 +282,8 @@ import akka.util.OptionVal
     override def shell: GraphInterpreterShell = boundary.shell
 
     override def logic: GraphStageLogic = boundary
+
+    override def cancel(): Unit = ()
   }
 
   final case class RequestMore(boundary: ActorOutputBoundary, demand: Long) extends SimpleBoundaryEvent {
@@ -279,6 +294,7 @@ import akka.util.OptionVal
     }
     override def shell: GraphInterpreterShell = boundary.shell
     override def logic: GraphStageLogic = boundary
+    override def cancel(): Unit = ()
   }
   final case class Cancel(boundary: ActorOutputBoundary, cause: Throwable) extends SimpleBoundaryEvent {
     override def execute(): Unit = {
@@ -290,6 +306,7 @@ import akka.util.OptionVal
 
     override def shell: GraphInterpreterShell = boundary.shell
     override def logic: GraphStageLogic = boundary
+    override def cancel(): Unit = ()
   }
 
   private[stream] class OutputBoundaryPublisher(boundary: ActorOutputBoundary, internalPortName: String)
@@ -344,7 +361,7 @@ import akka.util.OptionVal
         case OptionVal.Some(e) =>
           tryOnSubscribe(subscriber, CancelledSubscription)
           tryOnError(subscriber, e)
-        case OptionVal.None =>
+        case _ =>
           tryOnSubscribe(subscriber, CancelledSubscription)
           tryOnComplete(subscriber)
       } catch {
@@ -493,6 +510,8 @@ import akka.util.OptionVal
       promise: Promise[Done],
       handler: (Any) => Unit)
       extends BoundaryEvent {
+
+    @InternalStableApi
     override def execute(eventLimit: Int): Int = {
       if (!waitingForShutdown) {
         interpreter.runAsyncInput(logic, evt, promise, handler)
@@ -504,6 +523,8 @@ import akka.util.OptionVal
         eventLimit
       }
     }
+
+    override def cancel(): Unit = ()
   }
 
   // can't be final because of SI-4440
@@ -513,6 +534,8 @@ import akka.util.OptionVal
         if (GraphInterpreter.Debug) println(s"${interpreter.Name}  resume")
         if (interpreter.isSuspended) runBatch(eventLimit) else eventLimit
       } else eventLimit
+
+    override def cancel(): Unit = ()
   }
 
   // can't be final because of SI-4440
@@ -528,6 +551,8 @@ import akka.util.OptionVal
       }
       0
     }
+
+    override def cancel(): Unit = ()
   }
 
   private var enqueueToShortCircuit: (Any) => Unit = _
@@ -679,7 +704,7 @@ import akka.util.OptionVal
     if (!isInitialized)
       UninitializedInterpreterImpl(logics.zipWithIndex.map {
         case (logic, idx) =>
-          LogicSnapshotImpl(idx, logic.originalStage.getOrElse(logic).toString, logic.attributes)
+          LogicSnapshotImpl(idx, logic.toString, logic.attributes)
       }.toVector)
     else interpreter.toSnapshot
   }
@@ -761,6 +786,8 @@ import akka.util.OptionVal
       shortCircuitBuffer.poll() match {
         case b: BoundaryEvent => processEvent(b)
         case Resume           => finishShellRegistration()
+        case unexpected =>
+          throw new IllegalStateException(s"Unexpected element in short circuit buffer: '${unexpected.getClass}'")
       }
       shortCircuitBatch()
     }
@@ -779,6 +806,9 @@ import akka.util.OptionVal
         activeInterpreters -= shell
         if (activeInterpreters.isEmpty && newShells.isEmpty) context.stop(self)
       }
+    } else {
+      // signal to telemetry that this event won't be processed
+      b.cancel()
     }
   }
 
@@ -799,7 +829,17 @@ import akka.util.OptionVal
         newShells.map(shell => shell.toSnapshot.asInstanceOf[UninitializedInterpreter]))
   }
 
-  override def postStop(): Unit =
+  override def postStop(): Unit = {
+    if (shortCircuitBuffer ne null) {
+      while (!shortCircuitBuffer.isEmpty) {
+        shortCircuitBuffer.poll() match {
+          case b: BoundaryEvent =>
+            // signal to telemetry that this event won't be processed
+            b.cancel()
+          case _ => // ignore
+        }
+      }
+    }
     // avoid creating exception in happy case since it uses self.toString which is somewhat slow
     if (activeInterpreters.nonEmpty || newShells.nonEmpty) {
       val ex = AbruptTerminationException(self)
@@ -807,4 +847,5 @@ import akka.util.OptionVal
       activeInterpreters = Set.empty[GraphInterpreterShell]
       newShells.foreach(s => if (tryInit(s)) s.tryAbort(ex))
     }
+  }
 }

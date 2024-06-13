@@ -1,19 +1,19 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
-import com.github.ghik.silencer.silent
+import scala.annotation.nowarn
+
 import org.scalacheck.Gen
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
 import akka.pattern.pipe
 import akka.stream.{ ActorMaterializer, ActorMaterializerSettings }
 import akka.stream.testkit._
-import akka.stream.testkit.scaladsl.StreamTestKit._
 
-@silent
+@nowarn
 class FlowSlidingSpec extends StreamSpec with ScalaCheckPropertyChecks {
   import system.dispatcher
   val settings = ActorMaterializerSettings(system).withInputBuffer(initialSize = 2, maxSize = 16)
@@ -35,7 +35,7 @@ class FlowSlidingSpec extends StreamSpec with ScalaCheckPropertyChecks {
           af.futureValue should be(cf.futureValue)
       }
 
-    "behave just like collections sliding with step < window" in assertAllStagesStopped {
+    "behave just like collections sliding with step < window" in {
       check(for {
         len <- Gen.choose(0, 31)
         win <- Gen.choose(1, 61)
@@ -43,7 +43,7 @@ class FlowSlidingSpec extends StreamSpec with ScalaCheckPropertyChecks {
       } yield (len, win, step))
     }
 
-    "behave just like collections sliding with step == window" in assertAllStagesStopped {
+    "behave just like collections sliding with step == window" in {
       check(for {
         len <- Gen.choose(0, 31)
         win <- Gen.choose(1, 61)
@@ -51,7 +51,7 @@ class FlowSlidingSpec extends StreamSpec with ScalaCheckPropertyChecks {
       } yield (len, win, step))
     }
 
-    "behave just like collections sliding with step > window" in assertAllStagesStopped {
+    "behave just like collections sliding with step > window" in {
       check(for {
         len <- Gen.choose(0, 31)
         win <- Gen.choose(1, 61)
@@ -59,7 +59,7 @@ class FlowSlidingSpec extends StreamSpec with ScalaCheckPropertyChecks {
       } yield (len, win, step))
     }
 
-    "work with empty sources" in assertAllStagesStopped {
+    "work with empty sources" in {
       Source.empty.sliding(1).runForeach(testActor ! _).map(_ => "done").pipeTo(testActor)
       expectMsg("done")
     }

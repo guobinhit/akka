@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.akka.cluster.ddata.typed.scaladsl
@@ -26,7 +26,6 @@ object ReplicatorDocSpec {
 
   val config = ConfigFactory.parseString("""
     akka.actor.provider = cluster
-    akka.remote.classic.netty.tcp.port = 0
     akka.remote.artery.canonical.port = 0
     akka.remote.artery.canonical.hostname = 127.0.0.1
     """)
@@ -98,6 +97,10 @@ object ReplicatorDocSpec {
 
                   case InternalSubscribeResponse(Replicator.Deleted(_)) =>
                     Behaviors.unhandled // no deletes
+
+                  case InternalSubscribeResponse(_) => // changed but wrong key
+                    Behaviors.unhandled
+
                 }
             }
           }
@@ -117,7 +120,7 @@ class ReplicatorDocSpec
 
   import ReplicatorDocSpec._
 
-  implicit val selfNodeAddress = DistributedData(system).selfUniqueAddress
+  implicit val selfNodeAddress: SelfUniqueAddress = DistributedData(system).selfUniqueAddress
 
   "Replicator" must {
 

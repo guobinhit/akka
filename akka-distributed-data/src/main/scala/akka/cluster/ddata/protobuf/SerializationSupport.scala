@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.ddata.protobuf
@@ -20,6 +20,7 @@ import akka.cluster.ddata.VersionVector
 import akka.cluster.ddata.protobuf.msg.{ ReplicatorMessages => dm }
 import akka.protobufv3.internal.ByteString
 import akka.protobufv3.internal.MessageLite
+import akka.remote.ByteStringUtils
 import akka.serialization._
 import akka.util.ccompat._
 import akka.util.ccompat.JavaConverters._
@@ -143,7 +144,7 @@ trait SerializationSupport {
       val msgSerializer = serialization.findSerializerFor(m)
       val builder = dm.OtherMessage
         .newBuilder()
-        .setEnclosedMessage(ByteString.copyFrom(msgSerializer.toBinary(m)))
+        .setEnclosedMessage(ByteStringUtils.toProtoByteStringUnsafe(msgSerializer.toBinary(m)))
         .setSerializerId(msgSerializer.identifier)
 
       val ms = Serializers.manifestFor(msgSerializer, m)

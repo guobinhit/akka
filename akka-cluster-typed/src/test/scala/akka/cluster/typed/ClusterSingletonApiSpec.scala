@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.typed
@@ -21,29 +21,26 @@ import akka.serialization.jackson.CborSerializable
 
 object ClusterSingletonApiSpec {
 
-  val config = ConfigFactory.parseString(s"""
+  val config = ConfigFactory.parseString("""
       akka.actor.provider = cluster
-      akka.remote.classic.netty.tcp.port = 0
       akka.remote.artery.canonical.port = 0
       akka.remote.artery.canonical.hostname = 127.0.0.1
       akka.cluster.jmx.multi-mbeans-in-same-jvm = on
     """)
 
-  trait PingProtocol
+  sealed trait PingProtocol
   case object Pong extends CborSerializable
   case class Ping(respondTo: ActorRef[Pong.type]) extends PingProtocol with CborSerializable
 
   case object Perish extends PingProtocol with CborSerializable
 
-  val pingPong = Behaviors.receive[PingProtocol] { (_, msg) =>
-    msg match {
-      case Ping(respondTo) =>
-        respondTo ! Pong
-        Behaviors.same
+  val pingPong = Behaviors.receiveMessage[PingProtocol] {
+    case Ping(respondTo) =>
+      respondTo ! Pong
+      Behaviors.same
 
-      case Perish =>
-        Behaviors.stopped
-    }
+    case Perish =>
+      Behaviors.stopped
 
   }
 

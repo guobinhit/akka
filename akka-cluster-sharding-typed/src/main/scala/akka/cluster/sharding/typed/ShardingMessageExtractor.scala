@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding.typed
 
 import akka.actor.{ InvalidMessageException, WrappedMessage }
+import akka.cluster.sharding.typed.internal.ClusterShardingTypedSerializable
 import akka.util.unused
 
 object ShardingMessageExtractor {
@@ -73,9 +74,9 @@ abstract class ShardingMessageExtractor[E, M] {
 final class HashCodeMessageExtractor[M](val numberOfShards: Int)
     extends ShardingMessageExtractor[ShardingEnvelope[M], M] {
 
-  import akka.cluster.sharding.ShardRegion.HashCodeMessageExtractor
   override def entityId(envelope: ShardingEnvelope[M]): String = envelope.entityId
-  override def shardId(entityId: String): String = HashCodeMessageExtractor.shardId(entityId, numberOfShards)
+  override def shardId(entityId: String): String =
+    akka.cluster.sharding.ShardRegion.HashCodeMessageExtractor.shardId(entityId, numberOfShards)
   override def unwrapMessage(envelope: ShardingEnvelope[M]): M = envelope.message
 }
 
@@ -89,8 +90,8 @@ final class HashCodeMessageExtractor[M](val numberOfShards: Int)
  */
 abstract class HashCodeNoEnvelopeMessageExtractor[M](val numberOfShards: Int) extends ShardingMessageExtractor[M, M] {
 
-  import akka.cluster.sharding.ShardRegion.HashCodeMessageExtractor
-  override def shardId(entityId: String): String = HashCodeMessageExtractor.shardId(entityId, numberOfShards)
+  override def shardId(entityId: String): String =
+    akka.cluster.sharding.ShardRegion.HashCodeMessageExtractor.shardId(entityId, numberOfShards)
   override final def unwrapMessage(message: M): M = message
 
   override def toString = s"HashCodeNoEnvelopeMessageExtractor($numberOfShards)"
@@ -110,6 +111,8 @@ abstract class HashCodeNoEnvelopeMessageExtractor[M](val numberOfShards: Int) ex
  * @param message The message to be send to the entity.
  * @throws `InvalidMessageException` if message is null.
  */
-final case class ShardingEnvelope[M](entityId: String, message: M) extends WrappedMessage {
+final case class ShardingEnvelope[M](entityId: String, message: M)
+    extends WrappedMessage
+    with ClusterShardingTypedSerializable {
   if (message == null) throw InvalidMessageException("[null] is not an allowed message")
 }

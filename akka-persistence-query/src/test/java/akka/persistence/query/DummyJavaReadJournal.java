@@ -1,15 +1,14 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.query;
-
-import java.util.Iterator;
 
 import akka.NotUsed;
 import akka.persistence.query.javadsl.PersistenceIdsQuery;
 import akka.persistence.query.javadsl.ReadJournal;
 import akka.stream.javadsl.Source;
+import java.util.Iterator;
 
 /** Use for tests only! Emits infinite stream of strings (representing queried for events). */
 public class DummyJavaReadJournal implements ReadJournal, PersistenceIdsQuery {

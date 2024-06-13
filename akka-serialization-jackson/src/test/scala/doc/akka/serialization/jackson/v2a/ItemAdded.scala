@@ -1,15 +1,15 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package doc.akka.serialization.jackson.v2a
 
+import akka.serialization.jackson.JsonSerializable
 import com.fasterxml.jackson.annotation.JsonCreator
-import jdoc.akka.serialization.jackson.MySerializable
 
 // #add-optional
 case class ItemAdded(shoppingCartId: String, productId: String, quantity: Int, discount: Option[Double], note: String)
-    extends MySerializable {
+    extends JsonSerializable {
 
   // alternative constructor because `note` should have default value "" when not defined in json
   @JsonCreator

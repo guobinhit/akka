@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
@@ -7,9 +7,12 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.Success
 import scala.util.control.NoStackTrace
+
 import com.typesafe.config.{ Config, ConfigFactory }
+
 import akka.actor.Props
 import akka.cluster.{ Cluster, MemberStatus }
+import akka.cluster.sharding.ShardRegion.StartEntity
 import akka.coordination.lease.TestLease
 import akka.coordination.lease.TestLeaseExt
 import akka.testkit.{ AkkaSpec, ImplicitSender, WithLogCapturing }
@@ -20,7 +23,6 @@ object ClusterShardingLeaseSpec {
     akka.loglevel = DEBUG
     akka.loggers = ["akka.testkit.SilenceAllTestEventListener"]
     akka.actor.provider = "cluster"
-    akka.remote.classic.netty.tcp.port = 0
     akka.remote.artery.canonical.port = 0
     akka.cluster.sharding {
        use-lease = "test-lease"
@@ -50,8 +52,12 @@ object ClusterShardingLeaseSpec {
     case msg: Int => (msg.toString, msg)
   }
 
+  val numOfShards = 10
+
   val extractShardId: ShardRegion.ExtractShardId = {
-    case msg: Int => (msg % 10).toString
+    case msg: Int         => (msg % numOfShards).toString
+    case msg: StartEntity => (msg.entityId.toInt % numOfShards).toString
+    case _                => throw new IllegalArgumentException()
   }
   case class LeaseFailed(msg: String) extends RuntimeException(msg) with NoStackTrace
 }

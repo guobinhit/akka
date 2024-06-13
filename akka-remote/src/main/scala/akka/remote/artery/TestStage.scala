@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -10,7 +10,8 @@ import scala.annotation.tailrec
 
 import akka.actor.Address
 import akka.event.Logging
-import akka.remote.transport.ThrottlerTransportAdapter.Direction
+import akka.remote.artery.OutboundHandshake.HandshakeReq
+import akka.remote.testkit.Direction
 import akka.stream.Attributes
 import akka.stream.FlowShape
 import akka.stream.Inlet
@@ -32,6 +33,8 @@ object TestManagementCommands {
 private[remote] class SharedTestState {
 
   private val state = new AtomicReference[TestState](TestState(Map.empty, None))
+
+  def anyBlackholePresent(): Boolean = state.get.blackholes.nonEmpty
 
   def isBlackhole(from: Address, to: Address): Boolean =
     state.get.blackholes.get(from) match {
@@ -159,9 +162,6 @@ private[remote] class InboundTestStage(inboundContext: InboundContext, state: Sh
           case _ =>
             val env = grab(in)
             env.association match {
-              case OptionVal.None =>
-                // unknown, handshake not completed
-                push(out, env)
               case OptionVal.Some(association) =>
                 if (state.isBlackhole(inboundContext.localAddress.address, association.remoteAddress)) {
                   log.debug(
@@ -172,6 +172,26 @@ private[remote] class InboundTestStage(inboundContext: InboundContext, state: Sh
                   pull(in) // drop message
                 } else
                   push(out, env)
+              case _ =>
+                // unknown, handshake not completed
+                if (state.anyBlackholePresent()) {
+                  env.message match {
+                    case _: HandshakeReq =>
+                      log.debug(
+                        "inbound message [{}] before handshake completed, cannot check if remote is blackholed, letting through",
+                        Logging.messageClassName(env.message))
+                      push(out, env) // let it through
+
+                    case anyOther =>
+                      log.debug(
+                        "dropping inbound message [{}] with UID [{}] because of blackhole",
+                        Logging.messageClassName(anyOther),
+                        env.originUid)
+                      pull(in) // drop message
+                  }
+                } else {
+                  push(out, env)
+                }
             }
         }
       }

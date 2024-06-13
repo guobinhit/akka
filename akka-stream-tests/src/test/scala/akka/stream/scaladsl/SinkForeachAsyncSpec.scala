@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -20,27 +20,26 @@ import akka.stream.ActorAttributes.supervisionStrategy
 import akka.stream.Supervision.resumingDecider
 import akka.stream.Supervision.stoppingDecider
 import akka.stream.testkit.StreamSpec
-import akka.stream.testkit.scaladsl.StreamTestKit._
 import akka.testkit.TestLatch
 import akka.testkit.TestProbe
 
 class SinkForeachAsyncSpec extends StreamSpec {
 
   "A foreachAsync" must {
-    "handle empty source" in assertAllStagesStopped {
+    "handle empty source" in {
       import system.dispatcher
       val p = Source(List.empty[Int]).runWith(Sink.foreachAsync(3)(_ => Future {}))
       Await.result(p, remainingOrDefault)
     }
 
-    "be able to run elements in parallel" in assertAllStagesStopped {
+    "be able to run elements in parallel" in {
       implicit val ec = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(4))
 
       val probe = TestProbe()
       val latch = (1 to 4).map(_ -> TestLatch(1)).toMap
 
       val sink: Sink[Int, Future[Done]] = {
-        Sink.foreachAsync(4) { n: Int =>
+        Sink.foreachAsync(4) { (n: Int) =>
           Future {
             Await.result(latch(n), remainingOrDefault)
             probe.ref ! n
@@ -63,7 +62,7 @@ class SinkForeachAsyncSpec extends StreamSpec {
       assert(p.isCompleted)
     }
 
-    "back-pressure upstream elements when downstream is slow" in assertAllStagesStopped {
+    "back-pressure upstream elements when downstream is slow" in {
       import scala.concurrent.duration._
 
       implicit val ec = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(1))
@@ -142,7 +141,7 @@ class SinkForeachAsyncSpec extends StreamSpec {
     }
   }
 
-  "produce elements in the order they are ready" in assertAllStagesStopped {
+  "produce elements in the order they are ready" in {
     import system.dispatcher
 
     val probe = TestProbe()
@@ -196,7 +195,7 @@ class SinkForeachAsyncSpec extends StreamSpec {
 
   }
 
-  "resume after failed future" in assertAllStagesStopped {
+  "resume after failed future" in {
     import system.dispatcher
 
     val probe = TestProbe()
@@ -221,7 +220,7 @@ class SinkForeachAsyncSpec extends StreamSpec {
     Await.result(p, 5.seconds)
   }
 
-  "finish after failed future" in assertAllStagesStopped {
+  "finish after failed future" in {
     import system.dispatcher
 
     val probe = TestProbe()
@@ -236,12 +235,12 @@ class SinkForeachAsyncSpec extends StreamSpec {
             Future {
               if (n == 3) {
                 // Error will happen only after elements 1, 2 has been processed
-                errorLatch.await(5, TimeUnit.SECONDS)
+                await(errorLatch)
                 throw new RuntimeException("err2") with NoStackTrace
               } else {
                 probe.ref ! n
                 errorLatch.countDown()
-                element4Latch.await(5, TimeUnit.SECONDS) // Block element 4, 5, 6, ... from entering
+                await(element4Latch) // Block element 4, 5, 6, ... from entering
               }
             }
           })
@@ -254,4 +253,7 @@ class SinkForeachAsyncSpec extends StreamSpec {
 
     a[RuntimeException] must be thrownBy Await.result(p, 3.seconds)
   }
+
+  def await(latch: CountDownLatch): Unit =
+    latch.await(5, TimeUnit.SECONDS)
 }

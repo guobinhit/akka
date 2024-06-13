@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.testkit.typed.scaladsl
@@ -105,7 +105,7 @@ class TestProbeSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike with 
       probe.ref ! "two"
 
       intercept[AssertionError] {
-        probe.fishForMessage(shortDuration) {
+        probe.fishForMessagePF(shortDuration) {
           case "one" => FishingOutcomes.continue
         }
       }
@@ -117,7 +117,7 @@ class TestProbeSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike with 
       probe.ref ! "one"
 
       intercept[AssertionError] {
-        probe.fishForMessage(shortDuration) {
+        probe.fishForMessagePF(shortDuration) {
           case "one" => FishingOutcomes.continue
         }
       }

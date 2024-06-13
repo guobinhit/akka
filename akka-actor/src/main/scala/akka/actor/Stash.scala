@@ -1,13 +1,13 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor
 
 import scala.collection.immutable
 import scala.util.control.NoStackTrace
-
 import akka.AkkaException
+import akka.annotation.InternalApi
 import akka.annotation.InternalStableApi
 import akka.dispatch.{
   DequeBasedMessageQueueSemantics,
@@ -99,6 +99,7 @@ trait UnrestrictedStash extends Actor with StashSupport {
  *
  * @see [[StashSupport]]
  */
+@InternalApi
 private[akka] trait StashFactory { this: Actor =>
   private[akka] def createStash()(implicit ctx: ActorContext, ref: ActorRef): StashSupport = new StashSupport {
     def context: ActorContext = ctx

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.io
@@ -8,9 +8,9 @@ import java.net.{ Inet4Address, Inet6Address, InetAddress, UnknownHostException 
 import java.util.concurrent.ConcurrentHashMap
 import java.util.function.{ Function => JFunction }
 
+import scala.annotation.nowarn
 import scala.collection.immutable
 
-import com.github.ghik.silencer.silent
 import com.typesafe.config.Config
 
 import akka.actor._
@@ -67,6 +67,7 @@ object Dns extends ExtensionId[DnsExt] with ExtensionIdProvider {
   sealed trait Command
 
   @deprecated("Use cached(DnsProtocol.Resolve)", "2.6.0")
+  @nowarn("msg=deprecated")
   case class Resolve(name: String) extends Command with ConsistentHashable {
     override def consistentHashKey = name
   }
@@ -116,7 +117,7 @@ object Dns extends ExtensionId[DnsExt] with ExtensionIdProvider {
    * trigger a resolve and return None.
    */
   @deprecated("use resolve(DnsProtocol.Resolve)", "2.6.0")
-  @silent("deprecated")
+  @nowarn("msg=deprecated")
   def resolve(name: String)(system: ActorSystem, sender: ActorRef): Option[Resolved] = {
     Dns(system).cache.resolve(name)(system, sender)
   }
@@ -163,7 +164,7 @@ class DnsExt private[akka] (val system: ExtendedActorSystem, resolverName: Strin
    * be used in this case
    */
   @InternalApi
-  @silent("deprecated")
+  @nowarn("msg=deprecated")
   private[akka] def loadAsyncDns(managerName: String): ActorRef = {
     // This can't pass in `this` as then AsyncDns would pick up the system settings
     asyncDns.computeIfAbsent(
@@ -220,7 +221,7 @@ class DnsExt private[akka] (val system: ExtendedActorSystem, resolverName: Strin
   val Settings: Settings = new Settings(system.settings.config.getConfig("akka.io.dns"), resolverName)
 
   // System DNS resolver
-  @silent("deprecated")
+  @nowarn("msg=deprecated")
   val provider: DnsProvider =
     system.dynamicAccess.createInstanceFor[DnsProvider](Settings.ProviderObjectName, Nil).get
 

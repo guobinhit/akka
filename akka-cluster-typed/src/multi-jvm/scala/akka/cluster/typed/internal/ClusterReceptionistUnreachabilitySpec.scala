@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.typed.internal
@@ -17,9 +17,9 @@ import akka.cluster.typed.MultiDcClusterSingletonSpecConfig.first
 import akka.cluster.typed.MultiDcClusterSingletonSpecConfig.second
 import akka.cluster.typed.MultiDcClusterSingletonSpecConfig.third
 import akka.cluster.typed.MultiNodeTypedClusterSpec
+import akka.remote.testkit.Direction
 import akka.remote.testkit.MultiNodeConfig
 import akka.remote.testkit.MultiNodeSpec
-import akka.remote.transport.ThrottlerTransportAdapter.Direction
 
 object ClusterReceptionistUnreachabilitySpecConfig extends MultiNodeConfig {
   val first = role("first")

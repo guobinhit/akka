@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed
@@ -95,7 +95,7 @@ object TypedBenchmarkActors {
         val startNanoTime = System.nanoTime()
         pairs.foreach(_ ! Message)
         var interactionsLeft = numPairs
-        Behaviors.receiveMessage {
+        Behaviors.receiveMessagePartial {
           case Done =>
             interactionsLeft -= 1
             if (interactionsLeft == 0) {

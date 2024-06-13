@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.routing
 
+import scala.annotation.nowarn
 import scala.collection.immutable
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-import com.github.ghik.silencer.silent
 import com.typesafe.config.Config
 import language.postfixOps
 
@@ -112,8 +112,10 @@ class ConfiguredLocalRoutingSpec
     case r: RoutedActorRef =>
       r.underlying match {
         case c: RoutedActorCell => c.routerConfig
-        case _: UnstartedCell   => awaitCond(r.isStarted, 1 second, 10 millis); routerConfig(ref)
+        case _: UnstartedCell   => awaitCond(r.isStarted, interval = 10.millis); routerConfig(ref)
+        case _                  => throw new IllegalArgumentException(s"Unexpected underlying cell ${r.underlying}")
       }
+    case _ => throw new IllegalArgumentException(s"Unexpected actorref $ref")
   }
 
   def collectRouteePaths(probe: TestProbe, router: ActorRef, n: Int): immutable.Seq[ActorPath] = {
@@ -170,7 +172,7 @@ class ConfiguredLocalRoutingSpec
     "not get confused when trying to wildcard-configure children" in {
       system.actorOf(FromConfig.props(routeeProps = Props(classOf[SendRefAtStartup], testActor)), "weird")
       val recv = (for (_ <- 1 to 3) yield expectMsgType[ActorRef].path.elements.mkString("/", "/", "")).toSet
-      @silent
+      @nowarn
       val expc = Set('a', 'b', 'c').map(i => "/user/weird/$" + i)
       recv should ===(expc)
       expectNoMessage(1 second)

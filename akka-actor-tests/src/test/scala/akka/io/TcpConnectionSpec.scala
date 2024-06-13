@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.io
@@ -288,7 +288,7 @@ class TcpConnectionSpec extends AkkaSpec("""
     }
 
     /*
-     * Disabled on Windows: http://support.microsoft.com/kb/214397
+     * Disabled on Windows: https://support.microsoft.com/kb/214397
      *
      * "To optimize performance at the application layer, Winsock copies data buffers from application send calls
      * to a Winsock kernel buffer. Then, the stack uses its own heuristics (such as Nagle algorithm) to determine
@@ -390,28 +390,19 @@ class TcpConnectionSpec extends AkkaSpec("""
         connectionHandler.expectNoMessage(100.millis)
 
         connectionActor ! ResumeReading
-        interestCallReceiver.expectMsg(OP_READ)
-        selector.send(connectionActor, ChannelReadable)
         connectionHandler.expectMsgType[Received].data.decodeString("ASCII") should ===(ts)
 
-        interestCallReceiver.expectNoMessage(100.millis)
         connectionHandler.expectNoMessage(100.millis)
 
         connectionActor ! ResumeReading
-        interestCallReceiver.expectMsg(OP_READ)
-        selector.send(connectionActor, ChannelReadable)
         connectionHandler.expectMsgType[Received].data.decodeString("ASCII") should ===(us)
 
-        // make sure that after reading all pending data we don't yet register for reading more data
-        interestCallReceiver.expectNoMessage(100.millis)
         connectionHandler.expectNoMessage(100.millis)
 
         val vs = "v" * (maxBufferSize / 2)
         serverSideChannel.write(ByteBuffer.wrap(vs.getBytes("ASCII")))
 
         connectionActor ! ResumeReading
-        interestCallReceiver.expectMsg(OP_READ)
-        selector.send(connectionActor, ChannelReadable)
 
         connectionHandler.expectMsgType[Received].data.decodeString("ASCII") should ===(vs)
       } finally shutdown(system)
@@ -471,7 +462,7 @@ class TcpConnectionSpec extends AkkaSpec("""
     }
 
     /*
-     * Partly disabled on Windows: http://support.microsoft.com/kb/214397
+     * Partly disabled on Windows: https://support.microsoft.com/kb/214397
      *
      * "To optimize performance at the application layer, Winsock copies data buffers from application send calls
      * to a Winsock kernel buffer. Then, the stack uses its own heuristics (such as Nagle algorithm) to determine
@@ -1127,7 +1118,7 @@ class TcpConnectionSpec extends AkkaSpec("""
       try channel.socket.setSoLinger(true, 0) // causes the following close() to send TCP RST
       catch {
         case NonFatal(e) =>
-          // setSoLinger can fail due to http://bugs.sun.com/view_bug.do?bug_id=6799574
+          // setSoLinger can fail due to https://bugs.java.com/bugdatabase/view_bug.do?bug_id=6799574
           // (also affected: OS/X Java 1.6.0_37)
           log.debug("setSoLinger(true, 0) failed with {}", e)
       }

@@ -1,23 +1,24 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.javadsl
 
-import java.util.Comparator
+import java.util.{ Comparator, Optional }
 import java.util.concurrent.CompletionStage
-import java.util.function.Supplier
+import java.util.function.{ BiFunction, Supplier }
 
 import scala.annotation.unchecked.uncheckedVariance
+import scala.annotation.varargs
+import scala.collection.immutable
 import scala.compat.java8.FutureConverters._
-import scala.concurrent.duration.FiniteDuration
+import scala.compat.java8.OptionConverters.RichOptionalGeneric
 import scala.reflect.ClassTag
 
-import com.github.ghik.silencer.silent
-
 import akka.NotUsed
+import akka.annotation.ApiMayChange
 import akka.event.{ LogMarker, LoggingAdapter, MarkerLoggingAdapter }
-import akka.japi.{ function, Pair, Util }
+import akka.japi.{ function, Pair }
 import akka.stream._
 import akka.util.ConstantFun
 import akka.util.JavaDurationConverters._
@@ -36,7 +37,7 @@ object SubSource {
  * SubFlows cannot contribute to the super-flow’s materialized value since they
  * are materialized later, during the runtime of the flow graph processing.
  */
-class SubSource[Out, Mat](
+final class SubSource[Out, Mat](
     delegate: scaladsl.SubFlow[Out, Mat, scaladsl.Source[Out, Mat]#Repr, scaladsl.RunnableGraph[Mat]]) {
 
   /** Converts this Flow to its Scala DSL counterpart */
@@ -182,8 +183,87 @@ class SubSource[Out, Mat](
    */
   def mapConcat[T](f: function.Function[Out, java.lang.Iterable[T]]): SubSource[T, Mat] =
     new SubSource(delegate.mapConcat { elem =>
-      Util.immutableSeq(f(elem))
+      f(elem).asScala
     })
+
+  /**
+   * Transform each stream element with the help of a state.
+   *
+   * The state creation function is invoked once when the stream is materialized and the returned state is passed to
+   * the mapping function for mapping the first element. The mapping function returns a mapped element to emit
+   * downstream and a state to pass to the next mapping function. The state can be the same for each mapping return,
+   * be a new immutable state but it is also safe to use a mutable state. The returned `T` MUST NOT be `null` as it is
+   * illegal as stream element - according to the Reactive Streams specification. A `null` state is not allowed and will fail the stream.
+   *
+   * For stateless variant see [[map]].
+   *
+   * The `onComplete` function is called only once when the upstream or downstream finished, You can do some clean-up here,
+   * and if the returned value is not empty, it will be emitted to the downstream if available, otherwise the value will be dropped.
+   *
+   * Adheres to the [[ActorAttributes.SupervisionStrategy]] attribute.
+   *
+   * '''Emits when''' the mapping function returns an element and downstream is ready to consume it
+   *
+   * '''Backpressures when''' downstream backpressures
+   *
+   * '''Completes when''' upstream completes
+   *
+   * '''Cancels when''' downstream cancels
+   *
+   * @tparam S the type of the state
+   * @tparam T the type of the output elements
+   * @param create a function that creates the initial state
+   * @param f a function that transforms the upstream element and the state into a pair of next state and output element
+   * @param onComplete a function that transforms the ongoing state into an optional output element
+   */
+  def statefulMap[S, T](
+      create: function.Creator[S],
+      f: function.Function2[S, Out, Pair[S, T]],
+      onComplete: function.Function[S, Optional[T]]): javadsl.SubSource[T, Mat] =
+    new SubSource(
+      delegate.statefulMap(() => create.create())(
+        (s: S, out: Out) => f.apply(s, out).toScala,
+        (s: S) => onComplete.apply(s).asScala))
+
+  /**
+   * Transform each stream element with the help of a resource.
+   *
+   * The resource creation function is invoked once when the stream is materialized and the returned resource is passed to
+   * the mapping function for mapping the first element. The mapping function returns a mapped element to emit
+   * downstream. The returned `T` MUST NOT be `null` as it is illegal as stream element - according to the Reactive Streams specification.
+   *
+   * The `close` function is called only once when the upstream or downstream finishes or fails. You can do some clean-up here,
+   * and if the returned value is not empty, it will be emitted to the downstream if available, otherwise the value will be dropped.
+   *
+   * Early completion can be done with combination of the [[takeWhile]] operator.
+   *
+   * Adheres to the [[ActorAttributes.SupervisionStrategy]] attribute.
+   *
+   * You can configure the default dispatcher for this Source by changing the `akka.stream.materializer.blocking-io-dispatcher` or
+   * set it for a given Source by using [[ActorAttributes]].
+   *
+   * '''Emits when''' the mapping function returns an element and downstream is ready to consume it
+   *
+   * '''Backpressures when''' downstream backpressures
+   *
+   * '''Completes when''' upstream completes
+   *
+   * '''Cancels when''' downstream cancels
+   *
+   * @tparam R the type of the resource
+   * @tparam T the type of the output elements
+   * @param create function that creates the resource
+   * @param f function that transforms the upstream element and the resource to output element
+   * @param close function that closes the resource, optionally outputting a last element
+   */
+  def mapWithResource[R, T](
+      create: java.util.function.Supplier[R],
+      f: java.util.function.BiFunction[R, Out, T],
+      close: java.util.function.Function[R, Optional[T]]): javadsl.SubSource[T, Mat] =
+    new SubSource(
+      delegate.mapWithResource(() => create.get())(
+        (resource, out) => f(resource, out),
+        resource => close.apply(resource).asScala))
 
   /**
    * Transform each input element into an `Iterable` of output elements that is
@@ -214,7 +294,7 @@ class SubSource[Out, Mat](
   def statefulMapConcat[T](f: function.Creator[function.Function[Out, java.lang.Iterable[T]]]): SubSource[T, Mat] =
     new SubSource(delegate.statefulMapConcat { () =>
       val fun = f.create()
-      elem => Util.immutableSeq(fun(elem))
+      elem => fun(elem).asScala
     })
 
   /**
@@ -232,6 +312,8 @@ class SubSource[Out, Mat](
    * If the function `f` throws an exception or if the `CompletionStage` is completed
    * with failure and the supervision decision is [[akka.stream.Supervision#resume]] or
    * [[akka.stream.Supervision#restart]] the element is dropped and the stream continues.
+   *
+   * If the `CompletionStage` is completed with `null`, it is ignored and the next element is processed.
    *
    * The function `f` is always invoked on the elements in the order they arrive.
    *
@@ -252,6 +334,18 @@ class SubSource[Out, Mat](
     new SubSource(delegate.mapAsync(parallelism)(x => f(x).toScala))
 
   /**
+   * @see [[akka.stream.javadsl.Source.mapAsyncPartitioned]]
+   */
+  def mapAsyncPartitioned[T, P](
+      parallelism: Int,
+      perPartition: Int,
+      partitioner: function.Function[Out, P],
+      f: BiFunction[Out, P, CompletionStage[T]]): SubSource[T, Mat] =
+    new SubSource(delegate.mapAsyncPartitioned(parallelism, perPartition)(x => partitioner(x)) { (x, p) =>
+      f(x, p).toScala
+    })
+
+  /**
    * Transform this stream by applying the given function to each of the elements
    * as they pass through this processing step. The function returns a `CompletionStage` and the
    * value of that future will be emitted downstream. The number of CompletionStages
@@ -269,6 +363,8 @@ class SubSource[Out, Mat](
    *
    * The function `f` is always invoked on the elements in the order they arrive (even though the result of the futures
    * returned by `f` might be emitted in a different order).
+   *
+   * If the `CompletionStage` is completed with `null`, it is ignored and the next element is processed.
    *
    * Adheres to the [[ActorAttributes.SupervisionStrategy]] attribute.
    *
@@ -370,6 +466,26 @@ class SubSource[Out, Mat](
    */
   def grouped(n: Int): SubSource[java.util.List[Out @uncheckedVariance], Mat] =
     new SubSource(delegate.grouped(n).map(_.asJava)) // TODO optimize to one step
+
+  /**
+   * Chunk up this stream into groups of elements that have a cumulative weight greater than or equal to
+   * the `minWeight`, with the last group possibly smaller than requested `minWeight` due to end-of-stream.
+   *
+   * `minWeight` must be positive, otherwise IllegalArgumentException is thrown.
+   * `costFn` must return a non-negative result for all inputs, otherwise the stage will fail
+   * with an IllegalArgumentException.
+   *
+   * '''Emits when''' the cumulative weight of elements is greater than or equal to the `minWeight` or upstream completed
+   *
+   * '''Backpressures when''' a buffered group weighs more than `minWeight` and downstream backpressures
+   *
+   * '''Completes when''' upstream completes
+   *
+   * '''Cancels when''' downstream cancels
+   */
+  def groupedWeighted(minWeight: Long)(
+      costFn: function.Function[Out, java.lang.Long]): SubSource[java.util.List[Out @uncheckedVariance], Mat] =
+    new SubSource(delegate.groupedWeighted(minWeight)(costFn.apply).map(_.asJava)) // TODO optimize to one step
 
   /**
    * Apply a sliding window over the stream and return the windows as groups of elements, with the last group
@@ -493,7 +609,7 @@ class SubSource[Out, Mat](
    *
    * '''Cancels when''' downstream cancels
    *
-   * See also [[FlowOps.scan]]
+   * See also [[#scan]]
    */
   def scanAsync[T](zero: T)(f: function.Function2[T, Out, CompletionStage[T]]): SubSource[T, Mat] =
     new SubSource(delegate.scanAsync(zero) { (out, in) =>
@@ -640,35 +756,13 @@ class SubSource[Out, Mat](
    *
    * '''Cancels when''' downstream completes
    *
-   * `n` must be positive, and `d` must be greater than 0 seconds, otherwise
+   * `maxNumber` must be positive, and `duration` must be greater than 0 seconds, otherwise
    * IllegalArgumentException is thrown.
    */
-  @Deprecated
-  @deprecated("Use the overloaded one which accepts java.time.Duration instead.", since = "2.5.12")
-  def groupedWithin(n: Int, d: FiniteDuration): SubSource[java.util.List[Out @uncheckedVariance], Mat] =
-    new SubSource(delegate.groupedWithin(n, d).map(_.asJava)) // TODO optimize to one step
-
-  /**
-   * Chunk up this stream into groups of elements received within a time window,
-   * or limited by the given number of elements, whatever happens first.
-   * Empty groups will not be emitted if no elements are received from upstream.
-   * The last group before end-of-stream will contain the buffered elements
-   * since the previously emitted group.
-   *
-   * '''Emits when''' the configured time elapses since the last group has been emitted or `n` elements is buffered
-   *
-   * '''Backpressures when''' downstream backpressures, and there are `n+1` buffered elements
-   *
-   * '''Completes when''' upstream completes (emits last group)
-   *
-   * '''Cancels when''' downstream completes
-   *
-   * `n` must be positive, and `d` must be greater than 0 seconds, otherwise
-   * IllegalArgumentException is thrown.
-   */
-  @silent("deprecated")
-  def groupedWithin(n: Int, d: java.time.Duration): SubSource[java.util.List[Out @uncheckedVariance], Mat] =
-    groupedWithin(n, d.asScala)
+  def groupedWithin(
+      maxNumber: Int,
+      duration: java.time.Duration): SubSource[java.util.List[Out @uncheckedVariance], Mat] =
+    new SubSource(delegate.groupedWithin(maxNumber, duration.asScala).map(_.asJava))
 
   /**
    * Chunk up this stream into groups of elements received within a time window,
@@ -685,41 +779,40 @@ class SubSource[Out, Mat](
    *
    * '''Cancels when''' downstream completes
    *
-   * `maxWeight` must be positive, and `d` must be greater than 0 seconds, otherwise
+   * `maxWeight` must be positive, and `duration` must be greater than 0 seconds, otherwise
    * IllegalArgumentException is thrown.
    */
-  @Deprecated
-  @deprecated("Use the overloaded one which accepts java.time.Duration instead.", since = "2.5.12")
   def groupedWeightedWithin(
       maxWeight: Long,
       costFn: function.Function[Out, java.lang.Long],
-      d: FiniteDuration): javadsl.SubSource[java.util.List[Out @uncheckedVariance], Mat] =
-    new SubSource(delegate.groupedWeightedWithin(maxWeight, d)(costFn.apply).map(_.asJava))
+      duration: java.time.Duration): javadsl.SubSource[java.util.List[Out @uncheckedVariance], Mat] =
+    new SubSource(delegate.groupedWeightedWithin(maxWeight, duration.asScala)(costFn.apply _).map(_.asJava))
 
   /**
    * Chunk up this stream into groups of elements received within a time window,
-   * or limited by the weight of the elements, whatever happens first.
+   * or limited by the weight and number of the elements, whatever happens first.
    * Empty groups will not be emitted if no elements are received from upstream.
    * The last group before end-of-stream will contain the buffered elements
    * since the previously emitted group.
    *
    * '''Emits when''' the configured time elapses since the last group has been emitted or weight limit reached
    *
-   * '''Backpressures when''' downstream backpressures, and buffered group (+ pending element) weighs more than `maxWeight`
+   * '''Backpressures when''' downstream backpressures, and buffered group (+ pending element) weighs more than
+   * `maxWeight` or has more than `maxNumber` elements
    *
    * '''Completes when''' upstream completes (emits last group)
    *
    * '''Cancels when''' downstream completes
    *
-   * `maxWeight` must be positive, and `d` must be greater than 0 seconds, otherwise
-   * IllegalArgumentException is thrown.
+   * `maxWeight` must be positive, `maxNumber` must be positive, and `duration` must be greater than 0 seconds,
+   * otherwise IllegalArgumentException is thrown.
    */
-  @silent("deprecated")
   def groupedWeightedWithin(
       maxWeight: Long,
+      maxNumber: Int,
       costFn: function.Function[Out, java.lang.Long],
-      d: java.time.Duration): javadsl.SubSource[java.util.List[Out @uncheckedVariance], Mat] =
-    groupedWeightedWithin(maxWeight, costFn, d.asScala)
+      duration: java.time.Duration): javadsl.SubSource[java.util.List[Out @uncheckedVariance], Mat] =
+    new SubSource(delegate.groupedWeightedWithin(maxWeight, maxNumber, duration.asScala)(costFn.apply).map(_.asJava))
 
   /**
    * Discard the given number of elements at the beginning of the stream.
@@ -747,25 +840,8 @@ class SubSource[Out, Mat](
    *
    * '''Cancels when''' downstream cancels
    */
-  @Deprecated
-  @deprecated("Use the overloaded one which accepts java.time.Duration instead.", since = "2.5.12")
-  def dropWithin(d: FiniteDuration): SubSource[Out, Mat] =
-    new SubSource(delegate.dropWithin(d))
-
-  /**
-   * Discard the elements received within the given duration at beginning of the stream.
-   *
-   * '''Emits when''' the specified time elapsed and a new upstream element arrives
-   *
-   * '''Backpressures when''' downstream backpressures
-   *
-   * '''Completes when''' upstream completes
-   *
-   * '''Cancels when''' downstream cancels
-   */
-  @silent("deprecated")
-  def dropWithin(d: java.time.Duration): SubSource[Out, Mat] =
-    dropWithin(d.asScala)
+  def dropWithin(duration: java.time.Duration): SubSource[Out, Mat] =
+    new SubSource(delegate.dropWithin(duration.asScala))
 
   /**
    * Terminate processing (and cancel the upstream publisher) after predicate
@@ -784,7 +860,7 @@ class SubSource[Out, Mat](
    *
    * '''Cancels when''' predicate returned false or downstream cancels
    */
-  def takeWhile(p: function.Predicate[Out]): SubSource[Out, Mat] = takeWhile(p, false)
+  def takeWhile(p: function.Predicate[Out]): SubSource[Out, Mat] = takeWhile(p, inclusive = false)
 
   /**
    * Terminate processing (and cancel the upstream publisher) after predicate
@@ -850,39 +926,8 @@ class SubSource[Out, Mat](
    * @param of time to shift all messages
    * @param strategy Strategy that is used when incoming elements cannot fit inside the buffer
    */
-  @Deprecated
-  @deprecated("Use the overloaded one which accepts java.time.Duration instead.", since = "2.5.12")
-  def delay(of: FiniteDuration, strategy: DelayOverflowStrategy): SubSource[Out, Mat] =
-    new SubSource(delegate.delay(of, strategy))
-
-  /**
-   * Shifts elements emission in time by a specified amount. It allows to store elements
-   * in internal buffer while waiting for next element to be emitted. Depending on the defined
-   * [[akka.stream.DelayOverflowStrategy]] it might drop elements or backpressure the upstream if
-   * there is no space available in the buffer.
-   *
-   * Delay precision is 10ms to avoid unnecessary timer scheduling cycles
-   *
-   * Internal buffer has default capacity 16. You can set buffer size by calling `withAttributes(inputBuffer)`
-   *
-   * '''Emits when''' there is a pending element in the buffer and configured time for this element elapsed
-   *  * EmitEarly - strategy do not wait to emit element if buffer is full
-   *
-   * '''Backpressures when''' depending on OverflowStrategy
-   *  * Backpressure - backpressures when buffer is full
-   *  * DropHead, DropTail, DropBuffer - never backpressures
-   *  * Fail - fails the stream if buffer gets full
-   *
-   * '''Completes when''' upstream completes and buffered elements has been drained
-   *
-   * '''Cancels when''' downstream cancels
-   *
-   * @param of time to shift all messages
-   * @param strategy Strategy that is used when incoming elements cannot fit inside the buffer
-   */
-  @silent("deprecated")
   def delay(of: java.time.Duration, strategy: DelayOverflowStrategy): SubSource[Out, Mat] =
-    delay(of.asScala, strategy)
+    new SubSource(delegate.delay(of.asScala, strategy))
 
   /**
    * Shifts elements emission in time by an amount individually determined through delay strategy a specified amount.
@@ -955,9 +1000,59 @@ class SubSource[Out, Mat](
    * '''Cancels when''' downstream cancels
    *
    */
-  @deprecated("Use recoverWithRetries instead.", "2.4.4")
   def recoverWith(pf: PartialFunction[Throwable, Graph[SourceShape[Out], NotUsed]]): SubSource[Out, Mat] =
     new SubSource(delegate.recoverWith(pf))
+
+  /**
+   * onErrorComplete allows to complete the stream when an upstream error occurs.
+   *
+   * Since the underlying failure signal onError arrives out-of-band, it might jump over existing elements.
+   * This operator can recover the failure signal, but not the skipped elements, which will be dropped.
+   *
+   * '''Emits when''' element is available from the upstream
+   *
+   * '''Backpressures when''' downstream backpressures
+   *
+   * '''Completes when''' upstream completes or failed with exception is an instance of the provided type
+   *
+   * '''Cancels when''' downstream cancels
+   */
+  def onErrorComplete(): SubSource[Out, Mat] = onErrorComplete(classOf[Throwable])
+
+  /**
+   * onErrorComplete allows to complete the stream when an upstream error occurs.
+   *
+   * Since the underlying failure signal onError arrives out-of-band, it might jump over existing elements.
+   * This operator can recover the failure signal, but not the skipped elements, which will be dropped.
+   *
+   * '''Emits when''' element is available from the upstream
+   *
+   * '''Backpressures when''' downstream backpressures
+   *
+   * '''Completes when''' upstream completes or failed with exception is an instance of the provided type
+   *
+   * '''Cancels when''' downstream cancels
+   */
+  def onErrorComplete(clazz: Class[_ <: Throwable]): SubSource[Out, Mat] = onErrorComplete(ex => clazz.isInstance(ex))
+
+  /**
+   * onErrorComplete allows to complete the stream when an upstream error occurs.
+   *
+   * Since the underlying failure signal onError arrives out-of-band, it might jump over existing elements.
+   * This operator can recover the failure signal, but not the skipped elements, which will be dropped.
+   *
+   * '''Emits when''' element is available from the upstream
+   *
+   * '''Backpressures when''' downstream backpressures
+   *
+   * '''Completes when''' upstream completes or failed with predicate return ture
+   *
+   * '''Cancels when''' downstream cancels
+   */
+  def onErrorComplete(predicate: java.util.function.Predicate[_ >: Throwable]): SubSource[Out, Mat] =
+    new SubSource(delegate.onErrorComplete {
+      case ex: Throwable if predicate.test(ex) => true
+    })
 
   /**
    * RecoverWithRetries allows to switch to alternative Source on flow failure. It will stay in effect after
@@ -1068,31 +1163,8 @@ class SubSource[Out, Mat](
    *
    * '''Cancels when''' downstream cancels or timer fires
    */
-  @Deprecated
-  @deprecated("Use the overloaded one which accepts java.time.Duration instead.", since = "2.5.12")
-  def takeWithin(d: FiniteDuration): SubSource[Out, Mat] =
-    new SubSource(delegate.takeWithin(d))
-
-  /**
-   * Terminate processing (and cancel the upstream publisher) after the given
-   * duration. Due to input buffering some elements may have been
-   * requested from upstream publishers that will then not be processed downstream
-   * of this step.
-   *
-   * Note that this can be combined with [[#take]] to limit the number of elements
-   * within the duration.
-   *
-   * '''Emits when''' an upstream element arrives
-   *
-   * '''Backpressures when''' downstream backpressures
-   *
-   * '''Completes when''' upstream completes or timer fires
-   *
-   * '''Cancels when''' downstream cancels or timer fires
-   */
-  @silent("deprecated")
-  def takeWithin(d: java.time.Duration): SubSource[Out, Mat] =
-    takeWithin(d.asScala)
+  def takeWithin(duration: java.time.Duration): SubSource[Out, Mat] =
+    new SubSource(delegate.takeWithin(duration.asScala))
 
   /**
    * Allows a faster upstream to progress independently of a slower subscriber by conflating elements into a summary
@@ -1422,10 +1494,13 @@ class SubSource[Out, Mat](
    * Flow’s input is exhausted and all result elements have been generated,
    * the Source’s elements will be produced.
    *
-   * Note that the [[Source]] is materialized together with this Flow and just kept
-   * from producing elements by asserting back-pressure until its time comes.
+   * Note that the [[Source]] is materialized together with this Flow and is "detached" meaning it will
+   * in effect behave as a one element buffer in front of both the sources, that eagerly demands an element on start
+   * (so it can not be combined with `Source.lazy` to defer materialization of `that`).
    *
-   * If this [[Flow]] gets upstream error - no elements from the given [[Source]] will be pulled.
+   * The second source is then kept from producing elements by asserting back-pressure until its time comes.
+   *
+   * When needing a concat operator that is not detached use [[#concatLazyMat]]
    *
    * '''Emits when''' element is available from current stream or from the given [[Source]] when current is completed
    *
@@ -1439,14 +1514,71 @@ class SubSource[Out, Mat](
     new SubSource(delegate.concat(that))
 
   /**
+   * Concatenate the given [[Source]] to this [[Flow]], meaning that once this
+   * Flow’s input is exhausted and all result elements have been generated,
+   * the Source’s elements will be produced.
+   *
+   * Note that the [[Source]] is materialized together with this Flow. If `lazy` materialization is what is needed
+   * the operator can be combined with for example `Source.lazySource` to defer materialization of `that` until the
+   * time when this source completes.
+   *
+   * The second source is then kept from producing elements by asserting back-pressure until its time comes.
+   *
+   * For a concat operator that is detached, use [[#concat]]
+   *
+   * If this [[Flow]] gets upstream error - no elements from the given [[Source]] will be pulled.
+   *
+   * '''Emits when''' element is available from current stream or from the given [[Source]] when current is completed
+   *
+   * '''Backpressures when''' downstream backpressures
+   *
+   * '''Completes when''' given [[Source]] completes
+   *
+   * '''Cancels when''' downstream cancels
+   */
+  def concatLazy[M](that: Graph[SourceShape[Out], M]): SubSource[Out, Mat] =
+    new SubSource(delegate.concatLazy(that))
+
+  /**
+   * Concatenate the given [[Source]]s to this [[Source]], meaning that once this
+   * Flow’s input is exhausted and all result elements have been generated,
+   * the Source’s elements will be produced.
+   *
+   * Note that the [[Source]]s is materialized together with this Flow. If `lazy` materialization is what is needed
+   * the operator can be combined with for example `Source.lazySource` to defer materialization of `that` until the
+   * time when this source completes.
+   *
+   * The second source is then kept from producing elements by asserting back-pressure until its time comes.
+   *
+   * For a concat operator that is detached, use [[#concat]]
+   *
+   * If this [[Source]] gets upstream error - no elements from the given [[Source]]s will be pulled.
+   *
+   * '''Emits when''' element is available from current stream or from the given [[Source]]s when current is completed
+   *
+   * '''Backpressures when''' downstream backpressures
+   *
+   * '''Completes when''' all the given [[Source]]s completes
+   *
+   * '''Cancels when''' downstream cancels
+   */
+  @varargs
+  @SafeVarargs
+  def concatAllLazy(those: Graph[SourceShape[Out], _]*): SubSource[Out, Mat] =
+    new SubSource(delegate.concatAllLazy(those: _*))
+
+  /**
    * Prepend the given [[Source]] to this [[Flow]], meaning that before elements
    * are generated from this Flow, the Source's elements will be produced until it
    * is exhausted, at which point Flow elements will start being produced.
    *
-   * Note that this Flow will be materialized together with the [[Source]] and just kept
-   * from producing elements by asserting back-pressure until its time comes.
+   * Note that the [[Source]] is materialized together with this Flow and is "detached" meaning
+   * in effect behave as a one element buffer in front of both the sources, that eagerly demands an element on start
+   * (so it can not be combined with `Source.lazy` to defer materialization of `that`).
    *
-   * If the given [[Source]] gets upstream error - no elements from this [[Flow]] will be pulled.
+   * This flow will then be kept from producing elements by asserting back-pressure until its time comes.
+   *
+   * When needing a prepend operator that is not detached use [[#prependLazy]]
    *
    * '''Emits when''' element is available from the given [[Source]] or from current stream when the [[Source]] is completed
    *
@@ -1458,6 +1590,29 @@ class SubSource[Out, Mat](
    */
   def prepend[M](that: Graph[SourceShape[Out], M]): SubSource[Out, Mat] =
     new SubSource(delegate.prepend(that))
+
+  /**
+   * Prepend the given [[Source]] to this [[Flow]], meaning that before elements
+   * are generated from this Flow, the Source's elements will be produced until it
+   * is exhausted, at which point Flow elements will start being produced.
+   *
+   * Note that the [[Source]] is materialized together with this Flow and will then be kept from producing elements
+   * by asserting back-pressure until its time comes.
+   *
+   * When needing a prepend operator that is also detached use [[#prepend]]
+   *
+   * If the given [[Source]] gets upstream error - no elements from this [[Flow]] will be pulled.
+   *
+   * '''Emits when''' element is available from the given [[Source]] or from current stream when the [[Source]] is completed
+   *
+   * '''Backpressures when''' downstream backpressures
+   *
+   * '''Completes when''' this [[Flow]] completes
+   *
+   * '''Cancels when''' downstream cancels
+   */
+  def prependLazy[M](that: Graph[SourceShape[Out], M]): SubSource[Out, Mat] =
+    new SubSource(delegate.prependLazy(that))
 
   /**
    * Provides a secondary source that will be consumed if this source completes without any
@@ -1485,7 +1640,7 @@ class SubSource[Out, Mat](
     new SubSource(delegate.orElse(secondary))
 
   /**
-   * Attaches the given [[Sink]] to this [[Flow]], meaning that elements that passes
+   * Attaches the given [[Sink]] to this [[Source]], meaning that elements that passes
    * through will also be sent to the [[Sink]].
    *
    * It is similar to [[#wireTap]] but will backpressure instead of dropping elements when the given [[Sink]] is not ready.
@@ -1500,6 +1655,25 @@ class SubSource[Out, Mat](
    */
   def alsoTo(that: Graph[SinkShape[Out], _]): SubSource[Out, Mat] =
     new SubSource(delegate.alsoTo(that))
+
+  /**
+   * Attaches the given [[Sink]]s to this [[Source]], meaning that elements that passes
+   * through will also be sent to all those [[Sink]]s.
+   *
+   * It is similar to [[#wireTap]] but will backpressure instead of dropping elements when the given [[Sink]]s is not ready.
+   *
+   * '''Emits when''' element is available and demand exists both from the Sinks and the downstream.
+   *
+   * '''Backpressures when''' downstream or any of the [[Sink]]s backpressures
+   *
+   * '''Completes when''' upstream completes
+   *
+   * '''Cancels when''' downstream or any of the [[Sink]]s cancels
+   */
+  @varargs
+  @SafeVarargs
+  def alsoToAll(those: Graph[SinkShape[Out], _]*): SubSource[Out, Mat] =
+    new SubSource(delegate.alsoToAll(those: _*))
 
   /**
    * Attaches the given [[Sink]] to this [[Flow]], meaning that elements will be sent to the [[Sink]]
@@ -1551,6 +1725,29 @@ class SubSource[Out, Mat](
     new SubSource(delegate.merge(that))
 
   /**
+   * Merge the given [[Source]]s to the current one, taking elements as they arrive from input streams,
+   * picking randomly when several elements ready.
+   *
+   * '''Emits when''' one of the inputs has an element available
+   *
+   * '''Backpressures when''' downstream backpressures
+   *
+   * '''Completes when''' all upstreams complete (eagerComplete=false) or one upstream completes (eagerComplete=true), default value is `false`
+   *
+   * '''Cancels when''' downstream cancels
+   */
+  def mergeAll(
+      those: java.util.List[_ <: Graph[SourceShape[Out], _ <: Any]],
+      eagerComplete: Boolean): SubSource[Out, Mat] = {
+    val seq = if (those != null) those.asScala.collect {
+      case source: Source[Out @unchecked, _] => source.asScala
+      case other                             => other
+    }.toSeq
+    else immutable.Seq()
+    new SubSource(delegate.mergeAll(seq, eagerComplete))
+  }
+
+  /**
    * Interleave is a deterministic merge of the given [[Source]] with elements of this [[Source]].
    * It first emits `segmentSize` number of elements from this flow to downstream, then - same amount for `that` source,
    * then repeat process.
@@ -1576,6 +1773,38 @@ class SubSource[Out, Mat](
    */
   def interleave(that: Graph[SourceShape[Out], _], segmentSize: Int): SubSource[Out, Mat] =
     new SubSource(delegate.interleave(that, segmentSize))
+
+  /**
+   * Interleave is a deterministic merge of the given [[Source]] with elements of this [[Flow]].
+   * It first emits `segmentSize` number of elements from this flow to downstream, then - same amount for `that` source,
+   * then repeat process.
+   *
+   * If eagerClose is false and one of the upstreams complete the elements from the other upstream will continue passing
+   * through the interleave operator. If eagerClose is true and one of the upstream complete interleave will cancel the
+   * other upstream and complete itself.
+   *
+   * If this [[Flow]] or [[Source]] gets upstream error - stream completes with failure.
+   *
+   * '''Emits when''' element is available from the currently consumed upstream
+   *
+   * '''Backpressures when''' downstream backpressures. Signal to current
+   * upstream, switch to next upstream when received `segmentSize` elements
+   *
+   * '''Completes when''' the [[Flow]] and given [[Source]] completes
+   *
+   * '''Cancels when''' downstream cancels
+   */
+  def interleaveAll(
+      those: java.util.List[_ <: Graph[SourceShape[Out], _ <: Any]],
+      segmentSize: Int,
+      eagerClose: Boolean): SubSource[Out, Mat] = {
+    val seq = if (those != null) those.asScala.collect {
+      case source: Source[Out @unchecked, _] => source.asScala
+      case other                             => other
+    }.toSeq
+    else immutable.Seq()
+    new SubSource(delegate.interleaveAll(seq, segmentSize, eagerClose))
+  }
 
   /**
    * MergeLatest joins elements from N input streams into stream of lists of size N.
@@ -1739,7 +1968,7 @@ class SubSource[Out, Mat](
 
   /**
    * If the first element has not passed through this operator before the provided timeout, the stream is failed
-   * with a [[java.util.concurrent.TimeoutException]].
+   * with a [[akka.stream.InitialTimeoutException]].
    *
    * '''Emits when''' upstream emits an element
    *
@@ -1749,30 +1978,12 @@ class SubSource[Out, Mat](
    *
    * '''Cancels when''' downstream cancels
    */
-  @Deprecated
-  @deprecated("Use the overloaded one which accepts java.time.Duration instead.", since = "2.5.12")
-  def initialTimeout(timeout: FiniteDuration): SubSource[Out, Mat] =
-    new SubSource(delegate.initialTimeout(timeout))
-
-  /**
-   * If the first element has not passed through this operator before the provided timeout, the stream is failed
-   * with a [[java.util.concurrent.TimeoutException]].
-   *
-   * '''Emits when''' upstream emits an element
-   *
-   * '''Backpressures when''' downstream backpressures
-   *
-   * '''Completes when''' upstream completes or fails if timeout elapses before first element arrives
-   *
-   * '''Cancels when''' downstream cancels
-   */
-  @silent("deprecated")
   def initialTimeout(timeout: java.time.Duration): SubSource[Out, Mat] =
-    initialTimeout(timeout.asScala)
+    new SubSource(delegate.initialTimeout(timeout.asScala))
 
   /**
    * If the completion of the stream does not happen until the provided timeout, the stream is failed
-   * with a [[java.util.concurrent.TimeoutException]].
+   * with a [[akka.stream.CompletionTimeoutException]].
    *
    * '''Emits when''' upstream emits an element
    *
@@ -1782,30 +1993,12 @@ class SubSource[Out, Mat](
    *
    * '''Cancels when''' downstream cancels
    */
-  @Deprecated
-  @deprecated("Use the overloaded one which accepts java.time.Duration instead.", since = "2.5.12")
-  def completionTimeout(timeout: FiniteDuration): SubSource[Out, Mat] =
-    new SubSource(delegate.completionTimeout(timeout))
-
-  /**
-   * If the completion of the stream does not happen until the provided timeout, the stream is failed
-   * with a [[java.util.concurrent.TimeoutException]].
-   *
-   * '''Emits when''' upstream emits an element
-   *
-   * '''Backpressures when''' downstream backpressures
-   *
-   * '''Completes when''' upstream completes or fails if timeout elapses before upstream completes
-   *
-   * '''Cancels when''' downstream cancels
-   */
-  @silent("deprecated")
   def completionTimeout(timeout: java.time.Duration): SubSource[Out, Mat] =
-    completionTimeout(timeout.asScala)
+    new SubSource(delegate.completionTimeout(timeout.asScala))
 
   /**
    * If the time between two processed elements exceeds the provided timeout, the stream is failed
-   * with a [[java.util.concurrent.TimeoutException]]. The timeout is checked periodically,
+   * with a [[akka.stream.StreamIdleTimeoutException]]. The timeout is checked periodically,
    * so the resolution of the check is one period (equals to timeout value).
    *
    * '''Emits when''' upstream emits an element
@@ -1816,31 +2009,12 @@ class SubSource[Out, Mat](
    *
    * '''Cancels when''' downstream cancels
    */
-  @Deprecated
-  @deprecated("Use the overloaded one which accepts java.time.Duration instead.", since = "2.5.12")
-  def idleTimeout(timeout: FiniteDuration): SubSource[Out, Mat] =
-    new SubSource(delegate.idleTimeout(timeout))
-
-  /**
-   * If the time between two processed elements exceeds the provided timeout, the stream is failed
-   * with a [[java.util.concurrent.TimeoutException]]. The timeout is checked periodically,
-   * so the resolution of the check is one period (equals to timeout value).
-   *
-   * '''Emits when''' upstream emits an element
-   *
-   * '''Backpressures when''' downstream backpressures
-   *
-   * '''Completes when''' upstream completes or fails if timeout elapses between two emitted elements
-   *
-   * '''Cancels when''' downstream cancels
-   */
-  @silent("deprecated")
   def idleTimeout(timeout: java.time.Duration): SubSource[Out, Mat] =
-    idleTimeout(timeout.asScala)
+    new SubSource(delegate.idleTimeout(timeout.asScala))
 
   /**
    * If the time between the emission of an element and the following downstream demand exceeds the provided timeout,
-   * the stream is failed with a [[java.util.concurrent.TimeoutException]]. The timeout is checked periodically,
+   * the stream is failed with a [[akka.stream.BackpressureTimeoutException]]. The timeout is checked periodically,
    * so the resolution of the check is one period (equals to timeout value).
    *
    * '''Emits when''' upstream emits an element
@@ -1851,27 +2025,8 @@ class SubSource[Out, Mat](
    *
    * '''Cancels when''' downstream cancels
    */
-  @Deprecated
-  @deprecated("Use the overloaded one which accepts java.time.Duration instead.", since = "2.5.12")
-  def backpressureTimeout(timeout: FiniteDuration): SubSource[Out, Mat] =
-    new SubSource(delegate.backpressureTimeout(timeout))
-
-  /**
-   * If the time between the emission of an element and the following downstream demand exceeds the provided timeout,
-   * the stream is failed with a [[java.util.concurrent.TimeoutException]]. The timeout is checked periodically,
-   * so the resolution of the check is one period (equals to timeout value).
-   *
-   * '''Emits when''' upstream emits an element
-   *
-   * '''Backpressures when''' downstream backpressures
-   *
-   * '''Completes when''' upstream completes or fails if timeout elapses between element emission and downstream demand.
-   *
-   * '''Cancels when''' downstream cancels
-   */
-  @silent("deprecated")
   def backpressureTimeout(timeout: java.time.Duration): SubSource[Out, Mat] =
-    backpressureTimeout(timeout.asScala)
+    new SubSource(delegate.backpressureTimeout(timeout.asScala))
 
   /**
    * Injects additional elements if upstream does not emit for a configured amount of time. In other words, this
@@ -1890,31 +2045,8 @@ class SubSource[Out, Mat](
    *
    * '''Cancels when''' downstream cancels
    */
-  @Deprecated
-  @deprecated("Use the overloaded one which accepts java.time.Duration instead.", since = "2.5.12")
-  def keepAlive(maxIdle: FiniteDuration, injectedElem: function.Creator[Out]): SubSource[Out, Mat] =
-    new SubSource(delegate.keepAlive(maxIdle, () => injectedElem.create()))
-
-  /**
-   * Injects additional elements if upstream does not emit for a configured amount of time. In other words, this
-   * operator attempts to maintains a base rate of emitted elements towards the downstream.
-   *
-   * If the downstream backpressures then no element is injected until downstream demand arrives. Injected elements
-   * do not accumulate during this period.
-   *
-   * Upstream elements are always preferred over injected elements.
-   *
-   * '''Emits when''' upstream emits an element or if the upstream was idle for the configured period
-   *
-   * '''Backpressures when''' downstream backpressures
-   *
-   * '''Completes when''' upstream completes
-   *
-   * '''Cancels when''' downstream cancels
-   */
-  @silent("deprecated")
   def keepAlive(maxIdle: java.time.Duration, injectedElem: function.Creator[Out]): SubSource[Out, Mat] =
-    keepAlive(maxIdle.asScala, injectedElem)
+    new SubSource(delegate.keepAlive(maxIdle.asScala, injectedElem.create _))
 
   /**
    * Sends elements downstream with speed limited to `elements/per`. In other words, this operator set the maximum rate
@@ -1948,47 +2080,6 @@ class SubSource[Out, Mat](
    */
   def throttle(elements: Int, per: java.time.Duration): javadsl.SubSource[Out, Mat] =
     new SubSource(delegate.throttle(elements, per.asScala))
-
-  /**
-   * Sends elements downstream with speed limited to `elements/per`. In other words, this operator set the maximum rate
-   * for emitting messages. This operator works for streams where all elements have the same cost or length.
-   *
-   * Throttle implements the token bucket model. There is a bucket with a given token capacity (burst size or maximumBurst).
-   * Tokens drops into the bucket at a given rate and can be `spared` for later use up to bucket capacity
-   * to allow some burstiness. Whenever stream wants to send an element, it takes as many
-   * tokens from the bucket as element costs If there isn't any, throttle waits until the
-   * bucket accumulates enough tokens. Elements that costs more than the allowed burst will be delayed proportionally
-   * to their cost minus available tokens, meeting the target rate. Bucket is full when stream just materialized and started.
-   *
-   * Parameter `mode` manages behavior when upstream is faster than throttle rate:
-   *  - [[akka.stream.ThrottleMode.Shaping]] makes pauses before emitting messages to meet throttle rate
-   *  - [[akka.stream.ThrottleMode.Enforcing]] fails with exception when upstream is faster than throttle rate
-   *
-   * It is recommended to use non-zero burst sizes as they improve both performance and throttling precision by allowing
-   * the implementation to avoid using the scheduler when input rates fall below the enforced limit and to reduce
-   * most of the inaccuracy caused by the scheduler resolution (which is in the range of milliseconds).
-   *
-   *  WARNING: Be aware that throttle is using scheduler to slow down the stream. This scheduler has minimal time of triggering
-   *  next push. Consequently it will slow down the stream as it has minimal pause for emitting. This can happen in
-   *  case burst is 0 and speed is higher than 30 events per second. You need to increase the `maximumBurst`  if
-   *  elements arrive with small interval (30 milliseconds or less). Use the overloaded `throttle` method without
-   *  `maximumBurst` parameter to automatically calculate the `maximumBurst` based on the given rate (`cost/per`).
-   *  In other words the throttler always enforces the rate limit when `maximumBurst` parameter is given, but in
-   *  certain cases (mostly due to limited scheduler resolution) it enforces a tighter bound than what was prescribed.
-   *
-   * '''Emits when''' upstream emits an element and configured time per each element elapsed
-   *
-   * '''Backpressures when''' downstream backpressures or the incoming rate is higher than the speed limit
-   *
-   * '''Completes when''' upstream completes
-   *
-   * '''Cancels when''' downstream cancels
-   *
-   */
-  @Deprecated
-  @deprecated("Use the overloaded one which accepts java.time.Duration instead.", since = "2.5.12")
-  def throttle(elements: Int, per: FiniteDuration, maximumBurst: Int, mode: ThrottleMode): javadsl.SubSource[Out, Mat] =
-    new SubSource(delegate.throttle(elements, per, maximumBurst, mode))
 
   /**
    * Sends elements downstream with speed limited to `elements/per`. In other words, this operator set the maximum rate
@@ -2110,55 +2201,6 @@ class SubSource[Out, Mat](
    * '''Cancels when''' downstream cancels
    *
    */
-  @Deprecated
-  @deprecated("Use the overloaded one which accepts java.time.Duration instead.", since = "2.5.12")
-  def throttle(
-      cost: Int,
-      per: FiniteDuration,
-      maximumBurst: Int,
-      costCalculation: function.Function[Out, Integer],
-      mode: ThrottleMode): javadsl.SubSource[Out, Mat] =
-    new SubSource(delegate.throttle(cost, per, maximumBurst, costCalculation.apply _, mode))
-
-  /**
-   * Sends elements downstream with speed limited to `cost/per`. Cost is
-   * calculating for each element individually by calling `calculateCost` function.
-   * This operator works for streams when elements have different cost(length).
-   * Streams of `ByteString` for example.
-   *
-   * Throttle implements the token bucket model. There is a bucket with a given token capacity (burst size or maximumBurst).
-   * Tokens drops into the bucket at a given rate and can be `spared` for later use up to bucket capacity
-   * to allow some burstiness. Whenever stream wants to send an element, it takes as many
-   * tokens from the bucket as element costs. If there isn't any, throttle waits until the
-   * bucket accumulates enough tokens. Elements that costs more than the allowed burst will be delayed proportionally
-   * to their cost minus available tokens, meeting the target rate. Bucket is full when stream just materialized and started.
-   *
-   * Parameter `mode` manages behavior when upstream is faster than throttle rate:
-   *  - [[akka.stream.ThrottleMode.Shaping]] makes pauses before emitting messages to meet throttle rate
-   *  - [[akka.stream.ThrottleMode.Enforcing]] fails with exception when upstream is faster than throttle rate. Enforcing
-   *  cannot emit elements that cost more than the maximumBurst
-   *
-   * It is recommended to use non-zero burst sizes as they improve both performance and throttling precision by allowing
-   * the implementation to avoid using the scheduler when input rates fall below the enforced limit and to reduce
-   * most of the inaccuracy caused by the scheduler resolution (which is in the range of milliseconds).
-   *
-   *  WARNING: Be aware that throttle is using scheduler to slow down the stream. This scheduler has minimal time of triggering
-   *  next push. Consequently it will slow down the stream as it has minimal pause for emitting. This can happen in
-   *  case burst is 0 and speed is higher than 30 events per second. You need to increase the `maximumBurst`  if
-   *  elements arrive with small interval (30 milliseconds or less). Use the overloaded `throttle` method without
-   *  `maximumBurst` parameter to automatically calculate the `maximumBurst` based on the given rate (`cost/per`).
-   *  In other words the throttler always enforces the rate limit when `maximumBurst` parameter is given, but in
-   *  certain cases (mostly due to limited scheduler resolution) it enforces a tighter bound than what was prescribed.
-   *
-   * '''Emits when''' upstream emits an element and configured time per each element elapsed
-   *
-   * '''Backpressures when''' downstream backpressures or the incoming rate is higher than the speed limit
-   *
-   * '''Completes when''' upstream completes
-   *
-   * '''Cancels when''' downstream cancels
-   *
-   */
   def throttle(
       cost: Int,
       per: java.time.Duration,
@@ -2166,74 +2208,6 @@ class SubSource[Out, Mat](
       costCalculation: function.Function[Out, Integer],
       mode: ThrottleMode): javadsl.SubSource[Out, Mat] =
     new SubSource(delegate.throttle(cost, per.asScala, maximumBurst, costCalculation.apply _, mode))
-
-  /**
-   * This is a simplified version of throttle that spreads events evenly across the given time interval.
-   *
-   * Use this operator when you need just slow down a stream without worrying about exact amount
-   * of time between events.
-   *
-   * If you want to be sure that no time interval has no more than specified number of events you need to use
-   * [[throttle]] with maximumBurst attribute.
-   * @see [[#throttle]]
-   */
-  @Deprecated
-  @deprecated("Use throttle without `maximumBurst` parameter instead.", "2.5.12")
-  def throttleEven(elements: Int, per: FiniteDuration, mode: ThrottleMode): javadsl.SubSource[Out, Mat] =
-    new SubSource(delegate.throttleEven(elements, per, mode))
-
-  /**
-   * This is a simplified version of throttle that spreads events evenly across the given time interval.
-   *
-   * Use this operator when you need just slow down a stream without worrying about exact amount
-   * of time between events.
-   *
-   * If you want to be sure that no time interval has no more than specified number of events you need to use
-   * [[throttle]] with maximumBurst attribute.
-   * @see [[#throttle]]
-   */
-  @Deprecated
-  @deprecated("Use throttle without `maximumBurst` parameter instead.", "2.5.12")
-  def throttleEven(elements: Int, per: java.time.Duration, mode: ThrottleMode): javadsl.SubSource[Out, Mat] =
-    throttleEven(elements, per.asScala, mode)
-
-  /**
-   * This is a simplified version of throttle that spreads events evenly across the given time interval.
-   *
-   * Use this operator when you need just slow down a stream without worrying about exact amount
-   * of time between events.
-   *
-   * If you want to be sure that no time interval has no more than specified number of events you need to use
-   * [[throttle]] with maximumBurst attribute.
-   * @see [[#throttle]]
-   */
-  @Deprecated
-  @deprecated("Use throttle without `maximumBurst` parameter instead.", "2.5.12")
-  def throttleEven(
-      cost: Int,
-      per: FiniteDuration,
-      costCalculation: (Out) => Int,
-      mode: ThrottleMode): javadsl.SubSource[Out, Mat] =
-    new SubSource(delegate.throttleEven(cost, per, costCalculation.apply _, mode))
-
-  /**
-   * This is a simplified version of throttle that spreads events evenly across the given time interval.
-   *
-   * Use this operator when you need just slow down a stream without worrying about exact amount
-   * of time between events.
-   *
-   * If you want to be sure that no time interval has no more than specified number of events you need to use
-   * [[throttle]] with maximumBurst attribute.
-   * @see [[#throttle]]
-   */
-  @Deprecated
-  @deprecated("Use throttle without `maximumBurst` parameter instead.", "2.5.12")
-  def throttleEven(
-      cost: Int,
-      per: java.time.Duration,
-      costCalculation: (Out) => Int,
-      mode: ThrottleMode): javadsl.SubSource[Out, Mat] =
-    throttleEven(cost, per.asScala, costCalculation, mode)
 
   /**
    * Detaches upstream demand from downstream demand without detaching the
@@ -2260,25 +2234,8 @@ class SubSource[Out, Mat](
    *
    * '''Cancels when''' downstream cancels
    */
-  @Deprecated
-  @deprecated("Use the overloaded one which accepts java.time.Duration instead.", since = "2.5.12")
-  def initialDelay(delay: FiniteDuration): SubSource[Out, Mat] =
-    new SubSource(delegate.initialDelay(delay))
-
-  /**
-   * Delays the initial element by the specified duration.
-   *
-   * '''Emits when''' upstream emits an element if the initial delay is already elapsed
-   *
-   * '''Backpressures when''' downstream backpressures or initial delay is not yet elapsed
-   *
-   * '''Completes when''' upstream completes
-   *
-   * '''Cancels when''' downstream cancels
-   */
-  @silent("deprecated")
   def initialDelay(delay: java.time.Duration): SubSource[Out, Mat] =
-    initialDelay(delay.asScala)
+    new SubSource(delegate.initialDelay(delay.asScala))
 
   /**
    * Change the attributes of this [[Source]] to the given ones and seal the list
@@ -2489,4 +2446,34 @@ class SubSource[Out, Mat](
   def logWithMarker(name: String, marker: function.Function[Out, LogMarker]): SubSource[Out, Mat] =
     this.logWithMarker(name, marker, ConstantFun.javaIdentityFunction[Out], null)
 
+  /**
+   * Aggregate input elements into an arbitrary data structure that can be completed and emitted downstream
+   * when custom condition is met which can be triggered by aggregate or timer.
+   * It can be thought of a more general [[groupedWeightedWithin]].
+   *
+   * '''Emits when''' the aggregation function decides the aggregate is complete or the timer function returns true
+   *
+   * '''Backpressures when''' downstream backpressures and the aggregate is complete
+   *
+   * '''Completes when''' upstream completes and the last aggregate has been emitted downstream
+   *
+   * '''Cancels when''' downstream cancels
+   *
+   * @param allocate    allocate the initial data structure for aggregated elements
+   * @param aggregate   update the aggregated elements, return true if ready to emit after update.
+   * @param harvest     this is invoked before emit within the current stage/operator
+   * @param emitOnTimer decide whether the current aggregated elements can be emitted, the custom function is invoked on every interval
+   */
+  @ApiMayChange
+  def aggregateWithBoundary[Agg, Emit](allocate: java.util.function.Supplier[Agg])(
+      aggregate: function.Function2[Agg, Out, Pair[Agg, Boolean]],
+      harvest: function.Function[Agg, Emit],
+      emitOnTimer: Pair[java.util.function.Predicate[Agg], java.time.Duration]): javadsl.SubSource[Emit, Mat] =
+    new SubSource(
+      asScala.aggregateWithBoundary(() => allocate.get())(
+        aggregate = (agg, out) => aggregate.apply(agg, out).toScala,
+        harvest = agg => harvest.apply(agg),
+        emitOnTimer = Option(emitOnTimer).map {
+          case Pair(predicate, duration) => (agg => predicate.test(agg), duration.asScala)
+        }))
 }

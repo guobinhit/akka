@@ -1,11 +1,12 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
 
 import java.io.File
 
+import scala.annotation.nowarn
 import scala.concurrent.duration._
 
 import org.apache.commons.io.FileUtils
@@ -16,7 +17,6 @@ import akka.cluster.sharding.ShardCoordinator.ShardAllocationStrategy
 import akka.persistence.Persistence
 import akka.persistence.journal.leveldb.{ SharedLeveldbJournal, SharedLeveldbStore }
 import akka.remote.testconductor.RoleName
-import akka.remote.testkit.MultiNodeSpec
 import akka.serialization.jackson.CborSerializable
 import akka.testkit.{ TestActors, TestProbe }
 import akka.util.ccompat._
@@ -70,6 +70,7 @@ object MultiNodeClusterShardingSpec {
     msg match {
       case id: Int                     => id.toString
       case ShardRegion.StartEntity(id) => id
+      case _                           => throw new IllegalArgumentException()
     }
 
 }
@@ -79,8 +80,7 @@ object MultiNodeClusterShardingSpec {
  * for new or refactored multi-node sharding specs
  */
 abstract class MultiNodeClusterShardingSpec(val config: MultiNodeClusterShardingConfig)
-    extends MultiNodeSpec(config)
-    with MultiNodeClusterSpec {
+    extends MultiNodeClusterSpec(config) {
 
   import MultiNodeClusterShardingSpec._
   import config._
@@ -206,6 +206,7 @@ abstract class MultiNodeClusterShardingSpec(val config: MultiNodeClusterSharding
    * @param startOn the node to start the `SharedLeveldbStore` store on
    * @param setStoreOn the nodes to `SharedLeveldbJournal.setStore` on
    */
+  @nowarn("msg=deprecated")
   protected def startPersistence(startOn: RoleName, setStoreOn: Seq[RoleName]): Unit = {
     info("Setting up setup shared journal.")
 

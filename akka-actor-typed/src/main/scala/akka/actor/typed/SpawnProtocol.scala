@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed
@@ -55,13 +55,13 @@ object SpawnProtocol {
   def apply(): Behavior[Command] =
     Behaviors.receive { (ctx, msg) =>
       msg match {
-        case Spawn(bhvr, name, props, replyTo) =>
+        case Spawn(bhvr: Behavior[t], name, props, replyTo) =>
           val ref =
             if (name == null || name.equals(""))
               ctx.spawnAnonymous(bhvr, props)
             else {
 
-              @tailrec def spawnWithUniqueName(c: Int): ActorRef[Any] = {
+              @tailrec def spawnWithUniqueName(c: Int): ActorRef[t] = {
                 val nameSuggestion = if (c == 0) name else s"$name-$c"
                 ctx.child(nameSuggestion) match {
                   case Some(_) => spawnWithUniqueName(c + 1) // already taken, try next

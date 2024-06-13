@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.serialization
@@ -23,7 +23,9 @@ import akka.event.Logging
 trait AsyncSerializer {
 
   /**
-   * Serializes the given object into an Array of Byte
+   * Serializes the given object into an Array of Byte.
+   *
+   * Note that the array must not be mutated by the serializer after it has been used to complete the returned `Future`.
    */
   def toBinaryAsync(o: AnyRef): Future[Array[Byte]]
 
@@ -41,7 +43,7 @@ abstract class AsyncSerializerWithStringManifest(system: ExtendedActorSystem)
     extends SerializerWithStringManifest
     with AsyncSerializer {
 
-  private val log = Logging(system, getClass)
+  private val log = Logging(system, classOf[AsyncSerializerWithStringManifest])
 
   final override def toBinary(o: AnyRef): Array[Byte] = {
     log.warning(

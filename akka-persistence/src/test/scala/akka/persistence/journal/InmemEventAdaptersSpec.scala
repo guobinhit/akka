@@ -1,14 +1,17 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.journal
+
+import scala.annotation.nowarn
 
 import com.typesafe.config.ConfigFactory
 
 import akka.actor.ExtendedActorSystem
 import akka.testkit.AkkaSpec
 
+@nowarn("msg=Unused import")
 class InmemEventAdaptersSpec extends AkkaSpec {
 
   val config = ConfigFactory.parseString(s"""
@@ -55,7 +58,7 @@ class InmemEventAdaptersSpec extends AkkaSpec {
     "pick the most specific adapter available" in {
       val adapters = EventAdapters(extendedActorSystem, inmemConfig)
 
-      // sanity check; precise case, matching non-user classes
+      // precise case, matching non-user classes
       adapters.get(classOf[java.lang.String]).getClass should ===(classOf[ExampleEventAdapter])
 
       // pick adapter by implemented marker interface
@@ -65,6 +68,7 @@ class InmemEventAdaptersSpec extends AkkaSpec {
       adapters.get(classOf[PreciseAdapterEvent]).getClass should ===(classOf[PreciseAdapter])
 
       // no adapter defined for Long, should return identity adapter
+      import org.scalatest.matchers.should.Matchers.unconstrainedEquality
       adapters.get(classOf[java.lang.Long]).getClass should ===(IdentityEventAdapter.getClass)
     }
 

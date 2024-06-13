@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.util
@@ -10,9 +10,9 @@ import java.lang.Float.floatToRawIntBits
 import java.nio.{ ByteBuffer, ByteOrder }
 import java.nio.ByteOrder.{ BIG_ENDIAN, LITTLE_ENDIAN }
 
+import scala.annotation.nowarn
 import scala.collection.mutable.Builder
 
-import com.github.ghik.silencer.silent
 import org.apache.commons.codec.binary.Hex.encodeHex
 import org.scalacheck.{ Arbitrary, Gen }
 import org.scalacheck.Arbitrary.arbitrary
@@ -167,7 +167,7 @@ class ByteStringSpec extends AnyWordSpec with Matchers with Checkers {
     body(bsA, bsB) == body(vecA, vecB)
   }
 
-  @silent
+  @nowarn
   def likeVecIt(bs: ByteString)(body: BufferedIterator[Byte] => Any, strict: Boolean = true): Boolean = {
     val bsIterator = bs.iterator
     val vecIterator = Vector(bs: _*).iterator.buffered
@@ -175,7 +175,7 @@ class ByteStringSpec extends AnyWordSpec with Matchers with Checkers {
     (!strict || (bsIterator.toSeq == vecIterator.toSeq))
   }
 
-  @silent
+  @nowarn
   def likeVecIts(a: ByteString, b: ByteString)(
       body: (BufferedIterator[Byte], BufferedIterator[Byte]) => Any,
       strict: Boolean = true): Boolean = {
@@ -978,6 +978,12 @@ class ByteStringSpec extends AnyWordSpec with Matchers with Checkers {
           }
         }
       }
+
+      "calling indexWhere(p, idx)" in {
+        check { (a: ByteString, b: Byte, idx: Int) =>
+          likeVector(a)(_.indexWhere(_ == b, math.max(0, idx)))
+        }
+      }
     }
 
     "serialize correctly" when {
@@ -1006,6 +1012,18 @@ class ByteStringSpec extends AnyWordSpec with Matchers with Checkers {
 
         deserialize(serialize(original)) shouldEqual original
       }
+    }
+
+    "unsafely wrap and unwrap bytes" in {
+      // optimal case
+      val bytes = Array.fill[Byte](100)(7)
+      val bs = ByteString.fromArrayUnsafe(bytes)
+      val bytes2 = bs.toArrayUnsafe()
+      (bytes2 should be).theSameInstanceAs(bytes)
+
+      val combinedBs = bs ++ bs
+      val combinedBytes = combinedBs.toArrayUnsafe()
+      combinedBytes should ===(bytes ++ bytes)
     }
   }
 
@@ -1394,6 +1412,13 @@ class ByteStringSpec extends AnyWordSpec with Matchers with Checkers {
           a.nonEmpty
         }
       }
+    }
+
+    // overloading issue #32272
+    "support adding arbitrary sequences of bytes" in {
+      val builder = new ByteStringBuilder()
+      builder ++= Seq[Byte](1, 2, 3)
+      builder.result() shouldEqual ByteString(1, 2, 3)
     }
   }
 }

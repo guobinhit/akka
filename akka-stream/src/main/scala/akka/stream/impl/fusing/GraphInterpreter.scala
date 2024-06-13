@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl.fusing
@@ -12,6 +12,7 @@ import scala.util.control.NonFatal
 import akka.Done
 import akka.actor.ActorRef
 import akka.annotation.{ InternalApi, InternalStableApi }
+import akka.event.Logging
 import akka.event.LoggingAdapter
 import akka.stream._
 import akka.stream.Attributes.LogLevels
@@ -109,7 +110,7 @@ import akka.stream.stage._
      * when this accidentally leaks onto threads that are not stopped when this
      * class should be unloaded.
      */
-    override def initialValue = new Array(1)
+    override def initialValue: Array[AnyRef] = new Array(1)
   }
 
   /**
@@ -130,8 +131,9 @@ import akka.stream.stage._
 /**
  * INTERNAL API
  *
- * From an external viewpoint, the GraphInterpreter takes an assembly of graph processing stages encoded as a
- * [[GraphInterpreter#GraphAssembly]] object and provides facilities to execute and interact with this assembly.
+ * From an external viewpoint, the GraphInterpreter takes an assembly of graph processing stages and provides facilities
+ * to execute and interact with this assembly.
+ *
  * The lifecycle of the Interpreter is roughly the following:
  *  - [[init]] is called
  *  - [[execute]] is called whenever there is need for execution, providing an upper limit on the processed events
@@ -230,6 +232,8 @@ import akka.stream.stage._
   }
 
   private[this] var _subFusingMaterializer: Materializer = _
+  private[this] lazy val defaultErrorReportingLogLevel = LogLevels.defaultErrorLevel(materializer.system)
+
   def subFusingMaterializer: Materializer = _subFusingMaterializer
 
   // An event queue implemented as a circular buffer
@@ -306,7 +310,7 @@ import akka.stream.stage._
         logic.preStart()
       } catch {
         case NonFatal(e) =>
-          log.error(e, "Error during preStart in [{}]: {}", logic.originalStage.getOrElse(logic), e.getMessage)
+          log.error(e, "Error during preStart in [{}]: {}", logic.toString, e.getMessage)
           logic.failStage(e)
       }
       afterStageHasRun(logic)
@@ -361,12 +365,21 @@ import akka.stream.stage._
         def reportStageError(e: Throwable): Unit = {
           if (activeStage == null) throw e
           else {
-            val loggingEnabled = activeStage.attributes.get[LogLevels] match {
-              case Some(levels) => levels.onFailure != LogLevels.Off
-              case None         => true
+            val logAt: Logging.LogLevel = activeStage.attributes.get[LogLevels] match {
+              case Some(levels) => levels.onFailure
+              case None         => defaultErrorReportingLogLevel
             }
-            if (loggingEnabled)
-              log.error(e, "Error in stage [{}]: {}", activeStage.originalStage.getOrElse(activeStage), e.getMessage)
+            logAt match {
+              case Logging.ErrorLevel =>
+                log.error(e, "Error in stage [{}]: {}", activeStage.toString, e.getMessage)
+              case Logging.WarningLevel =>
+                log.warning(e, "Error in stage [{}]: {}", activeStage.toString, e.getMessage)
+              case Logging.InfoLevel =>
+                log.info("Error in stage [{}]: {}", activeStage.toString, e.getMessage)
+              case Logging.DebugLevel =>
+                log.debug("Error in stage [{}]: {}", activeStage.toString, e.getMessage)
+              case _ => // Off, nop
+            }
             activeStage.failStage(e)
 
             // Abort chasing
@@ -391,7 +404,7 @@ import akka.stream.stage._
         catch {
           case NonFatal(e) => reportStageError(e)
         }
-        afterStageHasRun(activeStage)
+        var wasFinalized = afterStageHasRun(activeStage)
 
         /*
          * "Event chasing" optimization follows from here. This optimization works under the assumption that a Push or
@@ -424,7 +437,8 @@ import akka.stream.stage._
           catch {
             case NonFatal(e) => reportStageError(e)
           }
-          afterStageHasRun(activeStage)
+          if (!wasFinalized)
+            wasFinalized = afterStageHasRun(activeStage)
         }
 
         // Chasing PULL events
@@ -435,7 +449,8 @@ import akka.stream.stage._
           catch {
             case NonFatal(e) => reportStageError(e)
           }
-          afterStageHasRun(activeStage)
+          if (!wasFinalized)
+            wasFinalized = afterStageHasRun(activeStage)
         }
 
         if (chasedPush != NoEvent) {
@@ -454,6 +469,7 @@ import akka.stream.stage._
     eventsRemaining
   }
 
+  @InternalStableApi
   def runAsyncInput(logic: GraphStageLogic, evt: Any, promise: Promise[Done], handler: (Any) => Unit): Unit =
     if (!isStageCompleted(logic)) {
       if (GraphInterpreter.Debug) println(s"$Name ASYNC $evt ($handler) [$logic]")
@@ -466,13 +482,13 @@ import akka.stream.stage._
           handler(evt)
           if (promise ne GraphStageLogic.NoPromise) {
             promise.success(Done)
-            logic.onFeedbackDispatched()
+            logic.onFeedbackDispatched(promise)
           }
         } catch {
           case NonFatal(ex) =>
             if (promise ne GraphStageLogic.NoPromise) {
               promise.failure(ex)
-              logic.onFeedbackDispatched()
+              logic.onFeedbackDispatched(promise)
             }
             logic.failStage(ex)
         }
@@ -573,10 +589,13 @@ import akka.stream.stage._
     queueTail += 1
   }
 
-  def afterStageHasRun(logic: GraphStageLogic): Unit =
+  def afterStageHasRun(logic: GraphStageLogic): Boolean =
     if (isStageCompleted(logic)) {
       runningStages -= 1
       finalizeStage(logic)
+      true
+    } else {
+      false
     }
 
   // Returns true if the given stage is already completed
@@ -600,7 +619,7 @@ import akka.stream.stage._
       logic.afterPostStop()
     } catch {
       case NonFatal(e) =>
-        log.error(e, s"Error during postStop in [{}]: {}", logic.originalStage.getOrElse(logic), e.getMessage)
+        log.error(e, s"Error during postStop in [{}]: {}", logic.toString, e.getMessage)
     }
   }
 
@@ -680,8 +699,7 @@ import akka.stream.stage._
 
     val logicSnapshots = logics.zipWithIndex.map {
       case (logic, idx) =>
-        val label = logic.originalStage.getOrElse(logic).toString
-        LogicSnapshotImpl(idx, label, logic.attributes)
+        LogicSnapshotImpl(idx, logic.toString, logic.attributes)
     }
     val logicIndexes = logics.zipWithIndex.map { case (stage, idx) => stage -> idx }.toMap
     val connectionSnapshots = connections.filter(_ != null).map { connection =>

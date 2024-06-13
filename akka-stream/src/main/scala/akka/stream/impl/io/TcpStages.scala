@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl.io
@@ -8,11 +8,10 @@ import java.net.InetSocketAddress
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.{ AtomicBoolean, AtomicLong }
 
+import scala.annotation.nowarn
 import scala.collection.immutable
 import scala.concurrent.{ Future, Promise }
 import scala.concurrent.duration.{ Duration, FiniteDuration }
-
-import com.github.ghik.silencer.silent
 
 import akka.{ Done, NotUsed }
 import akka.actor.{ ActorRef, Terminated }
@@ -113,6 +112,8 @@ import akka.util.ByteString
               unbindPromise.tryFailure(ex)
               failStage(ex)
             }
+          case other =>
+            log.warning("Unexpected message to TcpStage: [{}]", other.getClass)
         }
       }
 
@@ -176,7 +177,7 @@ import akka.util.ByteString
 
       private def unbindCompleted(): Unit = {
         stageActor.unwatch(listener)
-        unbindPromise.trySuccess(Done)
+        unbindPromise.trySuccess(())
         if (connectionFlowsAwaitingInitialization.get() == 0) completeStage()
         else scheduleOnce(BindShutdownTimer, bindShutdownTimeout)
       }
@@ -184,12 +185,14 @@ import akka.util.ByteString
       override def onTimer(timerKey: Any): Unit = timerKey match {
         case BindShutdownTimer =>
           completeStage() // TODO need to manually shut down instead right?
+        case other =>
+          throw new IllegalArgumentException(s"Unknown timer key $other")
       }
 
       override def postStop(): Unit = {
         // a bit unexpected to succeed here rather than fail with abrupt stage termination
         // but there was an existing test case covering this behavior
-        unbindPromise.trySuccess(Done)
+        unbindPromise.trySuccess(())
         bindingPromise.tryFailure(new NoSuchElementException("Binding was unbound before it was completely finished"))
       }
     }
@@ -209,6 +212,9 @@ private[stream] object ConnectionSourceStage {
  */
 @InternalApi private[stream] object TcpConnectionStage {
   case object WriteAck extends Tcp.Event
+
+  private case object WriteDelayAck extends Tcp.Event
+  private val WriteDelayMessage = Write(ByteString.empty, WriteDelayAck)
 
   trait TcpRole {
     def halfClose: Boolean
@@ -246,11 +252,10 @@ private[stream] object ConnectionSourceStage {
     // After that remains immutable
     private var connection: ActorRef = _
 
-    @silent("deprecated")
+    @nowarn("msg=deprecated")
     private val writeBufferSize = inheritedAttributes
       .get[TcpAttributes.TcpWriteBufferSize](
-        TcpAttributes.TcpWriteBufferSize(
-          ActorMaterializerHelper.downcast(eagerMaterializer).settings.ioSettings.tcpWriteBufferSize))
+        TcpAttributes.TcpWriteBufferSize(eagerMaterializer.settings.ioSettings.tcpWriteBufferSize))
       .size
 
     private var writeBuffer = ByteString.empty
@@ -260,10 +265,14 @@ private[stream] object ConnectionSourceStage {
     // upstream already finished but are still writing the last data to the connection
     private var connectionClosePending = false
 
+    @nowarn("msg=deprecated")
+    private val coalesceWrites = eagerMaterializer.settings.ioSettings.coalesceWrites
+    private def coalesceWritesDisabled = coalesceWrites == 0
+    private var writeDelayCountDown = 0
+    private var previousWriteBufferSize = 0
+
     // No reading until role have been decided
-    setHandler(bytesOut, new OutHandler {
-      override def onPull(): Unit = ()
-    })
+    setHandler(bytesOut, GraphStageLogic.EagerTerminateOutput)
 
     override def preStart(): Unit = {
       setKeepGoing(true)
@@ -278,6 +287,7 @@ private[stream] object ConnectionSourceStage {
         case ob @ Outbound(manager, cmd, _, _) =>
           getStageActor(connecting(ob)).watch(manager)
           manager ! cmd
+        case other => throw new IllegalArgumentException(s"Unsupported TCP role: ${other}")
       }
     }
 
@@ -300,7 +310,25 @@ private[stream] object ConnectionSourceStage {
           if (isAvailable(bytesOut)) connection ! ResumeReading
           if (isClosed(bytesIn)) connection ! ConfirmedClose
           else pull(bytesIn)
+        case other => log.warning("Unexpected message to connecting TcpStage: [{}]", other.getClass)
       }
+    }
+
+    private def sendWriteBuffer(): Unit = {
+      connection ! Write(writeBuffer, WriteAck)
+      writeInProgress = true
+      writeBuffer = ByteString.empty
+    }
+
+    /*
+     * Coalesce more frames by collecting more frames while waiting for round trip to the
+     * connection actor. WriteDelayMessage is an empty Write message and WriteDelayAck will
+     * be sent back as reply.
+     */
+    private def sendWriteDelay(): Unit = {
+      previousWriteBufferSize = writeBuffer.length
+      writeInProgress = true
+      connection ! WriteDelayMessage
     }
 
     // Used for both inbound and outbound connections
@@ -312,13 +340,24 @@ private[stream] object ConnectionSourceStage {
           if (isClosed(bytesOut)) connection ! ResumeReading
           else push(bytesOut, data)
 
+        case WriteDelayAck =>
+          // Immediately flush the write buffer if no more frames have been collected during the WriteDelayMessage
+          // round trip to the connection actor, or if reaching the configured maximum number of round trips, or
+          // if writeBuffer capacity has been exceeded.
+          writeDelayCountDown -= 1
+          if (writeDelayCountDown == 0 || previousWriteBufferSize == writeBuffer.length || writeBuffer.length >= writeBufferSize)
+            sendWriteBuffer()
+          else
+            sendWriteDelay()
+
         case WriteAck =>
           if (writeBuffer.isEmpty)
             writeInProgress = false
+          else if (coalesceWritesDisabled || writeBuffer.length >= writeBufferSize)
+            sendWriteBuffer()
           else {
-            connection ! Write(writeBuffer, WriteAck)
-            writeInProgress = true
-            writeBuffer = ByteString.empty
+            writeDelayCountDown = coalesceWrites
+            sendWriteDelay()
           }
 
           if (!writeInProgress && connectionClosePending) {
@@ -336,6 +375,8 @@ private[stream] object ConnectionSourceStage {
         case Closed             => completeStage()
         case ConfirmedClosed    => completeStage()
         case PeerClosed         => complete(bytesOut)
+        case other =>
+          log.warning("Unexpected message to connected TcpStage: [{}]", other.getClass)
       }
     }
 
@@ -385,7 +426,7 @@ private[stream] object ConnectionSourceStage {
         cause match {
           case _: SubscriptionWithCancelException.NonFailureCancellation =>
             log.debug(
-              "Not aborting connection from {}:{} because downstream cancelled stream without failure",
+              "Closing connection from {}:{} because downstream cancelled stream without failure",
               remoteAddress.getHostString,
               remoteAddress.getPort)
             closeConnectionDownstreamFinished()
@@ -409,12 +450,15 @@ private[stream] object ConnectionSourceStage {
           ReactiveStreamsCompliance.requireNonNullElement(elem)
           if (writeInProgress) {
             writeBuffer = writeBuffer ++ elem
+          } else if (coalesceWritesDisabled || writeBuffer.length >= writeBufferSize) {
+            writeBuffer = writeBuffer ++ elem
+            sendWriteBuffer()
           } else {
-            connection ! Write(writeBuffer ++ elem, WriteAck)
-            writeInProgress = true
-            writeBuffer = ByteString.empty
+            writeBuffer = writeBuffer ++ elem
+            writeDelayCountDown = coalesceWrites
+            sendWriteDelay()
           }
-          if (writeBuffer.size < writeBufferSize)
+          if (writeBuffer.length < writeBufferSize)
             pull(bytesIn)
         }
 

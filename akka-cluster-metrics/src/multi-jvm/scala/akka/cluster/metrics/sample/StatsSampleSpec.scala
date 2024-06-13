@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.metrics.sample
@@ -39,7 +39,6 @@ object StatsSampleSpecConfig extends MultiNodeConfig {
   // note that no fixed host names and ports are used
   commonConfig(ConfigFactory.parseString("""
     akka.actor.provider = cluster
-    akka.remote.classic.log-remote-lifecycle-events = off
     akka.cluster.roles = [compute]
     #//#router-lookup-config
     akka.actor.deployment {

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -143,7 +143,8 @@ class StageActorRefSpec extends StreamSpec with ImplicitSender {
       val (source, res) = Source.maybe[Int].toMat(sumStage(testActor))(Keep.both).run()
 
       val stageRef = expectMsgType[ActorRef]
-      stageRef ! Add(40)
+      stageRef ! AddAndTell(40)
+      expectMsg(40)
 
       val filter = EventFilter.custom {
         case _: Logging.Warning => true
@@ -194,7 +195,7 @@ object StageActorRefSpec {
       val p: Promise[Int] = Promise()
 
       val logic = new GraphStageLogic(shape) {
-        implicit def self = stageActor.ref // must be a `def`; we want self to be the sender for our replies
+        implicit def self: ActorRef = stageActor.ref // must be a `def`; we want self to be the sender for our replies
         var sum: Int = 0
 
         override def preStart(): Unit = {

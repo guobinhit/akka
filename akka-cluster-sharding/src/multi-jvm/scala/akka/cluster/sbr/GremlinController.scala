@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sbr
@@ -13,10 +13,10 @@ import akka.actor.Props
 import akka.cluster.Cluster
 import akka.pattern.pipe
 import akka.remote.RemoteActorRefProvider
-import akka.remote.transport.ThrottlerTransportAdapter.Blackhole
-import akka.remote.transport.ThrottlerTransportAdapter.Direction
-import akka.remote.transport.ThrottlerTransportAdapter.SetThrottle
-import akka.remote.transport.ThrottlerTransportAdapter.Unthrottled
+import akka.remote.testkit.Blackhole
+import akka.remote.testkit.Direction
+import akka.remote.testkit.SetThrottle
+import akka.remote.testkit.Unthrottled
 import akka.serialization.jackson.CborSerializable
 
 object GremlinController {
@@ -29,9 +29,8 @@ object GremlinController {
 }
 
 class GremlinController extends Actor with ActorLogging {
-  import context.dispatcher
-
   import GremlinController._
+  import context.dispatcher
   val transport =
     context.system.asInstanceOf[ExtendedActorSystem].provider.asInstanceOf[RemoteActorRefProvider].transport
   val selfAddress = Cluster(context.system).selfAddress

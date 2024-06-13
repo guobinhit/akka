@@ -1,21 +1,20 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.persistence.query;
 
-import java.util.HashSet;
-import java.util.Set;
-
 import akka.NotUsed;
 import akka.actor.ActorSystem;
-import akka.persistence.journal.WriteEventAdapter;
 import akka.persistence.journal.Tagged;
+import akka.persistence.journal.WriteEventAdapter;
 import akka.persistence.query.EventEnvelope;
-import akka.persistence.query.Sequence;
 import akka.persistence.query.PersistenceQuery;
+import akka.persistence.query.Sequence;
 import akka.persistence.query.journal.leveldb.javadsl.LeveldbReadJournal;
 import akka.stream.javadsl.Source;
+import java.util.HashSet;
+import java.util.Set;
 
 public class LeveldbPersistenceQueryDocTest {
 

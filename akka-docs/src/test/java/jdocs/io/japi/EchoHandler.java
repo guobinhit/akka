@@ -1,15 +1,14 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.io.japi;
 
-import java.net.InetSocketAddress;
-import java.util.LinkedList;
-import java.util.Queue;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
-import akka.actor.ActorRef;
 import akka.actor.AbstractActor;
+import akka.actor.ActorRef;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
 import akka.io.Tcp.CommandFailed;
@@ -20,6 +19,9 @@ import akka.io.Tcp.Write;
 import akka.io.Tcp.WritingResumed;
 import akka.io.TcpMessage;
 import akka.util.ByteString;
+import java.net.InetSocketAddress;
+import java.util.LinkedList;
+import java.util.Queue;
 
 // #echo-handler
 public class EchoHandler extends AbstractActor {
@@ -36,7 +38,7 @@ public class EchoHandler extends AbstractActor {
   private long transferred;
   private int storageOffset = 0;
   private long stored = 0;
-  private Queue<ByteString> storage = new LinkedList<ByteString>();
+  private Queue<ByteString> storage = new LinkedList<>();
 
   private boolean suspended = false;
 
@@ -220,8 +222,8 @@ public class EchoHandler extends AbstractActor {
   }
 
   protected void acknowledge(int ack) {
-    assert ack == storageOffset;
-    assert !storage.isEmpty();
+    assertEquals(storageOffset, ack);
+    assertFalse(storage.isEmpty());
 
     final ByteString acked = storage.remove();
     stored -= acked.size();

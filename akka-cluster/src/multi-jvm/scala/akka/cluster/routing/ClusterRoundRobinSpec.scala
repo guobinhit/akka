@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.routing
@@ -17,9 +17,8 @@ import akka.actor.Props
 import akka.actor.Terminated
 import akka.cluster.MultiNodeClusterSpec
 import akka.pattern.ask
+import akka.remote.testkit.Direction
 import akka.remote.testkit.MultiNodeConfig
-import akka.remote.testkit.MultiNodeSpec
-import akka.remote.transport.ThrottlerTransportAdapter.Direction
 import akka.routing.ActorRefRoutee
 import akka.routing.ActorSelectionRoutee
 import akka.routing.FromConfig
@@ -105,8 +104,7 @@ class ClusterRoundRobinMultiJvmNode3 extends ClusterRoundRobinSpec
 class ClusterRoundRobinMultiJvmNode4 extends ClusterRoundRobinSpec
 
 abstract class ClusterRoundRobinSpec
-    extends MultiNodeSpec(ClusterRoundRobinMultiJvmSpec)
-    with MultiNodeClusterSpec
+    extends MultiNodeClusterSpec(ClusterRoundRobinMultiJvmSpec)
     with ImplicitSender
     with DefaultTimeout {
   import ClusterRoundRobinMultiJvmSpec._
@@ -311,7 +309,7 @@ abstract class ClusterRoundRobinSpec
 
         // note that router2 has totalInstances = 3, maxInstancesPerNode = 1
         val routees = currentRoutees(router2)
-        val routeeAddresses = routees.map { case ActorRefRoutee(ref) => fullAddress(ref) }
+        val routeeAddresses = routees.collect { case ActorRefRoutee(ref) => fullAddress(ref) }
 
         routeeAddresses.size should ===(3)
         replies.values.sum should ===(iterationCount)
@@ -325,7 +323,7 @@ abstract class ClusterRoundRobinSpec
       // myservice is already running
 
       def routees = currentRoutees(router4)
-      def routeeAddresses = routees.map { case ActorSelectionRoutee(sel) => fullAddress(sel.anchor) }.toSet
+      def routeeAddresses = routees.collect { case ActorSelectionRoutee(sel) => fullAddress(sel.anchor) }.toSet
 
       runOn(first) {
         // 4 nodes, 2 routees on each node
@@ -350,9 +348,12 @@ abstract class ClusterRoundRobinSpec
 
       runOn(first) {
         def routees = currentRoutees(router2)
-        def routeeAddresses = routees.map { case ActorRefRoutee(ref) => fullAddress(ref) }.toSet
+        def routeeAddresses = routees.collect { case ActorRefRoutee(ref) => fullAddress(ref) }.toSet
 
-        routees.foreach { case ActorRefRoutee(ref) => watch(ref) }
+        routees.foreach {
+          case ActorRefRoutee(ref) => watch(ref)
+          case _                   =>
+        }
         val notUsedAddress = roles.map(address).toSet.diff(routeeAddresses).head
         val downAddress = routeeAddresses.find(_ != address(first)).get
         val downRouteeRef = routees.collectFirst {

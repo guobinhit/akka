@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence
@@ -63,7 +63,7 @@ object SnapshotRecoveryWithEmptyJournalSpec {
 class SnapshotRecoveryWithEmptyJournalSpec
     extends PersistenceSpec(
       PersistenceSpec.config(
-        "leveldb",
+        "inmem",
         "SnapshotRecoveryWithEmptyJournalSpec",
         extraConfig = Some(s"""
   akka.persistence.snapshot-store.local.dir = "${SnapshotRecoveryWithEmptyJournalSpec.survivingSnapshotPath}"

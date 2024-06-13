@@ -1,8 +1,10 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.serialization
+
+import org.scalatest.wordspec.AnyWordSpecLike
 
 import akka.actor.testkit.typed.scaladsl.LogCapturing
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
@@ -13,7 +15,6 @@ import akka.persistence.typed.crdt.ORSet
 import akka.persistence.typed.internal.PublishedEventImpl
 import akka.persistence.typed.internal.ReplicatedPublishedEventMetaData
 import akka.persistence.typed.internal.VersionVector
-import org.scalatest.wordspec.AnyWordSpecLike
 
 class ReplicatedEventSourcingSerializerSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike with LogCapturing {
 
@@ -38,11 +39,12 @@ class ReplicatedEventSourcingSerializerSpec extends ScalaTestWithActorTestKit wi
           10,
           "payload",
           1,
-          Some(new ReplicatedPublishedEventMetaData(ReplicaId("R1"), VersionVector.empty))),
+          Some(new ReplicatedPublishedEventMetaData(ReplicaId("R1"), VersionVector.empty)),
+          Some(system.deadLetters)),
         assertEquality = false)
 
       serializationTestKit.verifySerialization(
-        PublishedEventImpl(PersistenceId.ofUniqueId("cat"), 10, "payload", 1, None),
+        PublishedEventImpl(PersistenceId.ofUniqueId("cat"), 10, "payload", 1, None, None),
         assertEquality = false)
     }
   }

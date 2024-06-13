@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.internal
@@ -7,6 +7,7 @@ package akka.persistence.typed.internal
 import akka.actor.typed.Behavior
 import akka.actor.typed.internal.PoisonPill
 import akka.actor.typed.scaladsl.{ ActorContext, Behaviors }
+import akka.actor.typed.scaladsl.LoggerOps
 import akka.annotation.{ InternalApi, InternalStableApi }
 import akka.persistence._
 import akka.persistence.SnapshotProtocol.LoadSnapshotFailed
@@ -14,7 +15,6 @@ import akka.persistence.SnapshotProtocol.LoadSnapshotResult
 import akka.persistence.typed.{ RecoveryFailed, ReplicaId }
 import akka.persistence.typed.internal.EventSourcedBehaviorImpl.{ GetSeenSequenceNr, GetState }
 import akka.util.unused
-import akka.actor.typed.scaladsl.LoggerOps
 
 /**
  * INTERNAL API
@@ -58,21 +58,22 @@ private[akka] class ReplayingSnapshot[C, E, S](override val setup: BehaviorSetup
     def stay(receivedPoisonPill: Boolean): Behavior[InternalProtocol] = {
       Behaviors
         .receiveMessage[InternalProtocol] {
-          case SnapshotterResponse(r)          => onSnapshotterResponse(r, receivedPoisonPill)
-          case JournalResponse(r)              => onJournalResponse(r)
-          case RecoveryTickEvent(snapshot)     => onRecoveryTick(snapshot)
-          case evt: ReplicatedEventEnvelope[E] => onReplicatedEvent(evt)
-          case pe: PublishedEventImpl          => onPublishedEvent(pe)
-          case cmd: IncomingCommand[C] =>
+          case SnapshotterResponse(r)                     => onSnapshotterResponse(r, receivedPoisonPill)
+          case JournalResponse(r)                         => onJournalResponse(r)
+          case RecoveryTickEvent(snapshot)                => onRecoveryTick(snapshot)
+          case evt: ReplicatedEventEnvelope[E @unchecked] => onReplicatedEvent(evt)
+          case pe: PublishedEventImpl                     => onPublishedEvent(pe)
+          case cmd: IncomingCommand[C @unchecked] =>
             if (receivedPoisonPill) {
               if (setup.settings.logOnStashing)
-                setup.log.debug("Discarding message [{}], because actor is to be stopped.", cmd)
+                setup.internalLogger.debug("Discarding message [{}], because actor is to be stopped.", cmd)
               Behaviors.unhandled
             } else
               onCommand(cmd)
           case get: GetState[S @unchecked] => stashInternal(get)
           case get: GetSeenSequenceNr      => stashInternal(get)
           case RecoveryPermitGranted       => Behaviors.unhandled // should not happen, we already have the permit
+          case ContinueUnstash             => Behaviors.unhandled
         }
         .receiveSignal(returnPermitOnStop.orElse {
           case (_, PoisonPill) =>
@@ -94,22 +95,25 @@ private[akka] class ReplayingSnapshot[C, E, S](override val setup: BehaviorSetup
    * @param cause failure cause.
    */
   private def onRecoveryFailure(cause: Throwable): Behavior[InternalProtocol] = {
+    setup.instrumentation.recoveryFailed(setup.context.self, cause, null)
     onRecoveryFailed(setup.context, cause)
     setup.onSignal(setup.emptyState, RecoveryFailed(cause), catchAndLog = true)
     setup.cancelRecoveryTimer()
 
     tryReturnRecoveryPermit("on snapshot recovery failure: " + cause.getMessage)
 
-    if (setup.log.isDebugEnabled)
-      setup.log.debug("Recovery failure for persistenceId [{}]", setup.persistenceId)
+    if (setup.internalLogger.isDebugEnabled)
+      setup.internalLogger.debug("Recovery failure for persistenceId [{}]", setup.persistenceId)
 
     val msg = s"Exception during recovery from snapshot. " +
       s"PersistenceId [${setup.persistenceId.id}]. ${cause.getMessage}"
     throw new JournalFailureException(msg, cause)
   }
 
+  // FIXME remove instrumentation hook method in 2.10.0
   @InternalStableApi
   def onRecoveryStart(@unused context: ActorContext[_]): Unit = ()
+  // FIXME remove instrumentation hook method in 2.10.0
   @InternalStableApi
   def onRecoveryFailed(@unused context: ActorContext[_], @unused reason: Throwable): Unit = ()
 
@@ -135,7 +139,7 @@ private[akka] class ReplayingSnapshot[C, E, S](override val setup: BehaviorSetup
   }
 
   def onJournalResponse(response: JournalProtocol.Response): Behavior[InternalProtocol] = {
-    setup.log.debug(
+    setup.internalLogger.debug(
       "Unexpected response from journal: [{}], may be due to an actor restart, ignoring...",
       response.getClass.getName)
     Behaviors.unhandled
@@ -144,40 +148,54 @@ private[akka] class ReplayingSnapshot[C, E, S](override val setup: BehaviorSetup
   def onSnapshotterResponse(
       response: SnapshotProtocol.Response,
       receivedPoisonPill: Boolean): Behavior[InternalProtocol] = {
+
+    def loadSnapshotResult(snapshot: Option[SelectedSnapshot], toSnr: Long): Behavior[InternalProtocol] = {
+      var state: S = setup.emptyState
+
+      val (seqNr: Long, seenPerReplica, version) = snapshot match {
+        case Some(SelectedSnapshot(metadata, snapshot)) =>
+          state = setup.snapshotAdapter.fromJournal(snapshot)
+          setup.internalLogger.debug("Loaded snapshot with metadata [{}]", metadata)
+          metadata.metadata match {
+            case Some(rm: ReplicatedSnapshotMetadata) =>
+              (metadata.sequenceNr, rm.seenPerReplica, rm.version)
+            case _ => (metadata.sequenceNr, Map.empty[ReplicaId, Long], VersionVector.empty)
+          }
+        case None => (0L, Map.empty[ReplicaId, Long], VersionVector.empty)
+      }
+
+      setup.internalLogger.debugN("Snapshot recovered from {} {} {}", seqNr, seenPerReplica, version)
+
+      setup.cancelRecoveryTimer()
+
+      ReplayingEvents[C, E, S](
+        setup,
+        ReplayingEvents.ReplayingState(
+          seqNr,
+          state,
+          eventSeenInInterval = false,
+          toSnr,
+          receivedPoisonPill,
+          System.nanoTime(),
+          version,
+          seenPerReplica,
+          eventsReplayed = 0))
+    }
+
     response match {
-      case LoadSnapshotResult(sso, toSnr) =>
-        var state: S = setup.emptyState
-
-        val (seqNr: Long, seenPerReplica, version) = sso match {
-          case Some(SelectedSnapshot(metadata, snapshot)) =>
-            state = setup.snapshotAdapter.fromJournal(snapshot)
-            setup.context.log.debug("Loaded snapshot with metadata [{}]", metadata)
-            metadata.metadata match {
-              case Some(rm: ReplicatedSnapshotMetadata) => (metadata.sequenceNr, rm.seenPerReplica, rm.version)
-              case _                                    => (metadata.sequenceNr, Map.empty[ReplicaId, Long].withDefaultValue(0L), VersionVector.empty)
-            }
-          case None => (0L, Map.empty[ReplicaId, Long].withDefaultValue(0L), VersionVector.empty)
-        }
-
-        setup.context.log.debugN("Snapshot recovered from {} {} {}", seqNr, seenPerReplica, version)
-
-        setup.cancelRecoveryTimer()
-
-        ReplayingEvents[C, E, S](
-          setup,
-          ReplayingEvents.ReplayingState(
-            seqNr,
-            state,
-            eventSeenInInterval = false,
-            toSnr,
-            receivedPoisonPill,
-            System.nanoTime(),
-            version,
-            seenPerReplica,
-            eventsReplayed = 0))
+      case LoadSnapshotResult(snapshot, toSnr) =>
+        loadSnapshotResult(snapshot, toSnr)
 
       case LoadSnapshotFailed(cause) =>
-        onRecoveryFailure(cause)
+        if (setup.isSnapshotOptional) {
+          setup.internalLogger.info(
+            "Snapshot load error for persistenceId [{}]. Replaying all events since snapshot-is-optional=true",
+            setup.persistenceId)
+
+          loadSnapshotResult(snapshot = None, setup.recovery.toSequenceNr)
+        } else {
+          onRecoveryFailure(cause)
+        }
 
       case _ =>
         Behaviors.unhandled

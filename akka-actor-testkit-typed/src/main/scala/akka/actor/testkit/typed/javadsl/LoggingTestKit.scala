@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.testkit.typed.javadsl
@@ -75,6 +75,11 @@ import akka.annotation.DoNotInherit
    * The event MDC may have more entries than the given `Map`.
    */
   def withMdc(newMdc: java.util.Map[String, String]): LoggingTestKit
+
+  /**
+   * After matching the expected number of hits, check for excess messages
+   */
+  def withCheckExcess(check: Boolean): LoggingTestKit
 
   /**
    * Matching events for which the supplied function returns `true`.

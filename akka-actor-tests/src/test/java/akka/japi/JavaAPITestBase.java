@@ -1,19 +1,18 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.japi;
+
+import static org.junit.Assert.*;
 
 import akka.actor.ExtendedActorSystem;
 import akka.event.LoggingAdapter;
 import akka.event.NoLogging;
 import akka.serialization.JavaSerializer;
+import java.util.concurrent.Callable;
 import org.junit.Test;
 import org.scalatestplus.junit.JUnitSuite;
-
-import java.util.concurrent.Callable;
-
-import static org.junit.Assert.*;
 
 public class JavaAPITestBase extends JUnitSuite {
 

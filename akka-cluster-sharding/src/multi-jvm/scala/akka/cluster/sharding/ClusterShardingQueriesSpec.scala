@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
@@ -23,6 +23,7 @@ object ClusterShardingQueriesSpec {
 
   val extractShardId: ShardRegion.ExtractShardId = {
     case PingPongActor.Ping(id) => (id % numberOfShards).toString
+    case _                      => throw new RuntimeException()
   }
 
   val shardTypeName = "DatatypeA"
@@ -112,15 +113,17 @@ abstract class ClusterShardingQueriesSpec
       runOn(busy, second, third) {
         val probe = TestProbe()
         val region = ClusterSharding(system).shardRegion(shardTypeName)
-        region.tell(ShardRegion.GetClusterShardingStats(10.seconds), probe.ref)
-        val regions = probe.expectMsgType[ShardRegion.ClusterShardingStats].regions
-        regions.size shouldEqual 3
-        val timeouts = numberOfShards / regions.size
+        awaitAssert({
+          region.tell(ShardRegion.GetClusterShardingStats(10.seconds), probe.ref)
+          val regions = probe.expectMsgType[ShardRegion.ClusterShardingStats].regions
+          regions.size shouldEqual 3
+          val timeouts = numberOfShards / regions.size
 
-        // 3 regions, 2 shards per region, all 2 shards/region were unresponsive
-        // within shard-region-query-timeout, which only on first is 0ms
-        regions.values.map(_.stats.size).sum shouldEqual 4
-        regions.values.map(_.failed.size).sum shouldEqual timeouts
+          // 3 regions, 2 shards per region, all 2 shards/region were unresponsive
+          // within shard-region-query-timeout, which only on first is 0ms
+          regions.values.map(_.stats.size).sum shouldEqual 4
+          regions.values.map(_.failed.size).sum shouldEqual timeouts
+        }, max = 10.seconds)
       }
       enterBarrier("received failed stats from timed out shards vs empty")
     }
@@ -129,21 +132,24 @@ abstract class ClusterShardingQueriesSpec
       runOn(busy) {
         val probe = TestProbe()
         val region = ClusterSharding(system).shardRegion(shardTypeName)
-        region.tell(ShardRegion.GetShardRegionState, probe.ref)
-        val state = probe.expectMsgType[ShardRegion.CurrentShardRegionState]
-        state.shards.isEmpty shouldEqual true
-        state.failed.size shouldEqual 2
+        awaitAssert({
+          region.tell(ShardRegion.GetShardRegionState, probe.ref)
+          val state = probe.expectMsgType[ShardRegion.CurrentShardRegionState]
+          state.shards.isEmpty shouldEqual true
+          state.failed.size shouldEqual 2
+        }, max = 10.seconds)
       }
       enterBarrier("query-timeout-on-busy-node")
 
       runOn(second, third) {
         val probe = TestProbe()
         val region = ClusterSharding(system).shardRegion(shardTypeName)
-
-        region.tell(ShardRegion.GetShardRegionState, probe.ref)
-        val state = probe.expectMsgType[ShardRegion.CurrentShardRegionState]
-        state.shards.size shouldEqual 2
-        state.failed.isEmpty shouldEqual true
+        awaitAssert({
+          region.tell(ShardRegion.GetShardRegionState, probe.ref)
+          val state = probe.expectMsgType[ShardRegion.CurrentShardRegionState]
+          state.shards.size shouldEqual 2
+          state.failed.isEmpty shouldEqual true
+        }, max = 10.seconds)
       }
       enterBarrier("done")
     }

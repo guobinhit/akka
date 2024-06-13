@@ -1,10 +1,12 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding.typed.delivery
 
 import java.util.UUID
+
+import scala.concurrent.duration._
 
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
@@ -35,7 +37,6 @@ object DurableShardingSpec {
   def conf: Config =
     ConfigFactory.parseString(s"""
     akka.actor.provider = cluster
-    akka.remote.classic.netty.tcp.port = 0
     akka.remote.artery.canonical.port = 0
     akka.persistence.journal.plugin = "akka.persistence.journal.inmem"
     akka.persistence.snapshot-store.plugin = "akka.persistence.snapshot-store.local"
@@ -174,7 +175,8 @@ class DurableShardingSpec
       journalOperations.expectMessageType[InmemJournal.Write].event.getClass should ===(
         classOf[DurableProducerQueue.MessageSent[_]])
 
-      val delivery5 = consumerProbe.receiveMessage()
+      // issue #30489: the consumer controller may have stopped after msg-5, so allow for resend on timeout (10-15s)
+      val delivery5 = consumerProbe.receiveMessage(20.seconds)
       delivery5.msg should ===(TestConsumer.Job("msg-5"))
       delivery5.seqNr should ===(3)
       delivery5.confirmTo ! ConsumerController.Confirmed

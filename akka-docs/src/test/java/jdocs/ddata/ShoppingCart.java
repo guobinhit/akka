@@ -1,14 +1,8 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.ddata;
-
-import java.io.Serializable;
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.Set;
-import java.time.Duration;
 
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
@@ -26,6 +20,11 @@ import akka.cluster.ddata.Replicator.UpdateSuccess;
 import akka.cluster.ddata.Replicator.UpdateTimeout;
 import akka.cluster.ddata.Replicator.WriteConsistency;
 import akka.cluster.ddata.Replicator.WriteMajority;
+import java.io.Serializable;
+import java.time.Duration;
+import java.util.HashSet;
+import java.util.Optional;
+import java.util.Set;
 
 @SuppressWarnings("unchecked")
 public class ShoppingCart extends AbstractActor {

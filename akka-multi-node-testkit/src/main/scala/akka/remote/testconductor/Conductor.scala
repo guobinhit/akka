@@ -1,48 +1,43 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.testconductor
 
+import akka.AkkaException
+import akka.ConfigurationException
+import akka.actor.Actor
+import akka.actor.ActorRef
+import akka.actor.Address
+import akka.actor.DeadLetterSuppression
+import akka.actor.Deploy
+import akka.actor.LoggingFSM
+import akka.actor.NoSerializationVerificationNeeded
+import akka.actor.OneForOneStrategy
+import akka.actor.Props
+import akka.actor.Status
+import akka.actor.SupervisorStrategy
+import akka.event.LoggingReceive
+import akka.event.Logging
+import akka.event.LoggingAdapter
+import akka.pattern.ask
+import akka.remote.testconductor.RemoteConnection.getAddrString
+import akka.remote.testkit.Direction
+import akka.util.Timeout
+import io.netty.channel.ChannelInboundHandlerAdapter
+import io.netty.channel.Channel
+import io.netty.channel.ChannelHandler.Sharable
+import io.netty.channel.ChannelHandlerContext
+
 import java.net.InetSocketAddress
 import java.util.concurrent.ConcurrentHashMap
-
+import scala.annotation.nowarn
 import scala.concurrent.Await
 import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.language.postfixOps
 import scala.reflect.classTag
 import scala.util.control.NoStackTrace
-
-import RemoteConnection.getAddrString
-import language.postfixOps
-import org.jboss.netty.channel.{
-  Channel,
-  ChannelHandlerContext,
-  ChannelStateEvent,
-  MessageEvent,
-  SimpleChannelUpstreamHandler
-}
-
-import akka.AkkaException
-import akka.ConfigurationException
-import akka.actor.{
-  Actor,
-  ActorRef,
-  Address,
-  DeadLetterSuppression,
-  Deploy,
-  LoggingFSM,
-  NoSerializationVerificationNeeded,
-  OneForOneStrategy,
-  Props,
-  Status,
-  SupervisorStrategy
-}
-import akka.event.{ Logging, LoggingAdapter }
-import akka.event.LoggingReceive
-import akka.pattern.ask
-import akka.remote.transport.ThrottlerTransportAdapter.Direction
-import akka.util.Timeout
 
 /**
  * The conductor is the one orchestrating the test: it governs the
@@ -85,10 +80,10 @@ trait Conductor { this: TestConductorExt =>
       name: RoleName,
       controllerPort: InetSocketAddress): Future[InetSocketAddress] = {
     if (_controller ne null) throw new RuntimeException("TestConductorServer was already started")
-    _controller = system.systemActorOf(Props(classOf[Controller], participants, controllerPort), "controller")
+    _controller = system.systemActorOf(Props(new Controller(participants, controllerPort)), "controller")
     import Settings.BarrierTimeout
     import system.dispatcher
-    (controller ? GetSockAddr).flatMap {
+    (controller ? GetSockAddr).mapTo[InetSocketAddress].flatMap {
       case sockAddr: InetSocketAddress => startClient(name, sockAddr).map(_ => sockAddr)
     }
   }
@@ -125,6 +120,7 @@ trait Conductor { this: TestConductorExt =>
    * @param direction can be either `Direction.Send`, `Direction.Receive` or `Direction.Both`
    * @param rateMBit is the maximum data rate in MBit
    */
+  @deprecated("Throttle is not implemented, use blackhole and passThrough.", "2.8.0")
   def throttle(node: RoleName, target: RoleName, direction: Direction, rateMBit: Double): Future[Done] = {
     import Settings.QueryTimeout
     requireTestConductorTranport()
@@ -145,21 +141,15 @@ trait Conductor { this: TestConductorExt =>
    * @param target is the symbolic name of the other node to which connectivity shall be impeded
    * @param direction can be either `Direction.Send`, `Direction.Receive` or `Direction.Both`
    */
+  @nowarn("msg=deprecated")
   def blackhole(node: RoleName, target: RoleName, direction: Direction): Future[Done] =
     throttle(node, target, direction, 0f)
 
   private def requireTestConductorTranport(): Unit = {
-    if (transport.provider.remoteSettings.Artery.Enabled) {
-      if (!transport.provider.remoteSettings.Artery.Advanced.TestMode)
-        throw new ConfigurationException(
-          "To use this feature you must activate the test mode " +
-          "by specifying `testTransport(on = true)` in your MultiNodeConfig.")
-    } else {
-      if (!transport.defaultAddress.protocol.contains(".trttl.gremlin."))
-        throw new ConfigurationException(
-          "To use this feature you must activate the failure injector adapters " +
-          "(trttl, gremlin) by specifying `testTransport(on = true)` in your MultiNodeConfig.")
-    }
+    if (!transport.provider.remoteSettings.Artery.Advanced.TestMode)
+      throw new ConfigurationException(
+        "To use this feature you must activate the test mode " +
+        "by specifying `testTransport(on = true)` in your MultiNodeConfig.")
   }
 
   /**
@@ -174,6 +164,7 @@ trait Conductor { this: TestConductorExt =>
    * @param target is the symbolic name of the other node to which connectivity shall be impeded
    * @param direction can be either `Direction.Send`, `Direction.Receive` or `Direction.Both`
    */
+  @nowarn("msg=deprecated")
   def passThrough(node: RoleName, target: RoleName, direction: Direction): Future[Done] =
     throttle(node, target, direction, -1f)
 
@@ -187,7 +178,7 @@ trait Conductor { this: TestConductorExt =>
    */
   def disconnect(node: RoleName, target: RoleName): Future[Done] = {
     import Settings.QueryTimeout
-    (controller ? Disconnect(node, target, false)).mapTo(classTag[Done])
+    (controller ? Disconnect(node, target, abort = false)).mapTo(classTag[Done])
   }
 
   /**
@@ -200,7 +191,7 @@ trait Conductor { this: TestConductorExt =>
    */
   def abort(node: RoleName, target: RoleName): Future[Done] = {
     import Settings.QueryTimeout
-    (controller ? Disconnect(node, target, true)).mapTo(classTag[Done])
+    (controller ? Disconnect(node, target, abort = true)).mapTo(classTag[Done])
   }
 
   /**
@@ -276,32 +267,33 @@ trait Conductor { this: TestConductorExt =>
  *
  * INTERNAL API.
  */
+@Sharable
 private[akka] class ConductorHandler(_createTimeout: Timeout, controller: ActorRef, log: LoggingAdapter)
-    extends SimpleChannelUpstreamHandler {
+    extends ChannelInboundHandlerAdapter {
 
   implicit val createTimeout: Timeout = _createTimeout
   val clients = new ConcurrentHashMap[Channel, ActorRef]()
 
-  override def channelConnected(ctx: ChannelHandlerContext, event: ChannelStateEvent) = {
-    val channel = event.getChannel
+  override def channelActive(ctx: ChannelHandlerContext): Unit = {
+    val channel = ctx.channel()
     log.debug("connection from {}", getAddrString(channel))
     val fsm: ActorRef =
       Await.result((controller ? Controller.CreateServerFSM(channel)).mapTo(classTag[ActorRef]), Duration.Inf)
     clients.put(channel, fsm)
   }
 
-  override def channelDisconnected(ctx: ChannelHandlerContext, event: ChannelStateEvent) = {
-    val channel = event.getChannel
+  override def channelInactive(ctx: ChannelHandlerContext): Unit = {
+    val channel = ctx.channel()
     log.debug("disconnect from {}", getAddrString(channel))
     val fsm = clients.get(channel)
     fsm ! Controller.ClientDisconnected
     clients.remove(channel)
   }
 
-  override def messageReceived(ctx: ChannelHandlerContext, event: MessageEvent) = {
-    val channel = event.getChannel
-    log.debug("message from {}: {}", getAddrString(channel), event.getMessage)
-    event.getMessage match {
+  override def channelRead(ctx: ChannelHandlerContext, msg: AnyRef): Unit = {
+    val channel = ctx.channel()
+    log.debug("message from {}: {}", getAddrString(channel), msg)
+    msg match {
       case msg: NetworkOp =>
         clients.get(channel) ! msg
       case msg =>
@@ -310,6 +302,11 @@ private[akka] class ConductorHandler(_createTimeout: Timeout, controller: ActorR
     }
   }
 
+  @nowarn("msg=deprecated")
+  override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
+    log.debug("channel {} exception {}", ctx.channel(), cause)
+    ctx.close()
+  }
 }
 
 /**
@@ -388,10 +385,10 @@ private[akka] class ServerFSM(val controller: ActorRef, val channel: Channel)
       log.warning("client {} sent unsupported message {}", getAddrString(channel), msg)
       stop()
     case Event(ToClient(msg: UnconfirmedClientOp), _) =>
-      channel.write(msg)
+      channel.writeAndFlush(msg)
       stay()
     case Event(ToClient(msg), None) =>
-      channel.write(msg)
+      channel.writeAndFlush(msg)
       stay().using(Some(sender()))
     case Event(ToClient(msg), _) =>
       log.warning("cannot send {} while waiting for previous ACK", msg)
@@ -426,7 +423,7 @@ private[akka] class Controller(private var initialParticipants: Int, controllerP
   import Controller._
 
   val settings = TestConductor().Settings
-  val connection = RemoteConnection(
+  val connection: RemoteConnection = RemoteConnection(
     Server,
     controllerPort,
     settings.ServerSocketWorkerPoolSize,
@@ -440,20 +437,22 @@ private[akka] class Controller(private var initialParticipants: Int, controllerP
    * BarrierTimeouts in the players).
    */
   override def supervisorStrategy = OneForOneStrategy() {
-    case BarrierTimeout(data)             => failBarrier(data)
-    case FailedBarrier(data)              => failBarrier(data)
-    case BarrierEmpty(_, _)               => SupervisorStrategy.Resume
-    case WrongBarrier(name, client, data) => { client ! ToClient(BarrierResult(name, false)); failBarrier(data) }
-    case ClientLost(data, _)              => failBarrier(data)
-    case DuplicateNode(data, _)           => failBarrier(data)
+    case BarrierTimeout(data) => failBarrier(data)
+    case FailedBarrier(data)  => failBarrier(data)
+    case BarrierEmpty(_, _)   => SupervisorStrategy.Resume
+    case WrongBarrier(name, client, data) => {
+      client ! ToClient(BarrierResult(name, success = false)); failBarrier(data)
+    }
+    case ClientLost(data, _)    => failBarrier(data)
+    case DuplicateNode(data, _) => failBarrier(data)
   }
 
   def failBarrier(data: Data): SupervisorStrategy.Directive = {
-    for (c <- data.arrived) c ! ToClient(BarrierResult(data.barrier, false))
+    for (c <- data.arrived) c ! ToClient(BarrierResult(data.barrier, success = false))
     SupervisorStrategy.Restart
   }
 
-  val barrier = context.actorOf(Props[BarrierCoordinator](), "barriers")
+  val barrier = context.actorOf(Props(new BarrierCoordinator), "barriers")
   var nodes = Map[RoleName, NodeInfo]()
 
   // map keeping unanswered queries for node addresses (enqueued upon GetAddress, serviced upon NodeInfo)
@@ -462,19 +461,21 @@ private[akka] class Controller(private var initialParticipants: Int, controllerP
 
   override def receive = LoggingReceive {
     case CreateServerFSM(channel) =>
-      val (ip, port) = channel.getRemoteAddress match {
+      val (ip, port) = channel.remoteAddress() match {
         case s: InetSocketAddress => (s.getAddress.getHostAddress, s.getPort)
+        case _                    => throw new RuntimeException() // compiler exhaustiveness check pleaser
       }
       val name = ip + ":" + port + "-server" + generation.next()
-      sender() ! context.actorOf(Props(classOf[ServerFSM], self, channel).withDeploy(Deploy.local), name)
+      sender() ! context.actorOf(Props(new ServerFSM(self, channel)).withDeploy(Deploy.local), name)
     case c @ NodeInfo(name, address, fsm) =>
       barrier.forward(c)
       if (nodes contains name) {
         if (initialParticipants > 0) {
-          for (NodeInfo(_, _, client) <- nodes.values) client ! ToClient(BarrierResult("initial startup", false))
+          for (NodeInfo(_, _, client) <- nodes.values)
+            client ! ToClient(BarrierResult("initial startup", success = false))
           initialParticipants = 0
         }
-        fsm ! ToClient(BarrierResult("initial startup", false))
+        fsm ! ToClient(BarrierResult("initial startup", success = false))
       } else {
         nodes += name -> c
         if (initialParticipants <= 0) fsm ! ToClient(Done)
@@ -514,12 +515,13 @@ private[akka] class Controller(private var initialParticipants: Int, controllerP
         case Remove(node) =>
           barrier ! BarrierCoordinator.RemoveClient(node)
       }
-    case GetNodes    => sender() ! nodes.keys
-    case GetSockAddr => sender() ! connection.getLocalAddress
+    case GetNodes => sender() ! nodes.keys
+    case GetSockAddr =>
+      sender() ! connection.channelFuture.sync().channel().localAddress()
   }
 
   override def postStop(): Unit = {
-    RemoteConnection.shutdown(connection)
+    connection.shutdown()
   }
 }
 
@@ -610,11 +612,11 @@ private[akka] class BarrierCoordinator
   when(Idle) {
     case Event(EnterBarrier(name, timeout), d @ Data(clients, _, _, _)) =>
       if (failed)
-        stay().replying(ToClient(BarrierResult(name, false)))
+        stay().replying(ToClient(BarrierResult(name, success = false)))
       else if (clients.map(_.fsm) == Set(sender()))
-        stay().replying(ToClient(BarrierResult(name, true)))
+        stay().replying(ToClient(BarrierResult(name, success = true)))
       else if (clients.find(_.fsm == sender()).isEmpty)
-        stay().replying(ToClient(BarrierResult(name, false)))
+        stay().replying(ToClient(BarrierResult(name, success = false)))
       else {
         goto(Waiting).using(d.copy(barrier = name, arrived = sender() :: Nil, deadline = getDeadline(timeout)))
       }
@@ -659,7 +661,7 @@ private[akka] class BarrierCoordinator
     if (data.arrived.isEmpty) {
       goto(Idle).using(data.copy(barrier = ""))
     } else if ((data.clients.map(_.fsm) -- data.arrived).isEmpty) {
-      data.arrived.foreach(_ ! ToClient(BarrierResult(data.barrier, true)))
+      data.arrived.foreach(_ ! ToClient(BarrierResult(data.barrier, success = true)))
       goto(Idle).using(data.copy(barrier = "", arrived = Nil))
     } else {
       stay().using(data)

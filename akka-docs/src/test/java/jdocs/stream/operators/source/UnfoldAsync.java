@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.stream.operators.source;
@@ -7,12 +7,10 @@ package jdocs.stream.operators.source;
 import akka.NotUsed;
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.ActorSystem;
+import akka.actor.typed.javadsl.AskPattern;
 import akka.japi.Pair;
 import akka.stream.javadsl.Source;
 import akka.util.ByteString;
-import akka.util.Timeout;
-import akka.actor.typed.javadsl.AskPattern;
-
 import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.metrics
@@ -52,7 +52,7 @@ class ClusterMetricsExtension(system: ExtendedActorSystem) extends Extension {
       SupervisorStrategyProvider,
       immutable.Seq(classOf[Config] -> SupervisorStrategyConfiguration))
     .getOrElse {
-      val log: LoggingAdapter = Logging(system, getClass)
+      val log: LoggingAdapter = Logging(system, classOf[ClusterMetricsExtension])
       log.error(s"Configured strategy provider ${SupervisorStrategyProvider} failed to load, using default ${classOf[
         ClusterMetricsStrategy].getName}.")
       new ClusterMetricsStrategy(SupervisorStrategyConfiguration)
@@ -63,7 +63,7 @@ class ClusterMetricsExtension(system: ExtendedActorSystem) extends Extension {
    * Accepts subtypes of [[CollectionControlMessage]]s to manage metrics collection at runtime.
    */
   val supervisor = system.systemActorOf(
-    Props(classOf[ClusterMetricsSupervisor]).withDispatcher(MetricsDispatcher).withDeploy(Deploy.local),
+    Props(new ClusterMetricsSupervisor).withDispatcher(MetricsDispatcher).withDeploy(Deploy.local),
     SupervisorName)
 
   /**

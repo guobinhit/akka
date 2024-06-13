@@ -1,9 +1,10 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
 
+import java.io.NotSerializableException
 import java.nio.ByteBuffer
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit.NANOSECONDS
@@ -29,7 +30,7 @@ object MaxThroughputSpec extends MultiNodeConfig {
 
   val cfg = ConfigFactory.parseString(s"""
      # for serious measurements you should increase the totalMessagesFactor (80)
-     akka.test.MaxThroughputSpec.totalMessagesFactor = 10.0
+     akka.test.MaxThroughputSpec.totalMessagesFactor = 160.0
      akka.test.MaxThroughputSpec.real-message = off
      akka.test.MaxThroughputSpec.actor-selection = off
      akka {
@@ -51,7 +52,6 @@ object MaxThroughputSpec extends MultiNodeConfig {
          }
        }
        remote.artery {
-         enabled = on
 
          # for serious measurements when running this test on only one machine
          # it is recommended to use external media driver
@@ -174,8 +174,7 @@ object MaxThroughputSpec extends MultiNodeConfig {
     var pendingFlowControl = Map.empty[Int, Int]
 
     val compressionEnabled =
-      RARP(context.system).provider.transport.isInstanceOf[ArteryTransport] &&
-      RARP(context.system).provider.remoteSettings.Artery.Enabled
+      RARP(context.system).provider.remoteSettings.Artery.Advanced.Compression.Enabled
 
     def receive = {
       case Run =>
@@ -326,6 +325,7 @@ object MaxThroughputSpec extends MultiNodeConfig {
     override def manifest(o: AnyRef): String =
       o match {
         case _: FlowControl => FlowControlManifest
+        case _              => throw new NotSerializableException()
       }
 
     override def toBinary(o: AnyRef, buf: ByteBuffer): Unit =
@@ -333,11 +333,13 @@ object MaxThroughputSpec extends MultiNodeConfig {
         case FlowControl(id, burstStartTime) =>
           buf.putInt(id)
           buf.putLong(burstStartTime)
+        case _ => throw new NotSerializableException()
       }
 
     override def fromBinary(buf: ByteBuffer, manifest: String): AnyRef =
       manifest match {
         case FlowControlManifest => FlowControl(buf.getInt, buf.getLong)
+        case _                   => throw new NotSerializableException()
       }
 
     override def toBinary(o: AnyRef): Array[Byte] = o match {
@@ -348,6 +350,7 @@ object MaxThroughputSpec extends MultiNodeConfig {
         val bytes = new Array[Byte](buf.remaining)
         buf.get(bytes)
         bytes
+      case _ => throw new NotSerializableException()
     }
 
     override def fromBinary(bytes: Array[Byte], manifest: String): AnyRef =

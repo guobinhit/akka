@@ -1,8 +1,10 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed
+
+import org.scalatest.wordspec.AnyWordSpecLike
 
 import akka.Done
 import akka.actor.testkit.typed.scaladsl.LogCapturing
@@ -14,7 +16,6 @@ import akka.persistence.testkit.PersistenceTestKitPlugin
 import akka.persistence.typed.scaladsl.Effect
 import akka.persistence.typed.scaladsl.EventSourcedBehavior
 import akka.serialization.jackson.CborSerializable
-import org.scalatest.wordspec.AnyWordSpecLike
 
 object EventPublishingSpec {
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
@@ -11,8 +11,8 @@ import com.typesafe.config.{ Config, ConfigFactory }
 
 import akka.actor.ActorSystem
 import akka.cluster.{ Cluster, ClusterReadView }
-import akka.testkit.WithLogCapturing
 import akka.testkit.{ AkkaSpec, LongRunningTest }
+import akka.testkit.WithLogCapturing
 
 class JoinConfigCompatCheckShardingSpec extends AkkaSpec() with WithLogCapturing {
 
@@ -30,7 +30,6 @@ class JoinConfigCompatCheckShardingSpec extends AkkaSpec() with WithLogCapturing
      akka.loglevel = DEBUG
      akka.loggers = ["akka.testkit.SilenceAllTestEventListener"]
      akka.coordinated-shutdown.terminate-actor-system = on
-     akka.remote.classic.netty.tcp.port = 0
      akka.remote.artery.canonical.port = 0
      akka.cluster.sharding.verbose-debug-logging = on
      """)

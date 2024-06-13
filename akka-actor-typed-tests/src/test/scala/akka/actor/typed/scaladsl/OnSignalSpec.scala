@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed
@@ -39,7 +39,7 @@ final class OnSignalSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike 
         }, s"$i")
       }
       Behaviors
-        .receiveMessage[String] {
+        .receiveMessagePartial[String] {
           case "stop" =>
             Behaviors.stopped
         }

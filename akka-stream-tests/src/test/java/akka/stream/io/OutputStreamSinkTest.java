@@ -1,32 +1,26 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.io;
 
+import static org.junit.Assert.assertEquals;
+
 import akka.stream.IOOperationIncompleteException;
 import akka.stream.IOResult;
 import akka.stream.StreamTest;
-import akka.testkit.AkkaJUnitActorSystemResource;
 import akka.stream.javadsl.Source;
 import akka.stream.javadsl.StreamConverters;
 import akka.stream.testkit.Utils;
+import akka.testkit.AkkaJUnitActorSystemResource;
 import akka.util.ByteString;
-import org.junit.Assert;
-import org.junit.ClassRule;
-import org.junit.Test;
-import org.junit.matchers.JUnitMatchers;
-import scala.concurrent.Await;
-import scala.concurrent.Future;
-import scala.concurrent.duration.FiniteDuration;
-
 import java.io.OutputStream;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.assertFalse;
+import org.junit.Assert;
+import org.junit.ClassRule;
+import org.junit.Test;
 
 public class OutputStreamSinkTest extends StreamTest {
   public OutputStreamSinkTest() {
@@ -38,7 +32,7 @@ public class OutputStreamSinkTest extends StreamTest {
       new AkkaJUnitActorSystemResource("OutputStreamSinkTest", Utils.UnboundedMailboxConfig());
 
   @Test
-  public void mustSignalFailureViaFailingFuture() throws Exception {
+  public void mustSignalFailureViaFailingFuture() {
 
     final OutputStream os =
         new OutputStream() {
@@ -54,12 +48,16 @@ public class OutputStreamSinkTest extends StreamTest {
     final CompletionStage<IOResult> resultFuture =
         Source.single(ByteString.fromString("123456"))
             .runWith(StreamConverters.fromOutputStream(() -> os), system);
-    try {
-      resultFuture.toCompletableFuture().get(3, TimeUnit.SECONDS);
-      Assert.fail("expected IOIncompleteException");
-    } catch (ExecutionException e) {
-      Assert.assertEquals(e.getCause().getClass(), IOOperationIncompleteException.class);
-      Assert.assertEquals(e.getCause().getCause().getMessage(), "Can't accept more data.");
-    }
+
+    ExecutionException exception =
+        Assert.assertThrows(
+            "CompletableFuture.get() should throw ExecutionException",
+            ExecutionException.class,
+            () -> resultFuture.toCompletableFuture().get(3, TimeUnit.SECONDS));
+    assertEquals(
+        "The cause of ExecutionException should be IOOperationIncompleteException",
+        exception.getCause().getClass(),
+        IOOperationIncompleteException.class);
+    assertEquals(exception.getCause().getCause().getMessage(), "Can't accept more data.");
   }
 }

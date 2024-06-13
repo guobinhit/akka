@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
+import scala.annotation.nowarn
 import scala.annotation.tailrec
 import scala.concurrent.Await
 import scala.concurrent.Future
@@ -17,8 +18,6 @@ import scala.concurrent.duration._
 import scala.util.Try
 import scala.util.control.NoStackTrace
 
-import com.github.ghik.silencer.silent
-
 import akka.Done
 import akka.NotUsed
 import akka.actor._
@@ -26,21 +25,21 @@ import akka.annotation.InternalStableApi
 import akka.dispatch.Dispatchers
 import akka.event.Logging
 import akka.event.MarkerLoggingAdapter
-import akka.remote.AddressUidExtension
 import akka.remote.RemoteActorRef
 import akka.remote.RemoteActorRefProvider
 import akka.remote.RemoteTransport
 import akka.remote.UniqueAddress
+import akka.remote.artery.Association.UidCollisionException
 import akka.remote.artery.Decoder.InboundCompressionAccess
 import akka.remote.artery.Encoder.OutboundCompressionAccess
 import akka.remote.artery.InboundControlJunction.ControlMessageObserver
 import akka.remote.artery.InboundControlJunction.ControlMessageSubject
 import akka.remote.artery.OutboundControlJunction.OutboundControlIngress
-import akka.remote.artery.compress._
 import akka.remote.artery.compress.CompressionProtocol.CompressionMessage
-import akka.remote.transport.ThrottlerTransportAdapter.Blackhole
-import akka.remote.transport.ThrottlerTransportAdapter.SetThrottle
-import akka.remote.transport.ThrottlerTransportAdapter.Unthrottled
+import akka.remote.artery.compress._
+import akka.remote.testkit.Blackhole
+import akka.remote.testkit.SetThrottle
+import akka.remote.testkit.Unthrottled
 import akka.stream._
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Keep
@@ -98,9 +97,9 @@ private[remote] object AssociationState {
       quarantined = ImmutableLongMap.empty[QuarantinedTimestamp],
       new AtomicReference(UniqueRemoteAddressValue(None, Nil)))
 
-  final case class QuarantinedTimestamp(nanoTime: Long) {
+  final case class QuarantinedTimestamp(nanoTime: Long, harmless: Boolean) {
     override def toString: String =
-      s"Quarantined ${TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - nanoTime)} seconds ago"
+      s"Quarantined ${TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - nanoTime)} seconds ago, harmless $harmless"
   }
 
   private final case class UniqueRemoteAddressValue(
@@ -117,7 +116,7 @@ private[remote] object AssociationState {
 /**
  * INTERNAL API
  */
-private[remote] final class AssociationState(
+private[remote] final class AssociationState private (
     val incarnation: Int,
     val lastUsedTimestamp: AtomicLong, // System.nanoTime timestamp
     val controlIdleKillSwitch: OptionVal[SharedKillSwitch],
@@ -148,6 +147,12 @@ private[remote] final class AssociationState(
   }
 
   def isQuarantined(uid: Long): Boolean = quarantined.contains(uid)
+
+  def isQuarantinedHarmless(uid: Long): Boolean =
+    quarantined.get(uid) match {
+      case OptionVal.Some(QuarantinedTimestamp(_, harmless)) => harmless
+      case _                                                 => true
+    }
 
   @tailrec def completeUniqueRemoteAddress(peer: UniqueAddress): Unit = {
     val current = _uniqueRemoteAddress.get()
@@ -186,14 +191,14 @@ private[remote] final class AssociationState(
       quarantined,
       new AtomicReference(UniqueRemoteAddressValue(Some(remoteAddress), Nil)))
 
-  def newQuarantined(): AssociationState =
+  def newQuarantined(harmless: Boolean): AssociationState =
     uniqueRemoteAddress() match {
       case Some(a) =>
         new AssociationState(
           incarnation,
           lastUsedTimestamp = new AtomicLong(System.nanoTime()),
           controlIdleKillSwitch,
-          quarantined = quarantined.updated(a.uid, QuarantinedTimestamp(System.nanoTime())),
+          quarantined = quarantined.updated(a.uid, QuarantinedTimestamp(System.nanoTime(), harmless)),
           _uniqueRemoteAddress)
       case None => this
     }
@@ -277,7 +282,7 @@ private[remote] abstract class ArteryTransport(_system: ExtendedActorSystem, _pr
   @volatile private[this] var controlSubject: ControlMessageSubject = _
   @volatile private[this] var messageDispatcher: MessageDispatcher = _
 
-  override val log: MarkerLoggingAdapter = Logging.withMarker(system, getClass)
+  override val log: MarkerLoggingAdapter = Logging.withMarker(system, classOf[ArteryTransport])
 
   val flightRecorder: RemotingFlightRecorder = RemotingFlightRecorder(system)
   log.debug("Using flight recorder {}", flightRecorder)
@@ -306,6 +311,11 @@ private[remote] abstract class ArteryTransport(_system: ExtendedActorSystem, _pr
   override def defaultAddress: Address = if (_localAddress eq null) null else localAddress.address
   override def addresses: Set[Address] = _addresses
   override def localAddressForRemote(remote: Address): Address = defaultAddress
+
+  /**
+   * Must not be accessed before `start()`, will throw NullPointerException otherwise.
+   */
+  override def systemUid: Long = _localAddress.uid
 
   protected val killSwitch: SharedKillSwitch = KillSwitches.shared("transportKillSwitch")
 
@@ -383,14 +393,18 @@ private[remote] abstract class ArteryTransport(_system: ExtendedActorSystem, _pr
 
     val (port, boundPort) = bindInboundStreams()
 
-    _localAddress = UniqueAddress(
-      Address(ArteryTransport.ProtocolName, system.name, settings.Canonical.Hostname, port),
-      AddressUidExtension(system).longAddressUid)
+    val uid =
+      if (provider.settings.config.hasPath("akka.test-only-uid"))
+        provider.settings.config.getLong("akka.test-only-uid") // to be able to test uid collisions
+      else
+        generateSystemUid(settings.Bind.Hostname, port, provider.systemUidTimestamp1)
+
+    _localAddress =
+      UniqueAddress(Address(ArteryTransport.ProtocolName, system.name, settings.Canonical.Hostname, port), uid)
     _addresses = Set(_localAddress.address)
 
-    _bindAddress = UniqueAddress(
-      Address(ArteryTransport.ProtocolName, system.name, settings.Bind.Hostname, boundPort),
-      AddressUidExtension(system).longAddressUid)
+    _bindAddress =
+      UniqueAddress(Address(ArteryTransport.ProtocolName, system.name, settings.Bind.Hostname, boundPort), uid)
 
     flightRecorder.transportUniqueAddressSet(_localAddress)
 
@@ -454,7 +468,7 @@ private[remote] abstract class ArteryTransport(_system: ExtendedActorSystem, _pr
         val hashA = 23 + a
         val hash: Int = 23 * hashA + java.lang.Long.hashCode(b)
         math.abs(hash % inboundLanes)
-      case OptionVal.None =>
+      case _ =>
         // the lane is set by the DuplicateHandshakeReq stage, otherwise 0
         env.lane
     }
@@ -558,7 +572,7 @@ private[remote] abstract class ArteryTransport(_system: ExtendedActorSystem, _pr
               // and can result in forming two separate clusters (cluster split).
               // Instead, the downing strategy should act on ThisActorSystemQuarantinedEvent, e.g.
               // use it as a STONITH signal.
-              @silent("deprecated")
+              @nowarn("msg=deprecated")
               val lifecycleEvent = ThisActorSystemQuarantinedEvent(localAddress, from)
               system.eventStream.publish(lifecycleEvent)
 
@@ -584,11 +598,11 @@ private[remote] abstract class ArteryTransport(_system: ExtendedActorSystem, _pr
       case _: AeronTerminated  => // shutdown already in progress
       case cause if isShutdown =>
         // don't restart after shutdown, but log some details so we notice
-        log.error(cause, s"{} failed after shutdown. {}", streamName, cause.getMessage)
+        log.warning(s"{} failed after shutdown. {}: {}", streamName, cause.getClass.getName, cause.getMessage)
       case _: AbruptTerminationException => // ActorSystem shutdown
       case cause =>
         if (restartCounter.restart()) {
-          log.error(cause, "{} failed. Restarting it. {}", streamName, cause.getMessage)
+          log.warning("{} failed. Restarting it. {}: {}", streamName, cause.getClass.getName, cause.getMessage)
           flightRecorder.transportRestartInbound(localAddress, streamName)
           restart()
         } else {
@@ -671,7 +685,6 @@ private[remote] abstract class ArteryTransport(_system: ExtendedActorSystem, _pr
 
   private[remote] def isShutdown: Boolean = hasBeenShutdown.get()
 
-  @silent // ThrottleMode from classic is deprecated, we can replace when removing classic
   override def managementCommand(cmd: Any): Future[Boolean] = {
     cmd match {
       case SetThrottle(address, direction, Blackhole) =>
@@ -680,6 +693,10 @@ private[remote] abstract class ArteryTransport(_system: ExtendedActorSystem, _pr
         testState.passThrough(localAddress.address, address, direction)
       case TestManagementCommands.FailInboundStreamOnce(ex) =>
         testState.failInboundStreamOnce(ex)
+      case SetThrottle(_, _, _) =>
+        log.warning("Throttle is not implemented.")
+      case _ =>
+        log.warning("Unhandled management command [{}]", cmd.getClass.getName)
     }
     Future.successful(true)
   }
@@ -724,6 +741,11 @@ private[remote] abstract class ArteryTransport(_system: ExtendedActorSystem, _pr
       associationRegistry.setUID(peer).completeHandshake(peer)
     } catch {
       case ShuttingDown => Future.successful(Done) // silence it
+      case exc: UidCollisionException =>
+        log.warning(exc.getMessage)
+        // quarantine will not do much since handshake not completed, but for good measures
+        quarantine(peer.address, Some(peer.uid), exc.getMessage, harmless = false)
+        Future.failed(exc)
     }
   }
 
@@ -809,9 +831,9 @@ private[remote] abstract class ArteryTransport(_system: ExtendedActorSystem, _pr
           system.deadLetters,
           settings.Advanced.SystemMessageResendInterval,
           settings.Advanced.SysMsgBufferSize))
+      .viaMat(new OutboundControlJunction(outboundContext, outboundEnvelopePool))(Keep.right)
       // note that System messages must not be dropped before the SystemMessageDelivery stage
       .via(outboundTestFlow(outboundContext))
-      .viaMat(new OutboundControlJunction(outboundContext, outboundEnvelopePool))(Keep.right)
       .via(createEncoder(envelopeBufferPool, ControlStreamId))
       .toMat(outboundTransportSink(outboundContext, ControlStreamId, envelopeBufferPool))(Keep.both)
 
@@ -855,7 +877,7 @@ private[remote] abstract class ArteryTransport(_system: ExtendedActorSystem, _pr
                   if (!isShutdown)
                     quarantine(from.address, Some(from.uid), "ActorSystem terminated", harmless = true)
                 }(materializer.executionContext)
-            case OptionVal.None =>
+            case _ =>
               log.error("Expected sender for ActorSystemTerminating message from [{}]", from)
           }
           false
@@ -864,17 +886,20 @@ private[remote] abstract class ArteryTransport(_system: ExtendedActorSystem, _pr
     }
   }
 
-  // Checks for termination hint messages and sends an ACK for those (not processing them further)
+  // Checks for Flush messages and sends an FlushAck for those (not processing them further)
   // Purpose of this stage is flushing, the sender can wait for the ACKs up to try flushing
   // pending messages.
-  val flushReplier: Flow[InboundEnvelope, InboundEnvelope, NotUsed] = {
+  // The Flush messages are duplicated into all lanes by the DuplicateFlush stage and
+  // the `expectedAcks` corresponds to the number of lanes. The sender receives the `expectedAcks` and
+  // thereby knows how many to wait for.
+  def flushReplier(expectedAcks: Int): Flow[InboundEnvelope, InboundEnvelope, NotUsed] = {
     Flow[InboundEnvelope].filter { envelope =>
       envelope.message match {
         case Flush =>
           envelope.sender match {
             case OptionVal.Some(snd) =>
-              snd.tell(FlushAck, ActorRef.noSender)
-            case OptionVal.None =>
+              snd.tell(FlushAck(expectedAcks), ActorRef.noSender)
+            case _ =>
               log.error("Expected sender for Flush message from [{}]", envelope.association)
           }
           false
@@ -887,7 +912,7 @@ private[remote] abstract class ArteryTransport(_system: ExtendedActorSystem, _pr
     Flow[InboundEnvelope]
       .via(createDeserializer(bufferPool))
       .via(if (settings.Advanced.TestMode) new InboundTestStage(this, testState) else Flow[InboundEnvelope])
-      .via(flushReplier)
+      .via(flushReplier(expectedAcks = settings.Advanced.InboundLanes))
       .via(terminationHintReplier(inControlStream = false))
       .via(new InboundHandshake(this, inControlStream = false))
       .via(new InboundQuarantineCheck(this))
@@ -907,7 +932,7 @@ private[remote] abstract class ArteryTransport(_system: ExtendedActorSystem, _pr
     Flow[InboundEnvelope]
       .via(createDeserializer(envelopeBufferPool))
       .via(if (settings.Advanced.TestMode) new InboundTestStage(this, testState) else Flow[InboundEnvelope])
-      .via(flushReplier)
+      .via(flushReplier(expectedAcks = 1))
       .via(terminationHintReplier(inControlStream = true))
       .via(new InboundHandshake(this, inControlStream = true))
       .via(new InboundQuarantineCheck(this))
@@ -969,5 +994,19 @@ private[remote] object ArteryTransport {
       case LargeStreamId   => "large message"
       case _               => "message"
     }
+
+  def generateSystemUid(hostname: String, port: Int, timestamp1: Long): Long = {
+    var hash1 = 23
+    hash1 = 31 * hash1 + hostname.hashCode
+    hash1 = 31 * hash1 + java.lang.Long.hashCode(timestamp1)
+    hash1 = 31 * hash1 + java.lang.Long.hashCode(System.currentTimeMillis())
+
+    var hash2 = 23
+    hash2 = 31 * hash2 + port
+    hash2 = 31 * hash2 + java.lang.Long.hashCode(System.nanoTime())
+    hash2 = 31 * hash2 + java.lang.Long.hashCode(System.currentTimeMillis())
+
+    (hash1.toLong << 32) | (hash2 & 0XFFFFFFFFL)
+  }
 
 }

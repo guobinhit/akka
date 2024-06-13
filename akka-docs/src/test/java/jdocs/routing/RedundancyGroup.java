@@ -1,20 +1,18 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.routing;
 
 // #group
-import java.util.List;
+import static jdocs.routing.CustomRouterDocTest.RedundancyRoutingLogic;
 
 import akka.actor.ActorSystem;
 import akka.dispatch.Dispatchers;
-import akka.routing.Router;
-
-import com.typesafe.config.Config;
-
 import akka.routing.GroupBase;
-import static jdocs.routing.CustomRouterDocTest.RedundancyRoutingLogic;
+import akka.routing.Router;
+import com.typesafe.config.Config;
+import java.util.List;
 
 public class RedundancyGroup extends GroupBase {
   private final List<String> paths;

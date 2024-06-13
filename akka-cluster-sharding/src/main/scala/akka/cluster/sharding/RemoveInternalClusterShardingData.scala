@@ -1,9 +1,10 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
 
+import scala.annotation.nowarn
 import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.util.Failure
@@ -91,7 +92,8 @@ object RemoveInternalClusterShardingData {
       if (journalPluginId == "") system.settings.config.getString("akka.persistence.journal.plugin")
       else journalPluginId
     if (resolvedJournalPluginId == "akka.persistence.journal.leveldb-shared") {
-      val store = system.actorOf(Props[SharedLeveldbStore](), "store")
+      @nowarn("msg=deprecated")
+      val store = system.actorOf(Props(new SharedLeveldbStore), "store")
       SharedLeveldbJournal.setStore(store, system)
     }
 

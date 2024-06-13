@@ -1,12 +1,8 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.javadsl
-
-import scala.concurrent.duration.FiniteDuration
-
-import com.github.ghik.silencer.silent
 
 import akka.NotUsed
 import akka.japi.function
@@ -25,8 +21,8 @@ object BidiFlow {
    */
   def fromGraph[I1, O1, I2, O2, M](g: Graph[BidiShape[I1, O1, I2, O2], M]): BidiFlow[I1, O1, I2, O2, M] =
     g match {
-      case bidi: BidiFlow[I1, O1, I2, O2, M] => bidi
-      case other                             => new BidiFlow(scaladsl.BidiFlow.fromGraph(other))
+      case bidi: BidiFlow[I1, O1, I2, O2, M] @unchecked => bidi
+      case other                                        => new BidiFlow(scaladsl.BidiFlow.fromGraph(other))
     }
 
   /**
@@ -89,31 +85,16 @@ object BidiFlow {
 
   /**
    * If the time between two processed elements *in any direction* exceed the provided timeout, the stream is failed
-   * with a [[java.util.concurrent.TimeoutException]].
+   * with a [[akka.stream.StreamIdleTimeoutException]].
    *
    * There is a difference between this operator and having two idleTimeout Flows assembled into a BidiStage.
    * If the timeout is configured to be 1 seconds, then this operator will not fail even though there are elements flowing
    * every second in one direction, but no elements are flowing in the other direction. I.e. this operator considers
    * the *joint* frequencies of the elements in both directions.
    */
-  @Deprecated
-  @deprecated("Use the overloaded one which accepts java.time.Duration instead.", since = "2.5.12")
-  def bidirectionalIdleTimeout[I, O](timeout: FiniteDuration): BidiFlow[I, I, O, O, NotUsed] =
-    new BidiFlow(scaladsl.BidiFlow.bidirectionalIdleTimeout(timeout))
-
-  /**
-   * If the time between two processed elements *in any direction* exceed the provided timeout, the stream is failed
-   * with a [[java.util.concurrent.TimeoutException]].
-   *
-   * There is a difference between this operator and having two idleTimeout Flows assembled into a BidiStage.
-   * If the timeout is configured to be 1 seconds, then this operator will not fail even though there are elements flowing
-   * every second in one direction, but no elements are flowing in the other direction. I.e. this operator considers
-   * the *joint* frequencies of the elements in both directions.
-   */
-  @silent("deprecated")
   def bidirectionalIdleTimeout[I, O](timeout: java.time.Duration): BidiFlow[I, I, O, O, NotUsed] = {
     import akka.util.JavaDurationConverters._
-    bidirectionalIdleTimeout(timeout.asScala)
+    new BidiFlow(scaladsl.BidiFlow.bidirectionalIdleTimeout(timeout.asScala))
   }
 }
 
@@ -271,4 +252,6 @@ final class BidiFlow[I1, O1, I2, O2, Mat](delegate: scaladsl.BidiFlow[I1, O1, I2
    */
   override def async(dispatcher: String, inputBufferSize: Int): BidiFlow[I1, O1, I2, O2, Mat] =
     new BidiFlow(delegate.async(dispatcher, inputBufferSize))
+
+  override def getAttributes: Attributes = delegate.getAttributes
 }

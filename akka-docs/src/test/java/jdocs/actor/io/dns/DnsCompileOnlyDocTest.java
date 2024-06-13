@@ -1,20 +1,18 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.actor.io.dns;
+
+import static akka.pattern.Patterns.ask;
 
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import akka.io.Dns;
 import akka.io.dns.DnsProtocol;
-
-import static akka.pattern.Patterns.ask;
-
-import scala.Option;
-
 import java.time.Duration;
 import java.util.concurrent.CompletionStage;
+import scala.Option;
 
 public class DnsCompileOnlyDocTest {
   public static void example() {

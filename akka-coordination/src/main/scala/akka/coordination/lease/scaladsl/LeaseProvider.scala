@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.coordination.lease.scaladsl
@@ -35,7 +35,7 @@ object LeaseProvider extends ExtensionId[LeaseProvider] with ExtensionIdProvider
 final class LeaseProvider(system: ExtendedActorSystem) extends Extension {
   import LeaseProvider.LeaseKey
 
-  private val log = Logging(system, getClass)
+  private val log = Logging(system, classOf[LeaseProvider])
   private val leases = new ConcurrentHashMap[LeaseKey, Lease]()
 
   /**

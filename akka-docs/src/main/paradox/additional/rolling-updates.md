@@ -58,6 +58,10 @@ akka.cluster.app-version = 1.2.3
 To understand which is old and new it compares the version numbers using normal conventions,
 see @apidoc[akka.util.Version] for more details.
 
+When using [Kubernetes Deployments](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) with `RollingUpdate`
+strategy you should enable the @extref:[app-version from Deployment feature from Akka Management](akka-management:rolling-updates.html#app-version-from-deployment)
+to automatically define the `app-version` from the Kubernetes `deployment.kubernetes.io/revision` annotation.
+
 Rebalance is also disabled during rolling updates, since shards from stopped nodes are anyway supposed to be
 started on new nodes. Messages to shards that were stopped on the old nodes will allocate corresponding shards
 on the new nodes, without waiting for rebalance actions. 
@@ -78,8 +82,9 @@ it is recommended to upgrade the oldest node last. This way cluster singletons a
 Otherwise, in the worst case cluster singletons may be migrated from node to node which requires coordination and initialization 
 overhead several times.
 
-[Kubernetes Deployments](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) with `RollingUpdate`
-strategy will roll out updates in this preferred order, from newest to oldest. 
+When using [Kubernetes Deployments](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) with `RollingUpdate`
+strategy you should enable the @extref:[Kubernetes Rolling Updates feature from Akka Management](akka-management:rolling-updates.html#kubernetes-rolling-updates)
+to delete pods in the preferred order.
 
 ## Cluster Shutdown
  
@@ -167,11 +172,17 @@ If you need to change any of the following aspects of sharding it will require a
 
  * The `extractShardId` function
  * The role that the shard regions run on
- * The persistence mode - It's important to use the same mode on all nodes in the cluster 
+ * The persistence mode - It's important to use the same mode on all nodes in the cluster
+ * The @ref:[`number-of-shards`](../typed/cluster-sharding.md#basic-example) - Note: changing the number
+ of nodes in the cluster does not require changing the number of shards.
  
+### Cluster configuration change
+
+* A full restart is required if you change the [SBR strategy](https://doc.akka.io/docs/akka/current/split-brain-resolver.html#strategies)
+
 ### Migrating from PersistentFSM to EventSourcedBehavior
 
-If you've @ref:[migrated from `PersistentFSM` to `EventSourcedBehavior`](../persistence-fsm.md#migration-to-eventsourcedbehavior)
+If you've migrated from `PersistentFSM` to `EventSourcedBehavior` (See the [Akka 2.8 migration guide](https://doc.akka.io/docs/akka/2.8/persistence-fsm.html#migration-to-eventsourcedbehavior))
 and are using PersistenceFSM with Cluster Sharding, a full shutdown is required as shards can move between new and old nodes.
   
 ### Migrating from classic remoting to Artery
@@ -179,7 +190,7 @@ and are using PersistenceFSM with Cluster Sharding, a full shutdown is required 
 If you've migrated from classic remoting to Artery
 which has a completely different protocol, a rolling update is not supported.
 For more details on this migration
-see @ref:[the migration guide](../project/migration-guide-2.5.x-2.6.x.md#migrating-from-classic-remoting-to-artery).
+see [the migration guide](https://doc.akka.io/docs/akka/2.6/project/migration-guide-2.5.x-2.6.x.html#migrating-from-classic-remoting-to-artery).
 
 ### Changing remoting transport
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.stream;
@@ -20,9 +20,9 @@ import java.math.BigInteger;
 import java.time.Duration;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
+// #other-imports
 
 import jdocs.AbstractJavaTest;
-// #other-imports
 
 import org.junit.*;
 

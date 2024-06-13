@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -16,7 +16,6 @@ import akka.stream._
 import akka.stream.testkit._
 import akka.stream.testkit.TestSubscriber.Probe
 import akka.stream.testkit.Utils.TE
-import akka.stream.testkit.scaladsl.StreamTestKit._
 import akka.testkit.EventFilter
 import akka.testkit.TestProbe
 import akka.util.unused
@@ -81,22 +80,22 @@ class GraphUnzipWithSpec extends StreamSpec("""
 
   "UnzipWith" must {
 
-    "work with immediately completed publisher" in assertAllStagesStopped {
+    "work with immediately completed publisher" in {
       val subscribers = setup(TestPublisher.empty[Int]())
       validateSubscriptionAndComplete(subscribers)
     }
 
-    "work with delayed completed publisher" in assertAllStagesStopped {
+    "work with delayed completed publisher" in {
       val subscribers = setup(TestPublisher.lazyEmpty)
       validateSubscriptionAndComplete(subscribers)
     }
 
-    "work with two immediately failed publishers" in assertAllStagesStopped {
+    "work with two immediately failed publishers" in {
       val subscribers = setup(TestPublisher.error(TestException))
       validateSubscriptionAndError(subscribers)
     }
 
-    "work with two delayed failed publishers" in assertAllStagesStopped {
+    "work with two delayed failed publishers" in {
       val subscribers = setup(TestPublisher.lazyError(TestException))
       validateSubscriptionAndError(subscribers)
     }
@@ -190,6 +189,7 @@ class GraphUnzipWithSpec extends StreamSpec("""
 
       leftProbe.expectError() match {
         case a: java.lang.ArithmeticException => a.getMessage should be("/ by zero")
+        case unexpected                       => throw new RuntimeException(s"Unexpected: $unexpected")
       }
       rightProbe.expectError()
 
@@ -240,7 +240,7 @@ class GraphUnzipWithSpec extends StreamSpec("""
 
       RunnableGraph
         .fromGraph(GraphDSL.create() { implicit b =>
-          val unzip = b.add(UnzipWith((a: Person) => Person.unapply(a).get))
+          val unzip = b.add(UnzipWith((a: Person) => (a.name, a.surname, a.int)))
 
           Source.single(Person("Caplin", "Capybara", 3)) ~> unzip.in
 

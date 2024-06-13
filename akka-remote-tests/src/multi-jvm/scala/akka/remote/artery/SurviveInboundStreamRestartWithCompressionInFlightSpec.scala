@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -25,7 +25,6 @@ object SurviveInboundStreamRestartWithCompressionInFlightSpec extends MultiNodeC
       .withFallback(ConfigFactory.parseString("""
         akka.loglevel = INFO
         akka.remote.artery {
-          enabled = on
           advanced {
             inbound-lanes = 4
             give-up-system-message-after = 4s

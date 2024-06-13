@@ -1,23 +1,22 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.io;
 
+import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
 import akka.actor.Props;
-import akka.actor.AbstractActor;
 import akka.io.Inet;
 import akka.io.Tcp;
 import akka.io.TcpMessage;
 import akka.util.ByteString;
-import java.time.Duration;
-
 import java.net.InetSocketAddress;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Copyright (C) 2009-2018 Lightbend Inc. <https://www.lightbend.com> */
+/** Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com> */
 public class JavaReadBackPressure {
 
   public static class Listener extends AbstractActor {

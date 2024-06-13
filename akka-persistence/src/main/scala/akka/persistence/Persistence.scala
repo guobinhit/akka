@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence
@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicReference
 import java.util.function.Consumer
 
 import scala.annotation.tailrec
+import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.util.control.NonFatal
 
@@ -17,6 +18,7 @@ import akka.actor._
 import akka.annotation.InternalApi
 import akka.annotation.InternalStableApi
 import akka.event.{ Logging, LoggingAdapter }
+import akka.japi.Pair
 import akka.persistence.journal.{ EventAdapters, IdentityEventAdapters }
 import akka.util.Collections.EmptyImmutableSeq
 import akka.util.Helpers.ConfigOps
@@ -187,7 +189,7 @@ object Persistence extends ExtensionId[Persistence] with ExtensionIdProvider {
 
   /** Check for default or missing identity. */
   private def isEmpty(text: String) = {
-    text == null || text.length == 0
+    text == null || text.isEmpty
   }
 }
 
@@ -198,7 +200,7 @@ class Persistence(val system: ExtendedActorSystem) extends Extension {
 
   import Persistence._
 
-  private def log: LoggingAdapter = Logging(system, getClass)
+  private def log: LoggingAdapter = Logging(system, classOf[Persistence])
 
   private val NoSnapshotStorePluginId = "akka.persistence.no-snapshot-store"
 
@@ -307,6 +309,7 @@ class Persistence(val system: ExtendedActorSystem) extends Extension {
    * INTERNAL API
    * Looks up [[akka.persistence.journal.EventAdapters]] by journal plugin's ActorRef.
    */
+  @InternalApi
   private[akka] final def adaptersFor(journalPluginActor: ActorRef): EventAdapters = {
     pluginExtensionId.get().values.collectFirst {
       case ext if ext(system).actor == journalPluginActor => ext(system).adapters
@@ -322,6 +325,7 @@ class Persistence(val system: ExtendedActorSystem) extends Extension {
    * When empty, looks in `akka.persistence.journal.plugin` to find configuration entry path.
    * When configured, uses `journalPluginId` as absolute path to the journal configuration entry.
    */
+  @InternalApi
   private[akka] final def journalConfigFor(
       journalPluginId: String,
       journalPluginConfig: Config = ConfigFactory.empty): Config = {
@@ -334,6 +338,7 @@ class Persistence(val system: ExtendedActorSystem) extends Extension {
    * INTERNAL API
    * Looks up the plugin config by plugin's ActorRef.
    */
+  @InternalApi
   private[akka] final def configFor(journalPluginActor: ActorRef): Config =
     pluginExtensionId.get().values.collectFirst {
       case ext if ext(system).actor == journalPluginActor => ext(system).config
@@ -341,6 +346,18 @@ class Persistence(val system: ExtendedActorSystem) extends Extension {
       case Some(conf) => conf
       case None       => throw new IllegalArgumentException(s"Unknown plugin actor $journalPluginActor")
     }
+
+  /**
+   * INTERNAL API
+   */
+  @InternalApi
+  private[akka] final def extensionIdFor(journalPluginActor: ActorRef): String =
+    pluginExtensionId
+      .get()
+      .collectFirst {
+        case (id, ext) if ext(system).actor == journalPluginActor => id
+      }
+      .getOrElse(throw new IllegalArgumentException(s"Unknown plugin actor $journalPluginActor"))
 
   /**
    * INTERNAL API
@@ -439,6 +456,51 @@ class Persistence(val system: ExtendedActorSystem) extends Extension {
 
       PluginHolder(pluginActorFactory, adapters, config)
     }
+  }
+
+  /**
+   * A slice is deterministically defined based on the persistence id.
+   * `numberOfSlices` is not configurable because changing the value would result in
+   * different slice for a persistence id than what was used before, which would
+   * result in invalid eventsBySlices.
+   *
+   * `numberOfSlices` is 1024
+   */
+  final def numberOfSlices: Int = 1024
+
+  /**
+   * A slice is deterministically defined based on the persistence id. The purpose is to
+   * evenly distribute all persistence ids over the slices and be able to query the
+   * events for a range of slices.
+   */
+  final def sliceForPersistenceId(persistenceId: String): Int =
+    math.abs(persistenceId.hashCode % numberOfSlices)
+
+  /**
+   * Scala API: Split the total number of slices into ranges by the given `numberOfRanges`.
+   *
+   * For example, `numberOfSlices` is 1024 and given 4 `numberOfRanges` this method will
+   * return ranges (0 to 255), (256 to 511), (512 to 767) and (768 to 1023).
+   */
+  final def sliceRanges(numberOfRanges: Int): immutable.IndexedSeq[Range] = {
+    val rangeSize = numberOfSlices / numberOfRanges
+    require(
+      numberOfRanges * rangeSize == numberOfSlices,
+      s"numberOfRanges [$numberOfRanges] must be a whole number divisor of numberOfSlices [$numberOfSlices].")
+    (0 until numberOfRanges).map { i =>
+      (i * rangeSize until i * rangeSize + rangeSize)
+    }.toVector
+  }
+
+  /**
+   * Java API: Split the total number of slices into ranges by the given `numberOfRanges`.
+   *
+   * For example, `numberOfSlices` is 128 and given 4 `numberOfRanges` this method will
+   * return ranges (0 to 255), (256 to 511), (512 to 767) and (768 to 1023).
+   */
+  final def getSliceRanges(numberOfRanges: Int): java.util.List[Pair[Integer, Integer]] = {
+    import akka.util.ccompat.JavaConverters._
+    sliceRanges(numberOfRanges).map(range => Pair(Integer.valueOf(range.min), Integer.valueOf(range.max))).asJava
   }
 
 }

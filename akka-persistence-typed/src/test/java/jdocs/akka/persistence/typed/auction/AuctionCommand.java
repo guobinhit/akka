@@ -1,12 +1,11 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.akka.persistence.typed.auction;
 
 import akka.Done;
 import akka.actor.typed.ActorRef;
-
 import java.util.UUID;
 
 /** An auction command. */

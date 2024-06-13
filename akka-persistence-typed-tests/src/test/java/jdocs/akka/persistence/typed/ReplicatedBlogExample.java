@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.akka.persistence.typed;
@@ -19,7 +19,6 @@ import akka.persistence.typed.javadsl.EventHandler;
 import akka.persistence.typed.javadsl.ReplicatedEventSourcedBehavior;
 import akka.persistence.typed.javadsl.ReplicatedEventSourcing;
 import akka.persistence.typed.javadsl.ReplicationContext;
-
 import java.util.Optional;
 import java.util.Set;
 

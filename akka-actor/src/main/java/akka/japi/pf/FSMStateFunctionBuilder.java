@@ -1,12 +1,12 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.japi.pf;
 
 import akka.actor.FSM;
-import scala.PartialFunction;
 import java.util.List;
+import scala.PartialFunction;
 
 /**
  * Builder used to create a partial function for {@link akka.actor.FSM#whenUnhandled}.

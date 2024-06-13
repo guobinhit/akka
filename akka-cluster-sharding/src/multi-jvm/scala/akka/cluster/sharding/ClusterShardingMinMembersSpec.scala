@@ -1,12 +1,11 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
 
 import scala.concurrent.duration._
 
-import akka.actor._
 import akka.cluster.MemberStatus
 import akka.cluster.sharding.ShardCoordinator.ShardAllocationStrategy
 import akka.cluster.sharding.ShardRegion.{ ClusterShardingStats, GetClusterShardingStats }
@@ -17,7 +16,7 @@ import akka.util.ccompat._
 abstract class ClusterShardingMinMembersSpecConfig(mode: String)
     extends MultiNodeClusterShardingConfig(
       mode,
-      additionalConfig = s"""
+      additionalConfig = """
         akka.cluster.sharding.rebalance-interval = 120s #disable rebalance
         akka.cluster.min-nr-of-members = 3
         """) {
@@ -64,7 +63,7 @@ abstract class ClusterShardingMinMembersSpec(multiNodeConfig: ClusterShardingMin
 
   lazy val region = ClusterSharding(system).shardRegion("Entity")
 
-  s"Cluster with min-nr-of-members using sharding ($mode)" must {
+  s"Cluster with min-nr-of-members using sharding (${multiNodeConfig.mode})" must {
 
     "use all nodes" in within(30.seconds) {
       startPersistenceIfNeeded(startOn = first, setStoreOn = Seq(first, second, third))

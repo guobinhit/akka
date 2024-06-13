@@ -12,6 +12,16 @@ Combine several sinks into one using a user specified strategy
 
 Combine several sinks into one using a user specified strategy
 
+## Example
+
+This example shows how to combine multiple sinks with a Fan-out Junction.
+
+Scala
+:   @@snip [StreamPartialGraphDSLDocSpec.scala](/akka-docs/src/test/scala/docs/stream/StreamPartialGraphDSLDocSpec.scala) {#sink-combine }
+
+Java
+:   @@snip [StreamPartialGraphDSLDocTest.java](/akka-docs/src/test/java/jdocs/stream/StreamPartialGraphDSLDocTest.java) { #sink-combine }
+
 ## Reactive Streams semantics
 
 @@@div { .callout }

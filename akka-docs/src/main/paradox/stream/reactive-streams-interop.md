@@ -2,9 +2,18 @@
 
 ## Dependency
 
+The Akka dependencies are available from Akka's library repository. To access them there, you need to configure the URL for this repository.
+
+@@repository [sbt,Maven,Gradle] {
+id="akka-repository"
+name="Akka library repository"
+url="https://repo.akka.io/maven"
+}
+
 To use Akka Streams, add the module to your project:
 
 @@dependency[sbt,Maven,Gradle] {
+  bomGroup=com.typesafe.akka bomArtifact=akka-bom_$scala.binary.version$ bomVersionSymbols=AkkaVersion
   symbol1=AkkaVersion
   value1="$akka.version$"
   group="com.typesafe.akka"
@@ -65,7 +74,7 @@ Java
 The `Publisher` is used as an input `Source` to the flow and the
 `Subscriber` is used as an output `Sink`.
 
-A `Flow` can also be also converted to a `RunnableGraph[Processor[In, Out]]` which
+A `Flow` can also be converted to a `RunnableGraph[Processor[In, Out]]` which
 materializes to a `Processor` when `run()` is called. `run()` itself can be called multiple
 times, resulting in a new `Processor` instance each time.
 

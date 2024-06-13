@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.javadsl
@@ -392,9 +392,9 @@ final class CommandHandlerBuilderByState[Command, Event, S <: State, State] @Int
         }
 
         effect match {
-          case OptionVal.None =>
-            throw new MatchError(s"No match found for command of type [${command.getClass.getName}]")
           case OptionVal.Some(e) => e.asInstanceOf[EffectImpl[Event, State]]
+          case _ =>
+            throw new MatchError(s"No match found for command of type [${command.getClass.getName}]")
         }
       }
     }

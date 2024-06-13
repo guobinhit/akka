@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
@@ -9,9 +9,8 @@ import scala.concurrent.duration._
 import com.typesafe.config.ConfigFactory
 import language.postfixOps
 
+import akka.remote.testkit.Direction
 import akka.remote.testkit.MultiNodeConfig
-import akka.remote.testkit.MultiNodeSpec
-import akka.remote.transport.ThrottlerTransportAdapter.Direction
 import akka.testkit._
 
 final case class SplitBrainMultiNodeConfig(failureDetectorPuppet: Boolean) extends MultiNodeConfig {
@@ -24,7 +23,6 @@ final case class SplitBrainMultiNodeConfig(failureDetectorPuppet: Boolean) exten
   commonConfig(
     debugConfig(on = false)
       .withFallback(ConfigFactory.parseString("""
-        akka.remote.retry-gate-closed-for = 3 s
         akka.cluster {
           downing-provider-class = akka.cluster.testkit.AutoDowning
           testkit.auto-down-unreachable-after = 1s
@@ -48,8 +46,7 @@ class SplitBrainWithAccrualFailureDetectorMultiJvmNode4 extends SplitBrainSpec(f
 class SplitBrainWithAccrualFailureDetectorMultiJvmNode5 extends SplitBrainSpec(failureDetectorPuppet = false)
 
 abstract class SplitBrainSpec(multiNodeConfig: SplitBrainMultiNodeConfig)
-    extends MultiNodeSpec(multiNodeConfig)
-    with MultiNodeClusterSpec {
+    extends MultiNodeClusterSpec(multiNodeConfig) {
 
   def this(failureDetectorPuppet: Boolean) = this(SplitBrainMultiNodeConfig(failureDetectorPuppet))
 

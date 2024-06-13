@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.io
@@ -10,11 +10,11 @@ import java.net.Inet6Address
 import java.security.Security
 import java.util.concurrent.TimeUnit
 
+import scala.annotation.nowarn
 import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.util.{ Failure, Success, Try }
 
-import com.github.ghik.silencer.silent
 import com.typesafe.config.Config
 
 import akka.actor.{ Actor, ActorLogging }
@@ -34,7 +34,7 @@ import akka.util.Helpers.Requiring
  *
  * Respects the settings that can be set on the Java runtime via parameters.
  */
-@silent("deprecated")
+@nowarn("msg=deprecated")
 @InternalApi
 class InetAddressDnsResolver(cache: SimpleDnsCache, config: Config) extends Actor with ActorLogging {
 
@@ -108,7 +108,7 @@ class InetAddressDnsResolver(cache: SimpleDnsCache, config: Config) extends Acto
     cp match {
       case Forever  => Long.MaxValue
       case Never    => 0
-      case Ttl(ttl) => ttl.toMillis
+      case ttl: Ttl => ttl.value.toMillis
     }
   }
 

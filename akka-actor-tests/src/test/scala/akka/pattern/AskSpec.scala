@@ -1,21 +1,22 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.pattern
 
+import scala.annotation.nowarn
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.util.Failure
-import com.github.ghik.silencer.silent
 
 import language.postfixOps
+
 import akka.actor._
-import akka.testkit.WithLogCapturing
 import akka.testkit.{ AkkaSpec, TestProbe }
+import akka.testkit.WithLogCapturing
 import akka.util.Timeout
 
-@silent
+@nowarn
 class AskSpec extends AkkaSpec("""
      akka.loglevel = DEBUG
      akka.loggers = ["akka.testkit.SilenceAllTestEventListener"]
@@ -26,7 +27,7 @@ class AskSpec extends AkkaSpec("""
       implicit val timeout: Timeout = Timeout(5.seconds)
       val echo = system.actorOf(Props(new Actor { def receive = { case x => sender() ! x } }))
       val f = echo ? "ping"
-      f.futureValue should ===("ping")
+      Await.result(f, timeout.duration) should ===("ping")
     }
 
     "return broken promises on DeadLetters" in {
@@ -226,7 +227,7 @@ class AskSpec extends AkkaSpec("""
       }))
 
       val f = (act ? "ask").mapTo[String]
-      val (promiseActorRef, "ask") = p.expectMsgType[(ActorRef, String)]
+      val (promiseActorRef, _) = p.expectMsgType[(ActorRef, String)]
 
       watch(promiseActorRef)
       promiseActorRef ! "complete"
@@ -247,13 +248,36 @@ class AskSpec extends AkkaSpec("""
       }), "myName")
 
       (act ? "ask").mapTo[String]
-      val (promiseActorRef, "ask") = p.expectMsgType[(ActorRef, String)]
+      val (promiseActorRef, _) = p.expectMsgType[(ActorRef, String)]
 
       promiseActorRef.path.name should startWith("myName")
 
       (system.actorSelection("/user/myName") ? "ask").mapTo[String]
-      val (promiseActorRefForSelection, "ask") = p.expectMsgType[(ActorRef, String)]
+      val (promiseActorRefForSelection, _) = p.expectMsgType[(ActorRef, String)]
       promiseActorRefForSelection.path.name should startWith("_user_myName")
+    }
+
+    "proper path when promise actor terminated" in {
+      implicit val timeout: Timeout = Timeout(300 millis)
+      val p = TestProbe()
+
+      val act = system.actorOf(Props(new Actor {
+        def receive = {
+          case _ =>
+            val senderRef: ActorRef = sender()
+            senderRef ! "complete"
+            p.ref ! senderRef
+        }
+      }), "pathPrefix")
+
+      val f = (act ? "ask").mapTo[String]
+      val promiseActorRef = p.expectMsgType[ActorRef]
+
+      // verify ask complete
+      val completed = f.futureValue
+      completed should ===("complete")
+      // verify path was proper
+      promiseActorRef.path.toString should include("pathPrefix")
     }
   }
 

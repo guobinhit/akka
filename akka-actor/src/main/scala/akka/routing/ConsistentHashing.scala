@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.routing
@@ -15,6 +15,7 @@ import akka.actor.ActorPath
 import akka.actor.ActorSystem
 import akka.actor.Address
 import akka.actor.ExtendedActorSystem
+import akka.actor.InvalidMessageException
 import akka.actor.SupervisorStrategy
 import akka.actor.WrappedMessage
 import akka.dispatch.Dispatchers
@@ -57,6 +58,9 @@ object ConsistentHashingRouter {
       extends ConsistentHashable
       with RouterEnvelope
       with WrappedMessage {
+    if (message == null)
+      throw InvalidMessageException("[null] is not an allowed message")
+
     override def consistentHashKey: Any = hashKey
   }
 
@@ -172,7 +176,7 @@ final case class ConsistentHashingRoutingLogic(
     if (virtualNodesFactor == 0) system.settings.DefaultVirtualNodesFactor
     else virtualNodesFactor
 
-  private lazy val log = Logging(system, getClass)
+  private lazy val log = Logging(system, classOf[ConsistentHashingRoutingLogic])
 
   /**
    * Setting the number of virtual nodes per node, used in [[akka.routing.ConsistentHash]]
@@ -219,6 +223,8 @@ final case class ConsistentHashingRoutingLogic(
               case bytes: Array[Byte] => currentConsistenHash.nodeFor(bytes).routee
               case str: String        => currentConsistenHash.nodeFor(str).routee
               case x: AnyRef          => currentConsistenHash.nodeFor(SerializationExtension(system).serialize(x).get).routee
+              case unexpected =>
+                throw new IllegalArgumentException(s"Unexpected hashdata: $unexpected") // will not happen, for exhaustiveness check
             }
         } catch {
           case NonFatal(e) =>

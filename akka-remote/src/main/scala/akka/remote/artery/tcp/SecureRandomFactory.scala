@@ -1,14 +1,15 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery.tcp
 
 import java.security.SecureRandom
 
+import com.typesafe.config.Config
+
 import akka.annotation.InternalApi
 import akka.event.MarkerLoggingAdapter
-import com.typesafe.config.Config
 
 /**
  * INTERNAL API

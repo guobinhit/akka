@@ -1,15 +1,15 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
 import java.net.InetSocketAddress
 import java.util.concurrent.TimeoutException
-import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLEngine
 import javax.net.ssl.SSLSession
 
+import scala.annotation.nowarn
 import scala.collection.immutable
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
@@ -18,18 +18,15 @@ import scala.util.Success
 import scala.util.Try
 import scala.util.control.NoStackTrace
 
-import com.github.ghik.silencer.silent
-
 import akka.Done
 import akka.NotUsed
 import akka.actor._
 import akka.annotation.InternalApi
-import akka.io.{ Tcp => IoTcp }
 import akka.io.IO
 import akka.io.Inet.SocketOption
-import akka.stream._
+import akka.io.{ Tcp => IoTcp }
 import akka.stream.Attributes.Attribute
-import akka.stream.TLSProtocol.NegotiateNewSession
+import akka.stream._
 import akka.stream.impl.fusing.GraphStages.detacher
 import akka.stream.impl.io.ConnectionSourceStage
 import akka.stream.impl.io.OutgoingConnectionStage
@@ -67,7 +64,7 @@ object Tcp extends ExtensionId[Tcp] with ExtensionIdProvider {
      * Handles the connection using the given flow, which is materialized exactly once and the respective
      * materialized instance is returned.
      *
-     * Convenience shortcut for: `flow.join(handler).run()`.
+     * Convenience shortcut for: `flow.joinMat(handler)(Keep.right).run()`.
      */
     def handleWith[Mat](handler: Flow[ByteString, ByteString, Mat])(implicit materializer: Materializer): Mat =
       flow.joinMat(handler)(Keep.right).run()
@@ -90,7 +87,7 @@ object Tcp extends ExtensionId[Tcp] with ExtensionIdProvider {
 
   // just wraps/unwraps the TLS byte events to provide ByteString, ByteString flows
   private val tlsWrapping: BidiFlow[ByteString, TLSProtocol.SendBytes, TLSProtocol.SslTlsInbound, ByteString, NotUsed] =
-    BidiFlow.fromFlows(Flow[ByteString].map(TLSProtocol.SendBytes), Flow[TLSProtocol.SslTlsInbound].collect {
+    BidiFlow.fromFlows(Flow[ByteString].map(TLSProtocol.SendBytes.apply), Flow[TLSProtocol.SslTlsInbound].collect {
       case sb: TLSProtocol.SessionBytes => sb.bytes
       // ignore other kinds of inbounds (currently only Truncated)
     })
@@ -133,7 +130,7 @@ final class Tcp(system: ExtendedActorSystem) extends akka.actor.Extension {
       interface: String,
       port: Int,
       backlog: Int = defaultBacklog,
-      @silent // Traversable deprecated in 2.13
+      @nowarn // Traversable deprecated in 2.13
       options: immutable.Traversable[SocketOption] = Nil,
       halfClose: Boolean = false,
       idleTimeout: Duration = Duration.Inf): Source[IncomingConnection, Future[ServerBinding]] =
@@ -175,12 +172,12 @@ final class Tcp(system: ExtendedActorSystem) extends akka.actor.Extension {
       interface: String,
       port: Int,
       backlog: Int = defaultBacklog,
-      @silent // Traversable deprecated in 2.13
+      @nowarn // Traversable deprecated in 2.13
       options: immutable.Traversable[SocketOption] = Nil,
       halfClose: Boolean = false,
       idleTimeout: Duration = Duration.Inf)(implicit m: Materializer): Future[ServerBinding] = {
     bind(interface, port, backlog, options, halfClose, idleTimeout)
-      .to(Sink.foreach { conn: IncomingConnection =>
+      .to(Sink.foreach { (conn: IncomingConnection) =>
         conn.flow.join(handler).run()
       })
       .run()
@@ -209,7 +206,7 @@ final class Tcp(system: ExtendedActorSystem) extends akka.actor.Extension {
   def outgoingConnection(
       remoteAddress: InetSocketAddress,
       localAddress: Option[InetSocketAddress] = None,
-      @silent // Traversable deprecated in 2.13
+      @nowarn // Traversable deprecated in 2.13
       options: immutable.Traversable[SocketOption] = Nil,
       halfClose: Boolean = true,
       connectTimeout: Duration = Duration.Inf,
@@ -243,58 +240,6 @@ final class Tcp(system: ExtendedActorSystem) extends akka.actor.Extension {
    */
   def outgoingConnection(host: String, port: Int): Flow[ByteString, ByteString, Future[OutgoingConnection]] =
     outgoingConnection(InetSocketAddress.createUnresolved(host, port))
-
-  /**
-   * Creates an [[Tcp.OutgoingConnection]] with TLS.
-   * The returned flow represents a TCP client connection to the given endpoint where all bytes in and
-   * out go through TLS.
-   *
-   * For more advanced use cases you can manually combine [[Tcp.outgoingConnection]] and [[TLS]]
-   *
-   * @param negotiateNewSession Details about what to require when negotiating the connection with the server
-   * @param sslContext Context containing details such as the trust and keystore
-   *
-   * @see [[Tcp.outgoingConnection]]
-   */
-  @deprecated(
-    "Use outgoingConnectionWithTls that takes a SSLEngine factory instead. " +
-    "Setup the SSLEngine with needed parameters.",
-    "2.6.0")
-  def outgoingTlsConnection(
-      host: String,
-      port: Int,
-      sslContext: SSLContext,
-      negotiateNewSession: NegotiateNewSession): Flow[ByteString, ByteString, Future[OutgoingConnection]] =
-    outgoingTlsConnection(InetSocketAddress.createUnresolved(host, port), sslContext, negotiateNewSession)
-
-  /**
-   * Creates an [[Tcp.OutgoingConnection]] with TLS.
-   * The returned flow represents a TCP client connection to the given endpoint where all bytes in and
-   * out go through TLS.
-   *
-   * @see [[Tcp.outgoingConnection]]
-   * @param negotiateNewSession Details about what to require when negotiating the connection with the server
-   * @param sslContext Context containing details such as the trust and keystore
-   */
-  @deprecated(
-    "Use outgoingConnectionWithTls that takes a SSLEngine factory instead. " +
-    "Setup the SSLEngine with needed parameters.",
-    "2.6.0")
-  def outgoingTlsConnection(
-      remoteAddress: InetSocketAddress,
-      sslContext: SSLContext,
-      negotiateNewSession: NegotiateNewSession,
-      localAddress: Option[InetSocketAddress] = None,
-      @silent // Traversable deprecated in 2.13
-      options: immutable.Traversable[SocketOption] = Nil,
-      connectTimeout: Duration = Duration.Inf,
-      idleTimeout: Duration = Duration.Inf): Flow[ByteString, ByteString, Future[OutgoingConnection]] = {
-
-    val connection = outgoingConnection(remoteAddress, localAddress, options, true, connectTimeout, idleTimeout)
-    @silent("deprecated")
-    val tls = TLS(sslContext, negotiateNewSession, TLSRole.client)
-    connection.join(tlsWrapping.atop(tls).reversed)
-  }
 
   /**
    * Creates an [[Tcp.OutgoingConnection]] with TLS.
@@ -339,38 +284,10 @@ final class Tcp(system: ExtendedActorSystem) extends akka.actor.Extension {
       verifySession: SSLSession => Try[Unit],
       closing: TLSClosing): Flow[ByteString, ByteString, Future[OutgoingConnection]] = {
 
-    val connection = outgoingConnection(remoteAddress, localAddress, options, true, connectTimeout, idleTimeout)
+    val connection =
+      outgoingConnection(remoteAddress, localAddress, options, halfClose = true, connectTimeout, idleTimeout)
     val tls = TLS(createSSLEngine, verifySession, closing)
     connection.join(tlsWrapping.atop(tls).reversed)
-  }
-
-  /**
-   * Creates a [[Tcp.ServerBinding]] instance which represents a prospective TCP server binding on the given `endpoint`
-   * where all incoming and outgoing bytes are passed through TLS.
-   *
-   * @param negotiateNewSession Details about what to require when negotiating the connection with the server
-   * @param sslContext Context containing details such as the trust and keystore
-   * @see [[Tcp.bind]]
-   */
-  @deprecated(
-    "Use bindWithTls that takes a SSLEngine factory instead. " +
-    "Setup the SSLEngine with needed parameters.",
-    "2.6.0")
-  def bindTls(
-      interface: String,
-      port: Int,
-      sslContext: SSLContext,
-      negotiateNewSession: NegotiateNewSession,
-      backlog: Int = defaultBacklog,
-      @silent // Traversable deprecated in 2.13
-      options: immutable.Traversable[SocketOption] = Nil,
-      idleTimeout: Duration = Duration.Inf): Source[IncomingConnection, Future[ServerBinding]] = {
-    @silent("deprecated")
-    val tls = tlsWrapping.atop(TLS(sslContext, negotiateNewSession, TLSRole.server)).reversed
-
-    bind(interface, port, backlog, options, halfClose = false, idleTimeout).map { incomingConnection =>
-      incomingConnection.copy(flow = incomingConnection.flow.join(tls))
-    }
   }
 
   /**
@@ -469,38 +386,7 @@ final class Tcp(system: ExtendedActorSystem) extends akka.actor.Extension {
       verifySession: SSLSession => Try[Unit],
       closing: TLSClosing)(implicit m: Materializer): Future[ServerBinding] = {
     bindWithTls(interface, port, createSSLEngine, backlog, options, idleTimeout, verifySession, closing)
-      .to(Sink.foreach { conn: IncomingConnection =>
-        conn.handleWith(handler)
-      })
-      .run()
-  }
-
-  /**
-   * Creates a [[Tcp.ServerBinding]] instance which represents a prospective TCP server binding on the given `endpoint`
-   * handling the incoming connections through TLS and then run using the provided Flow.
-   *
-   * @param negotiateNewSession Details about what to require when negotiating the connection with the server
-   * @param sslContext Context containing details such as the trust and keystore
-   * @see [[Tcp.bindAndHandle]]
-   *
-   * Marked API-may-change to leave room for an improvement around the very long parameter list.
-   */
-  @deprecated(
-    "Use bindAndHandleWithTls that takes a SSLEngine factory instead. " +
-    "Setup the SSLEngine with needed parameters.",
-    "2.6.0")
-  def bindAndHandleTls(
-      handler: Flow[ByteString, ByteString, _],
-      interface: String,
-      port: Int,
-      sslContext: SSLContext,
-      negotiateNewSession: NegotiateNewSession,
-      backlog: Int = defaultBacklog,
-      @silent // Traversable deprecated in 2.13
-      options: immutable.Traversable[SocketOption] = Nil,
-      idleTimeout: Duration = Duration.Inf)(implicit m: Materializer): Future[ServerBinding] = {
-    bindTls(interface, port, sslContext, negotiateNewSession, backlog, options, idleTimeout)
-      .to(Sink.foreach { conn: IncomingConnection =>
+      .to(Sink.foreach { (conn: IncomingConnection) =>
         conn.handleWith(handler)
       })
       .run()

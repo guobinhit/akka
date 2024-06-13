@@ -5,9 +5,18 @@ For the documentation of the new API of this feature and for new projects see @r
 
 ## Dependency
 
+The Akka dependencies are available from Akka's library repository. To access them there, you need to configure the URL for this repository.
+
+@@repository [sbt,Maven,Gradle] {
+id="akka-repository"
+name="Akka library repository"
+url="https://repo.akka.io/maven"
+}
+
 To use Routing, you must add the following dependency in your project:
 
 @@dependency[sbt,Maven,Gradle] {
+  bomGroup=com.typesafe.akka bomArtifact=akka-bom_$scala.binary.version$ bomVersionSymbols=AkkaVersion
   symbol1=AkkaVersion
   value1="$akka.version$"
   group="com.typesafe.akka"
@@ -18,7 +27,7 @@ To use Routing, you must add the following dependency in your project:
 ## Introduction
 
 Messages can be sent via a router to efficiently route them to destination actors, known as
-its *routees*. A `Router` can be used inside or outside of an actor, and you can manage the
+its *routees*. A @apidoc[akka.routing.Router] can be used inside or outside of an actor, and you can manage the
 routees yourselves or use a self contained router actor with configuration capabilities.
 
 Different routing strategies can be used, according to your application's needs. Akka comes with
@@ -36,26 +45,26 @@ Scala
 Java
 :  @@snip [RouterDocTest.java](/akka-docs/src/test/java/jdocs/routing/RouterDocTest.java) { #router-in-actor }
 
-We create a `Router` and specify that it should use `RoundRobinRoutingLogic` when routing the
+We create a `Router` and specify that it should use @apidoc[akka.routing.RoundRobinRoutingLogic] when routing the
 messages to the routees.
 
 The routing logic shipped with Akka are:
 
- * `akka.routing.RoundRobinRoutingLogic`
- * `akka.routing.RandomRoutingLogic`
- * `akka.routing.SmallestMailboxRoutingLogic`
- * `akka.routing.BroadcastRoutingLogic`
- * `akka.routing.ScatterGatherFirstCompletedRoutingLogic`
- * `akka.routing.TailChoppingRoutingLogic`
- * `akka.routing.ConsistentHashingRoutingLogic`
+ * @apidoc[akka.routing.RoundRobinRoutingLogic]
+ * @apidoc[akka.routing.RandomRoutingLogic]
+ * @apidoc[akka.routing.SmallestMailboxRoutingLogic]
+ * @apidoc[akka.routing.BroadcastRoutingLogic]
+ * @apidoc[akka.routing.ScatterGatherFirstCompletedRoutingLogic]
+ * @apidoc[akka.routing.TailChoppingRoutingLogic]
+ * @apidoc[akka.routing.ConsistentHashingRoutingLogic]
 
-We create the routees as ordinary child actors wrapped in `ActorRefRoutee`. We watch
+We create the routees as ordinary child actors wrapped in @apidoc[akka.routing.ActorRefRoutee]. We watch
 the routees to be able to replace them if they are terminated.
 
-Sending messages via the router is done with the `route` method, as is done for the `Work` messages
+Sending messages via the router is done with the @apidoc[route](akka.routing.Router) {scala="#route(message:Any,sender:akka.actor.ActorRef):Unit" java="#route(java.lang.Object,akka.actor.ActorRef)"} method, as is done for the `Work` messages
 in the example above.
 
-The `Router` is immutable and the `RoutingLogic` is thread safe; meaning that they can also be used
+The `Router` is immutable and the @apidoc[akka.routing.RoutingLogic] is thread safe; meaning that they can also be used
 outside of actors.  
 
 @@@ note
@@ -86,7 +95,7 @@ This is in contrast with Remote Deployment where such marker props is not necess
 If the props of an actor is NOT wrapped in `FromConfig` it will ignore the router section of the deployment configuration.
 
 You send messages to the routees via the router actor in the same way as for ordinary actors,
-i.e. via its `ActorRef`. The router actor forwards messages onto its routees without changing 
+i.e. via its @apidoc[akka.actor.ActorRef]. The router actor forwards messages onto its routees without changing 
 the original sender. When a routee replies to a routed message, the reply will be sent to the 
 original sender, not to the router actor.
 
@@ -124,7 +133,7 @@ Java
 In addition to being able to create local actors as routees, you can instruct the router to
 deploy its created children on a set of remote hosts. Routees will be deployed in round-robin
 fashion. In order to deploy routees remotely, wrap the router configuration in a
-`RemoteRouterConfig`, attaching the remote addresses of the nodes to deploy to. Remote
+@apidoc[akka.remote.routing.RemoteRouterConfig], attaching the remote addresses of the nodes to deploy to. Remote
 deployment requires the `akka-remote` module to be included in the classpath.
 
 Scala
@@ -174,7 +183,7 @@ while still re-creating the children, will still preserve the same number of act
 This means that if you have not specified `supervisorStrategy` of the router or its parent a
 failure in a routee will escalate to the parent of the router, which will by default restart the router,
 which will restart all routees (it uses Escalate and does not stop routees during restart). The reason 
-is to make the default behave such that adding `.withRouter` to a child’s definition does not 
+is to make the default behave such that adding @apidoc[withRouter](akka.actor.Props) {scala="#withRouter(r:akka.routing.RouterConfig):akka.actor.Props" java="#withRouter(akka.routing.RouterConfig)"} to a child’s definition does not 
 change the supervision strategy applied to the child. This might be an inefficiency that you can avoid 
 by specifying the strategy when defining the router.
 
@@ -199,7 +208,7 @@ a resizer.
 
 Sometimes, rather than having the router actor create its routees, it is desirable to create routees
 separately and provide them to the router for its use. You can do this by passing in
-paths of the routees to the router's configuration. Messages will be sent with `ActorSelection` 
+paths of the routees to the router's configuration. Messages will be sent with @apidoc[akka.actor.ActorSelection] 
 to these paths, wildcards can be and will result in the same semantics as explicitly using `ActorSelection`.
 
 The example below shows how to create a router by providing it with the path strings of three
@@ -389,7 +398,7 @@ configuration.
 
 @@snip [RouterDocSpec.scala](/akka-docs/src/test/scala/docs/routing/RouterDocSpec.scala) { #config-balancing-pool2 }
 
-The `BalancingPool` automatically uses a special `BalancingDispatcher` for its
+The @apidoc[BalancingPool] automatically uses a special `BalancingDispatcher` for its
 routees - disregarding any dispatcher that is set on the routee Props object.
 This is needed in order to implement the balancing semantics via
 sharing the same mailbox by all the routees.
@@ -510,7 +519,7 @@ It then waits for first reply it gets back. This result will be sent back to ori
 Other replies are discarded.
 
 It is expecting at least one reply within a configured duration, otherwise it will reply with
-`akka.pattern.AskTimeoutException` in a `akka.actor.Status.Failure`.
+@apidoc[akka.pattern.AskTimeoutException] in a @apidoc[akka.actor.Status.Failure].
 
 ScatterGatherFirstCompletedPool defined in configuration:
 
@@ -602,18 +611,18 @@ Java
 
 The ConsistentHashingPool uses [consistent hashing](https://en.wikipedia.org/wiki/Consistent_hashing)
 to select a routee based on the sent message. This 
-[article](http://www.tom-e-white.com/2007/11/consistent-hashing.html) gives good 
+[article](https://tom-e-white.com/2007/11/consistent-hashing.html) gives good 
 insight into how consistent hashing is implemented.
 
 There is 3 ways to define what data to use for the consistent hash key.
 
- * You can define @scala[`hashMapping`]@java[`withHashMapper`] of the router to map incoming
+ * You can define @scala[@scaladoc[hashMapping](akka.routing.ConsistentHashingPool#hashMapping:akka.routing.ConsistentHashingRouter.ConsistentHashMapping)]@java[@javadoc[withHashMapper](akka.routing.ConsistentHashingRoutingLogic#withHashMapper(akka.routing.ConsistentHashingRouter.ConsistentHashMapper))] of the router to map incoming
 messages to their consistent hash key. This makes the decision
 transparent for the sender.
- * The messages may implement `akka.routing.ConsistentHashingRouter.ConsistentHashable`.
+ * The messages may implement @apidoc[akka.routing.ConsistentHashingRouter.ConsistentHashable].
 The key is part of the message and it's convenient to define it together
 with the message definition.
- * The messages can be wrapped in a `akka.routing.ConsistentHashingRouter.ConsistentHashableEnvelope`
+ * The messages can be wrapped in a @apidoc[akka.routing.ConsistentHashingRouter.ConsistentHashableEnvelope]
 to define what data to use for the consistent hash key. The sender knows
 the key to use.
 
@@ -684,8 +693,8 @@ consistent hash node ring to make the distribution more uniform.
 Most messages sent to router actors will be forwarded according to the routers' routing logic.
 However there are a few types of messages that have special behavior.
 
-Note that these special messages, except for the `Broadcast` message, are only handled by 
-self contained router actors and not by the `akka.routing.Router` component described 
+Note that these special messages, except for the @apidoc[akka.routing.Broadcast] message, are only handled by 
+self contained router actors and not by the @apidoc[akka.routing.Router] component described 
 in @ref:[A Simple Router](#simple-router).
 
 ### Broadcast Messages
@@ -717,7 +726,7 @@ possibly get the broadcast message multiple times, while other routees get no br
 
 ### PoisonPill Messages
 
-A `PoisonPill` message has special handling for all actors, including for routers. When any actor
+A @apidoc[akka.actor.PoisonPill] message has special handling for all actors, including for routers. When any actor
 receives a `PoisonPill` message, that actor will be stopped. See the @ref:[PoisonPill](actors.md#poison-pill)
 documentation for details.
 
@@ -754,20 +763,13 @@ continue to process its messages as normal, eventually processing the `PoisonPil
 cause the routee to stop. After all routees have stopped the router will itself be stopped
 automatically unless it is a dynamic router, e.g. using a resizer.
 
-@@@ note
-
-Brendan W McAdams' excellent blog post [Distributing Akka Workloads - And Shutting Down Afterwards](http://bytes.codes/2013/01/17/Distributing_Akka_Workloads_And_Shutting_Down_After/)
-discusses in more detail how `PoisonPill` messages can be used to shut down routers and routees.
-
-@@@
-
 ### Kill Messages
 
-`Kill` messages are another type of message that has special handling. See
+@apidoc[akka.actor.Kill] messages are another type of message that has special handling. See
 @ref:[Killing an Actor](actors.md#killing-actors) for general information about how actors handle `Kill` messages.
 
 When a `Kill` message is sent to a router the router processes the message internally, and does
-*not* send it on to its routees. The router will throw an `ActorKilledException` and fail. It
+*not* send it on to its routees. The router will throw an @apidoc[ActorKilledException] and fail. It
 will then be either resumed, restarted or terminated, depending how it is supervised.
 
 Routees that are children of the router will also be suspended, and will be affected by the
@@ -780,10 +782,10 @@ Scala
 Java
 :  @@snip [RouterDocTest.java](/akka-docs/src/test/java/jdocs/routing/RouterDocTest.java) { #kill }
 
-As with the `PoisonPill` message, there is a distinction between killing a router, which
+As with the @apidoc[akka.actor.PoisonPill] message, there is a distinction between killing a router, which
 indirectly kills its children (who happen to be routees), and killing routees directly (some of whom
 may not be children.) To kill routees directly the router should be sent a `Kill` message wrapped
-in a `Broadcast` message.
+in a @apidoc[akka.routing.Broadcast] message.
 
 Scala
 :  @@snip [RouterDocSpec.scala](/akka-docs/src/test/scala/docs/routing/RouterDocSpec.scala) { #broadcastKill }
@@ -793,11 +795,11 @@ Java
 
 ### Management Messages
 
- * Sending `akka.routing.GetRoutees` to a router actor will make it send back its currently used routees
-in a `akka.routing.Routees` message.
- * Sending `akka.routing.AddRoutee` to a router actor will add that routee to its collection of routees.
- * Sending `akka.routing.RemoveRoutee` to a router actor will remove that routee to its collection of routees.
- * Sending `akka.routing.AdjustPoolSize` to a pool router actor will add or remove that number of routees to
+ * Sending @apidoc[akka.routing.GetRoutees] to a router actor will make it send back its currently used routees
+in a @apidoc[akka.routing.Routees] message.
+ * Sending @apidoc[akka.routing.AddRoutee] to a router actor will add that routee to its collection of routees.
+ * Sending @apidoc[akka.routing.RemoveRoutee] to a router actor will remove that routee to its collection of routees.
+ * Sending @apidoc[akka.routing.AdjustPoolSize] to a pool router actor will add or remove that number of routees to
 its collection of routees.
 
 These management messages may be handled after other messages, so if you send `AddRoutee` immediately followed by
@@ -811,7 +813,7 @@ and when you receive the `Routees` reply you know that the preceding change has 
 @scala[Most]@java[All] pools can be used with a fixed number of routees or with a resize strategy to adjust the number
 of routees dynamically.
 
-There are two types of resizers: the default `Resizer` and the `OptimalSizeExploringResizer`.
+There are two types of resizers: the default @apidoc[akka.routing.Resizer] and the @apidoc[akka.routing.OptimalSizeExploringResizer].
 
 ### Default Resizer
 
@@ -845,7 +847,7 @@ will be used instead of any programmatically sent parameters.*
 
 ### Optimal Size Exploring Resizer
 
-The `OptimalSizeExploringResizer` resizes the pool to an optimal size that provides the most message throughput.
+The @apidoc[akka.routing.OptimalSizeExploringResizer] resizes the pool to an optimal size that provides the most message throughput.
 
 This resizer works best when you expect the pool size to performance function to be a convex function.
 For example, when you have a CPU bound tasks, the optimal size is bound to the number of CPU cores.
@@ -904,7 +906,7 @@ routees.
 A normal actor can be used for routing messages, but an actor's single-threaded processing can
 become a bottleneck. Routers can achieve much higher throughput with an optimization to the usual
 message-processing pipeline that allows concurrent routing. This is achieved by embedding routers'
-routing logic directly in their `ActorRef` rather than in the router actor. Messages sent to
+routing logic directly in their @apidoc[akka.actor.ActorRef] rather than in the router actor. Messages sent to
 a router's `ActorRef` can be immediately routed to the routee, bypassing the single-threaded
 router actor entirely.
 
@@ -937,7 +939,7 @@ Java
 :  @@snip [CustomRouterDocTest.java](/akka-docs/src/test/java/jdocs/routing/CustomRouterDocTest.java) { #routing-logic }
 
 `select` will be called for each message and in this example pick a few destinations by round-robin,
-by reusing the existing `RoundRobinRoutingLogic` and wrap the result in a `SeveralRoutees`
+by reusing the existing @apidoc[akka.routing.RoundRobinRoutingLogic] and wrap the result in a @apidoc[akka.routing.SeveralRoutees]
 instance.  `SeveralRoutees` will send the message to all of the supplied routes.
 
 The implementation of the routing logic must be thread safe, since it might be used outside of actors.
@@ -955,7 +957,7 @@ as described in @ref:[A Simple Router](#simple-router).
 
 Let us continue and make this into a self contained, configurable, router actor.
 
-Create a class that extends `Pool`, `Group` or `CustomRouterConfig`. That class is a factory
+Create a class that extends @apidoc[akka.routing.Pool], @apidoc[akka.routing.Group] or @apidoc[akka.routing.CustomRouterConfig]. That class is a factory
 for the routing logic and holds the configuration for the router. Here we make it a `Group`.
 
 Scala
@@ -972,7 +974,7 @@ Scala
 Java
 :  @@snip [CustomRouterDocTest.java](/akka-docs/src/test/java/jdocs/routing/CustomRouterDocTest.java) { #usage-1 }
 
-Note that we added a constructor in `RedundancyGroup` that takes a `Config` parameter.
+Note that we added a constructor in `RedundancyGroup` that takes a @javadoc[Config](com.typesafe.config.Config) parameter.
 That makes it possible to define it in configuration.
 
 Scala
@@ -995,7 +997,7 @@ Java
 ## Configuring Dispatchers
 
 The dispatcher for created children of the pool will be taken from
-`Props` as described in @ref:[Dispatchers](dispatchers.md).
+@apidoc[akka.actor.Props] as described in @ref:[Dispatchers](dispatchers.md).
 
 To make it easy to define the dispatcher of the routees of the pool you can
 define the dispatcher inline in the deployment section of the config.
@@ -1015,8 +1017,8 @@ after it has been created.
 
 The “head” router cannot always run on the same dispatcher, because it
 does not process the same type of messages, hence this special actor does
-not use the dispatcher configured in `Props`, but takes the
-`routerDispatcher` from the `RouterConfig` instead, which defaults to
+not use the dispatcher configured in @apidoc[akka.actor.Props], but takes the
+`routerDispatcher` from the @apidoc[akka.routing.RouterConfig] instead, which defaults to
 the actor system’s default dispatcher. All standard routers allow setting this
 property in their constructor or factory method, custom routers have to
 implement the method in a suitable way.
@@ -1030,7 +1032,7 @@ Java
 @@@ note
 
 It is not allowed to configure the `routerDispatcher` to be a
-`akka.dispatch.BalancingDispatcherConfigurator` since the messages meant
+@apidoc[akka.dispatch.BalancingDispatcherConfigurator] since the messages meant
 for the special router actor cannot be processed by any other actor.
 
 @@@

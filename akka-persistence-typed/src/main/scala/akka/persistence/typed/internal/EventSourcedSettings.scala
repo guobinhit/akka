@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.internal
@@ -20,9 +20,20 @@ import akka.persistence.Persistence
 @InternalApi private[akka] object EventSourcedSettings {
 
   def apply(system: ActorSystem[_], journalPluginId: String, snapshotPluginId: String): EventSourcedSettings =
-    apply(system.settings.config, journalPluginId, snapshotPluginId)
+    apply(system.settings.config, journalPluginId, snapshotPluginId, None)
 
-  def apply(config: Config, journalPluginId: String, snapshotPluginId: String): EventSourcedSettings = {
+  def apply(
+      system: ActorSystem[_],
+      journalPluginId: String,
+      snapshotPluginId: String,
+      customStashCapacity: Option[Int]): EventSourcedSettings =
+    apply(system.settings.config, journalPluginId, snapshotPluginId, customStashCapacity)
+
+  def apply(
+      config: Config,
+      journalPluginId: String,
+      snapshotPluginId: String,
+      customStashCapacity: Option[Int]): EventSourcedSettings = {
     val typedConfig = config.getConfig("akka.persistence.typed")
 
     val stashOverflowStrategy = typedConfig.getString("stash-overflow-strategy").toLowerCase match {
@@ -32,7 +43,7 @@ import akka.persistence.Persistence
         throw new IllegalArgumentException(s"Unknown value for stash-overflow-strategy: [$unknown]")
     }
 
-    val stashCapacity = typedConfig.getInt("stash-capacity")
+    val stashCapacity = customStashCapacity.getOrElse(typedConfig.getInt("stash-capacity"))
     require(stashCapacity > 0, "stash-capacity MUST be > 0, unbounded buffering is not supported.")
 
     val logOnStashing = typedConfig.getBoolean("log-stashing")
@@ -40,6 +51,8 @@ import akka.persistence.Persistence
     val journalConfig = journalConfigFor(config, journalPluginId)
     val recoveryEventTimeout: FiniteDuration =
       journalConfig.getDuration("recovery-event-timeout", TimeUnit.MILLISECONDS).millis
+
+    val useContextLoggerForInternalLogging = typedConfig.getBoolean("use-context-logger-for-internal-logging")
 
     Persistence.verifyPluginConfigExists(config, snapshotPluginId, "Snapshot store")
 
@@ -49,7 +62,8 @@ import akka.persistence.Persistence
       logOnStashing = logOnStashing,
       recoveryEventTimeout,
       journalPluginId,
-      snapshotPluginId)
+      snapshotPluginId,
+      useContextLoggerForInternalLogging)
   }
 
   private def journalConfigFor(config: Config, journalPluginId: String): Config = {
@@ -76,7 +90,8 @@ private[akka] final case class EventSourcedSettings(
     logOnStashing: Boolean,
     recoveryEventTimeout: FiniteDuration,
     journalPluginId: String,
-    snapshotPluginId: String) {
+    snapshotPluginId: String,
+    useContextLoggerForInternalLogging: Boolean) {
 
   require(journalPluginId != null, "journal plugin id must not be null; use empty string for 'default' journal")
   require(

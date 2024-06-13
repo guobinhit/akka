@@ -1,11 +1,8 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.cluster;
-
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 
 import akka.actor.ActorSystem;
 import akka.actor.PoisonPill;
@@ -14,6 +11,8 @@ import akka.cluster.singleton.ClusterSingletonManager;
 import akka.cluster.singleton.ClusterSingletonManagerSettings;
 import akka.cluster.singleton.ClusterSingletonProxy;
 import akka.cluster.singleton.ClusterSingletonProxySettings;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 
 public class StatsSampleOneMasterMain {
 
@@ -30,7 +29,7 @@ public class StatsSampleOneMasterMain {
     for (String port : ports) {
       // Override the configuration of the port
       Config config =
-          ConfigFactory.parseString("akka.remote.classic.netty.tcp.port=" + port)
+          ConfigFactory.parseString("akka.remote.artery.canonical.port=" + port)
               .withFallback(ConfigFactory.parseString("akka.cluster.roles = [compute]"))
               .withFallback(ConfigFactory.load("stats2"));
 

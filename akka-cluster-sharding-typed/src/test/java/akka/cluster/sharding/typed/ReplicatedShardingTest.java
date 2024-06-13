@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding.typed;
@@ -22,19 +22,30 @@ import akka.persistence.testkit.PersistenceTestKitPlugin;
 import akka.persistence.testkit.query.javadsl.PersistenceTestKitReadJournal;
 import akka.persistence.typed.ReplicaId;
 import akka.persistence.typed.ReplicationId;
-import akka.persistence.typed.javadsl.*;
+import akka.persistence.typed.javadsl.CommandHandler;
+import akka.persistence.typed.javadsl.EventHandler;
+import akka.persistence.typed.javadsl.ReplicatedEventSourcedBehavior;
+import akka.persistence.typed.javadsl.ReplicatedEventSourcing;
+import akka.persistence.typed.javadsl.ReplicationContext;
 import com.typesafe.config.ConfigFactory;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.scalatestplus.junit.JUnitSuite;
 
-import java.util.*;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.Collectors;
-
+// format: OFF
 import static akka.cluster.sharding.typed.ReplicatedShardingTest.ProxyActor.ALL_REPLICAS;
 import static org.junit.Assert.assertEquals;
+// format: ON
 
 public class ReplicatedShardingTest extends JUnitSuite {
 
@@ -216,7 +227,6 @@ public class ReplicatedShardingTest extends JUnitSuite {
                       + "      akka.actor.provider = \"cluster\"\n"
                       + "      # pretend we're a node in all dc:s\n"
                       + "      akka.cluster.roles = [\"DC-A\", \"DC-B\", \"DC-C\"]\n"
-                      + "      akka.remote.classic.netty.tcp.port = 0\n"
                       + "      akka.remote.artery.canonical.port = 0")
               .withFallback(PersistenceTestKitPlugin.getInstance().config()));
 

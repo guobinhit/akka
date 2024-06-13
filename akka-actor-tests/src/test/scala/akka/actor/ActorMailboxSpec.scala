@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor
@@ -16,7 +16,8 @@ import akka.util.Helpers.ConfigOps
 import akka.util.unused
 
 object ActorMailboxSpec {
-  val mailboxConf = ConfigFactory.parseString(s"""
+  val mailboxConf =
+    ConfigFactory.parseString(s"""
     unbounded-dispatcher {
       mailbox-type = "akka.dispatch.UnboundedMailbox"
     }
@@ -253,7 +254,7 @@ class ActorMailboxSpec(conf: Config) extends AkkaSpec(conf) with DefaultTimeout 
         UnboundedDeqMailboxTypes)
     }
 
-    "get an bounded message queue when it's only configured with RequiresMailbox" in {
+    "get a bounded message queue when it's only configured with RequiresMailbox" in {
       checkMailboxQueue(Props[BoundedQueueReportingActor](), "default-override-from-trait", BoundedMailboxTypes)
     }
 
@@ -289,7 +290,7 @@ class ActorMailboxSpec(conf: Config) extends AkkaSpec(conf) with DefaultTimeout 
         UnboundedControlAwareMailboxTypes)
     }
 
-    "get an bounded control aware message queue when it's only configured with RequiresMailbox" in {
+    "get a bounded control aware message queue when it's only configured with RequiresMailbox" in {
       checkMailboxQueue(
         Props[BoundedControlAwareQueueReportingActor](),
         "default-override-from-trait-bounded-control-aware",

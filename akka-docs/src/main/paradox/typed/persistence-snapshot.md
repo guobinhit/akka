@@ -71,6 +71,20 @@ started, `RecoveryFailed` signal is emitted (logging the error by default), and 
 Note that failure to load snapshot is also treated like this, but you can disable loading of snapshots
 if you for example know that serialization format has changed in an incompatible way.
 
+### Optional snapshots
+
+By default, the persistent actor will unconditionally be stopped if the snapshot can't be loaded in the recovery.
+It is possible to make snapshot loading optional. This can be useful when it is alright to ignore snapshot in case
+of for example deserialization errors. When snapshot loading fails it will instead recover by replaying all events.
+
+Enable this feature by setting `snapshot-is-optional = true` in the snapshot store configuration.
+
+@@@ warning
+
+Don't set `snapshot-is-optional = true` if events have been deleted because that would result in wrong recovered state if snapshot load fails.
+
+@@@
+
 ## Snapshot deletion
 
 To free up space, an event sourced actor can automatically delete older snapshots based on the given `RetentionCriteria`.
@@ -81,7 +95,7 @@ Scala
 Java
 :  @@snip [BasicPersistentBehaviorTest.java](/akka-persistence-typed/src/test/java/jdocs/akka/persistence/typed/BasicPersistentBehaviorTest.java) { #retentionCriteria #snapshottingPredicate }
 
-Snapshot deletion is triggered after saving a new snapshot.
+Snapshot deletion is triggered after successfully saving a new snapshot.
 
 The above example will save snapshots automatically every `numberOfEvents = 100`. Snapshots that have sequence
 number less than the sequence number of the saved snapshot minus `keepNSnapshots * numberOfEvents` (`100 * 2`) are automatically
@@ -103,9 +117,18 @@ Java
 
 ## Event deletion
 
-Deleting events in event sourcing based applications is typically either not used at all, or used in conjunction with snapshotting.
+Deleting events in Event Sourcing based applications is typically either not used at all, or used in conjunction with snapshotting.
 By deleting events you will lose the history of how the system changed before it reached current state, which is
-one of the main reasons for using event sourcing in the first place.
+one of the main reasons for using Event Sourcing in the first place.
+
+If snapshots are triggered using the predicate-based api (@scala[`snapshotWhen`]@java[`shouldSnapshot`]), events are not deleted 
+by default. Event deletion can be enabled using the following api:
+
+Scala
+:  @@snip [BasicPersistentBehaviorCompileOnly.scala](/akka-persistence-typed/src/test/scala/docs/akka/persistence/typed/BasicPersistentBehaviorCompileOnly.scala) { #snapshottingPredicateDeleteEvents }
+
+Java
+:  @@snip [BasicPersistentBehaviorTest.java](/akka-persistence-typed/src/test/java/jdocs/akka/persistence/typed/BasicPersistentBehaviorTest.java) { #snapshottingPredicateDeleteEvents }
 
 If snapshot-based retention is enabled, after a snapshot has been successfully stored, a delete of the events
 (journaled by a single event sourced actor) up until the sequence number of the data held by that snapshot can be issued.

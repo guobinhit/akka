@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.testkit.typed.internal
@@ -15,21 +15,30 @@ import scala.util.control.NonFatal
 import akka.actor.ActorPath
 import akka.actor.testkit.typed.{ CapturedLogEvent, Effect }
 import akka.actor.testkit.typed.Effect._
-import akka.actor.typed.{ ActorRef, Behavior, PostStop, Signal }
+import akka.actor.typed.{ ActorRef, Behavior, BehaviorInterceptor, PostStop, Signal, TypedActorContext }
+import akka.actor.typed.internal.{ AdaptMessage, AdaptWithRegisteredMessageAdapter }
 import akka.actor.typed.receptionist.Receptionist
+import akka.actor.typed.scaladsl.Behaviors
 import akka.annotation.InternalApi
+import akka.japi.function.{ Function => JFunction }
+import akka.pattern.StatusReply
+import akka.util.OptionVal
 import akka.util.ccompat.JavaConverters._
 
 /**
  * INTERNAL API
  */
 @InternalApi
-private[akka] final class BehaviorTestKitImpl[T](_path: ActorPath, _initialBehavior: Behavior[T])
+private[akka] final class BehaviorTestKitImpl[T](
+    system: ActorSystemStub,
+    _path: ActorPath,
+    _initialBehavior: Behavior[T])
     extends akka.actor.testkit.typed.javadsl.BehaviorTestKit[T]
     with akka.actor.testkit.typed.scaladsl.BehaviorTestKit[T] {
 
   // really this should be private, make so when we port out tests that need it
-  private[akka] val context = new EffectfulActorContext[T](_path, () => currentBehavior)
+  private[akka] val context: EffectfulActorContext[T] =
+    new EffectfulActorContext[T](system, _path, () => currentBehavior, this)
 
   private[akka] def as[U]: BehaviorTestKitImpl[U] = this.asInstanceOf[BehaviorTestKitImpl[U]]
 
@@ -45,6 +54,27 @@ private[akka] final class BehaviorTestKitImpl[T](_path: ActorPath, _initialBehav
 
   // execute any future tasks scheduled in Actor's constructor
   runAllTasks()
+
+  override def runAsk[Res](f: ActorRef[Res] => T): ReplyInboxImpl[Res] = {
+    val replyToInbox = TestInboxImpl[Res]("replyTo")
+
+    run(f(replyToInbox.ref))
+    new ReplyInboxImpl(OptionVal(replyToInbox))
+  }
+
+  override def runAsk[Res](messageFactory: JFunction[ActorRef[Res], T]): ReplyInboxImpl[Res] =
+    runAsk(messageFactory.apply _)
+
+  override def runAskWithStatus[Res](f: ActorRef[StatusReply[Res]] => T): StatusReplyInboxImpl[Res] = {
+    val replyToInbox = TestInboxImpl[StatusReply[Res]]("replyTo")
+
+    run(f(replyToInbox.ref))
+    new StatusReplyInboxImpl(OptionVal(replyToInbox))
+  }
+
+  override def runAskWithStatus[Res](
+      messageFactory: JFunction[ActorRef[StatusReply[Res]], T]): StatusReplyInboxImpl[Res] =
+    runAskWithStatus(messageFactory.apply _)
 
   override def retrieveEffect(): Effect = context.effectQueue.poll() match {
     case null => NoEffects
@@ -132,7 +162,11 @@ private[akka] final class BehaviorTestKitImpl[T](_path: ActorPath, _initialBehav
     try {
       context.setCurrentActorThread()
       try {
-        currentUncanonical = Behavior.interpretMessage(current, context, message)
+        //we need this to handle message adapters related messages
+        val intercepted = BehaviorTestKitImpl.Interceptor.inteceptBehaviour(current, context)
+        currentUncanonical = Behavior.interpretMessage(intercepted, context, message)
+        //notice we pass current and not intercepted, this way Behaviors.same will be resolved to current which will be intercepted again on the next message
+        //otherwise we would have risked intercepting an already intercepted behavior (or would have had to explicitly check if the current behavior is already intercepted by us)
         current = Behavior.canonicalize(currentUncanonical, current, context)
       } finally {
         context.clearCurrentActorThread()
@@ -163,4 +197,42 @@ private[akka] final class BehaviorTestKitImpl[T](_path: ActorPath, _initialBehav
   override def clearLog(): Unit = context.clearLog()
 
   override def receptionistInbox(): TestInboxImpl[Receptionist.Command] = context.system.receptionistInbox
+}
+
+private[akka] object BehaviorTestKitImpl {
+  object Interceptor extends BehaviorInterceptor[Any, Any]() {
+
+    // Intercept a internal message adaptors related messages, forward the rest
+    override def aroundReceive(
+        ctx: TypedActorContext[Any],
+        msg: Any,
+        target: BehaviorInterceptor.ReceiveTarget[Any]): Behavior[Any] = {
+      msg match {
+        case AdaptWithRegisteredMessageAdapter(msgToAdapt) =>
+          val fn = ctx
+            .asInstanceOf[StubbedActorContext[Any]]
+            .messageAdapters
+            .collectFirst {
+              case (clazz, func) if clazz.isInstance(msgToAdapt) => func
+            }
+            .getOrElse(sys.error(s"can't find a message adaptor for $msgToAdapt"))
+
+          val adaptedMsg = fn(msgToAdapt)
+          target.apply(ctx, adaptedMsg)
+
+        case AdaptMessage(msgToAdapt, messageAdapter) =>
+          val adaptedMsg = messageAdapter(msgToAdapt)
+          target.apply(ctx, adaptedMsg)
+
+        case t => target.apply(ctx, t)
+      }
+    }
+
+    def inteceptBehaviour[T](behavior: Behavior[T], ctx: TypedActorContext[T]): Behavior[T] =
+      Behavior
+        .start(Behaviors.intercept { () =>
+          this.asInstanceOf[BehaviorInterceptor[Any, T]]
+        }(behavior), ctx.asInstanceOf[TypedActorContext[Any]])
+        .unsafeCast[T]
+  }
 }

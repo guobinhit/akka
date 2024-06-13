@@ -45,7 +45,7 @@ A few differences to note:
 * There is no class in the functional style, but that is not strictly a requirement and sometimes it's
   convenient to use a class also with the functional style to reduce number of parameters in the methods.
 * Mutable state, such as the @scala[`var n`]@java[`int n`] is typically used in the object-oriented style.
-* In the functional style the state is is updated by returning a new behavior that holds the new immutable state,
+* In the functional style the state is updated by returning a new behavior that holds the new immutable state,
   the @scala[`n: Int`]@java[`final int n`] parameter of the `counter` method.
 * The object-oriented style must use a new instance of the initial `Behavior` for each spawned actor instance,
   since the state in `AbstractBehavior` instance must not be shared between actor instances.
@@ -390,23 +390,41 @@ in the pattern match and return `Behaviors.unhandled`.
 Scala
 :  @@snip [StyleGuideDocExamples.scala](/akka-actor-typed-tests/src/test/scala/docs/akka/typed/StyleGuideDocExamples.scala) { #pattern-match-unhandled }
 
-One thing to be aware of is the exhaustiveness check is not enabled when there is a guard condition in any of the
-pattern match cases.
-
-Scala
-:  @@snip [StyleGuideDocExamples.scala](/akka-actor-typed-tests/src/test/scala/docs/akka/typed/StyleGuideDocExamples.scala) { #pattern-match-guard }
-
-Therefore, for the purposes of exhaustivity checking, it is be better to not use guards and instead move the `if`s after the `=>`.
-
-Scala
-:  @@snip [StyleGuideDocExamples.scala](/akka-actor-typed-tests/src/test/scala/docs/akka/typed/StyleGuideDocExamples.scala) { #pattern-match-without-guard }
-
 It's recommended to use the `sealed` trait and total functions with exhaustiveness check to detect mistakes
 of forgetting to handle some messages. Sometimes that can be inconvenient and then you can use a `PartialFunction`
 with `Behaviors.receivePartial` or `Behaviors.receiveMessagePartial`
 
 Scala
 :  @@snip [StyleGuideDocExamples.scala](/akka-actor-typed-tests/src/test/scala/docs/akka/typed/StyleGuideDocExamples.scala) { #pattern-match-partial }
+
+@@@
+
+@@@ div {.group-scala}
+
+## How to compose Partial Functions
+
+Following up from previous section, there are times when one might want to combine different `PartialFunction`s into one `Behavior`.
+
+A good use case for composing two or more `PartialFunction`s is when there is a bit of behavior that repeats across different states of the Actor. Below, you can find a simplified example for this use case.
+
+The Command definition is still highly recommended be kept within a `sealed` Trait:
+
+Scala
+:  @@snip [StyleGuideDocExamples.scala](/akka-actor-typed-tests/src/test/scala/docs/akka/typed/StyleGuideDocExamples.scala) { #messages-sealed-composition }
+
+In this particular case, the Behavior that is repeating over is the one in charge to handle
+the `GetValue` Command, as it behaves the same regardless of the Actor's internal state.
+Instead of defining the specific handlers as a `Behavior`, we can define them as a `PartialFunction`:
+
+Scala
+:  @@snip [StyleGuideDocExamples.scala](/akka-actor-typed-tests/src/test/scala/docs/akka/typed/StyleGuideDocExamples.scala) { #get-handler-partial #set-handler-non-zero-partial #set-handler-zero-partial }
+
+Finally, we can go on defining the two different behaviors for this specific actor. For each `Behavior` we would go and concatenate all needed `PartialFunction` instances with `orElse` to finally apply the command to the resulting one:
+
+Scala
+:  @@snip [StyleGuideDocExamples.scala](/akka-actor-typed-tests/src/test/scala/docs/akka/typed/StyleGuideDocExamples.scala) { #top-level-behaviors-partial }
+
+Even though in this particular example we could use `receiveMessage` as we cover all cases, we use `receiveMessagePartial` instead to cover potential future unhandled message cases.
 
 @@@
 
@@ -447,10 +465,9 @@ Using the `ReceiveBuilder` is the typical, and recommended, way of defining mess
 be good to know that it's optional in case you would prefer a different approach. Alternatives could be like:
 
 * direct processing because there is only one message type
+* pattern matching ([Java 21 documentation](https://docs.oracle.com/en/java/javase/21/language/pattern-matching.html))
 * if or switch statements
 * annotation processor
-* [Vavr Pattern Matching DSL](https://www.vavr.io/vavr-docs/#_pattern_matching)
-* pattern matching since JDK 14 ([JEP 305](https://openjdk.java.net/jeps/305))
 
 In `Behaviors` there are `receive`, `receiveMessage` and `receiveSignal` factory methods that takes functions
 instead of using the `ReceiveBuilder`, which is the `receive` with the class parameter.

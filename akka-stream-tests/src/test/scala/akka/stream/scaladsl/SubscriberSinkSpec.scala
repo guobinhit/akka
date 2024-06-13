@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
 import akka.stream.testkit._
-import akka.stream.testkit.scaladsl.StreamTestKit._
 
 class SubscriberSinkSpec extends StreamSpec("""
     akka.stream.materializer.initial-input-buffer-size = 2
@@ -13,7 +12,7 @@ class SubscriberSinkSpec extends StreamSpec("""
 
   "A Flow with SubscriberSink" must {
 
-    "publish elements to the subscriber" in assertAllStagesStopped {
+    "publish elements to the subscriber" in {
       val c = TestSubscriber.manualProbe[Int]()
       Source(List(1, 2, 3)).to(Sink.fromSubscriber(c)).run()
       val s = c.expectSubscription()

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -13,18 +13,18 @@ import java.util.stream.BaseStream
 import java.util.stream.Collector
 import java.util.stream.Collector.Characteristics
 import java.util.stream.Collectors
-
 import scala.concurrent.Await
 import scala.concurrent.duration._
-
 import org.scalatest.time.Millis
 import org.scalatest.time.Span
-
 import akka.stream.ActorAttributes
 import akka.stream.testkit.StreamSpec
 import akka.stream.testkit.Utils.TE
 import akka.testkit.DefaultTimeout
 import akka.util.ByteString
+
+import java.util.Spliterator
+import java.util.function.Consumer
 
 class StreamConvertersSpec extends StreamSpec with DefaultTimeout {
 
@@ -37,7 +37,7 @@ class StreamConvertersSpec extends StreamSpec with DefaultTimeout {
     import scala.compat.java8.FunctionConverters._
 
     def javaStreamInts =
-      IntStream.iterate(1, { i: Int =>
+      IntStream.iterate(1, { (i: Int) =>
         i + 1
       }.asJava)
 
@@ -70,7 +70,7 @@ class StreamConvertersSpec extends StreamSpec with DefaultTimeout {
     "work with a filtered stream" in {
       StreamConverters
         .fromJavaStream(() =>
-          javaStreamInts.filter({ i: Int =>
+          javaStreamInts.filter({ (i: Int) =>
             i % 2 == 0
           }.asJava))
         .take(1000)
@@ -94,24 +94,29 @@ class StreamConvertersSpec extends StreamSpec with DefaultTimeout {
     "close the underlying stream when completed" in {
       @volatile var closed = false
 
-      final class EmptyStream[A] extends BaseStream[A, EmptyStream[A]] {
-        override def unordered(): EmptyStream[A] = this
-        override def sequential(): EmptyStream[A] = this
-        override def parallel(): EmptyStream[A] = this
+      final class EmptyStream extends BaseStream[Unit, EmptyStream] {
+        override def unordered(): EmptyStream = this
+        override def sequential(): EmptyStream = this
+        override def parallel(): EmptyStream = this
         override def isParallel: Boolean = false
 
-        override def spliterator(): util.Spliterator[A] = ???
-        override def onClose(closeHandler: Runnable): EmptyStream[A] = ???
+        override def spliterator(): util.Spliterator[Unit] = new Spliterator[Unit] {
+          override def tryAdvance(action: Consumer[_ >: Unit]): Boolean = false
 
-        override def iterator(): util.Iterator[A] = new util.Iterator[A] {
-          override def next(): A = ???
-          override def hasNext: Boolean = false
+          override def trySplit(): Spliterator[Unit] = ???
+
+          override def estimateSize(): Long = 0
+
+          override def characteristics(): Int = Spliterator.ORDERED & Spliterator.SIZED & Spliterator.DISTINCT
         }
+        override def onClose(closeHandler: Runnable): EmptyStream = ???
+
+        override def iterator(): util.Iterator[Unit] = ???
 
         override def close(): Unit = closed = true
       }
 
-      Await.ready(StreamConverters.fromJavaStream(() => new EmptyStream[Unit]).runWith(Sink.ignore), 3.seconds)
+      Await.ready(StreamConverters.fromJavaStream(() => new EmptyStream).runWith(Sink.ignore), 3.seconds)
 
       closed should ===(true)
     }
@@ -119,24 +124,24 @@ class StreamConvertersSpec extends StreamSpec with DefaultTimeout {
     "close the underlying stream when failed" in {
       @volatile var closed = false
 
-      final class FailingStream[A] extends BaseStream[A, FailingStream[A]] {
-        override def unordered(): FailingStream[A] = this
-        override def sequential(): FailingStream[A] = this
-        override def parallel(): FailingStream[A] = this
+      final class FailingStream extends BaseStream[Unit, FailingStream] {
+        override def unordered(): FailingStream = this
+        override def sequential(): FailingStream = this
+        override def parallel(): FailingStream = this
         override def isParallel: Boolean = false
 
-        override def spliterator(): util.Spliterator[A] = ???
-        override def onClose(closeHandler: Runnable): FailingStream[A] = ???
-
-        override def iterator(): util.Iterator[A] = new util.Iterator[A] {
-          override def next(): A = throw new TE("ouch")
-          override def hasNext: Boolean = true
+        override def spliterator(): util.Spliterator[Unit] = new Spliterator[Unit] {
+          override def tryAdvance(action: Consumer[_ >: Unit]): Boolean = throw TE("ouch")
+          override def trySplit(): Spliterator[Unit] = ???
+          override def estimateSize(): Long = ???
+          override def characteristics(): Int = ???
         }
-
+        override def onClose(closeHandler: Runnable): FailingStream = ???
+        override def iterator(): util.Iterator[Unit] = ???
         override def close(): Unit = closed = true
       }
 
-      Await.ready(StreamConverters.fromJavaStream(() => new FailingStream[Unit]).runWith(Sink.ignore), 3.seconds)
+      Await.ready(StreamConverters.fromJavaStream(() => new FailingStream).runWith(Sink.ignore), 3.seconds)
 
       closed should ===(true)
     }
@@ -339,6 +344,31 @@ class StreamConvertersSpec extends StreamSpec with DefaultTimeout {
       is.read() should be('A')
       is.close()
       is.close()
+    }
+  }
+
+  "OutputStream Source" must {
+    "ignore empty arrays" in {
+      val source =
+        StreamConverters.asOutputStream().withAttributes(ActorAttributes.dispatcher("akka.test.stream-dispatcher"))
+
+      val (out, result) = source.toMat(Sink.seq)(Keep.both).run()
+
+      out.write(1)
+      out.write(Array[Byte](2, 3, 4))
+      out.write(Array[Byte]())
+      out.write(5)
+      out.write(Array(6, 7, 8), 0, 3)
+      out.write(Array(), 0, 0)
+      out.write(9)
+      out.close()
+
+      result.futureValue should contain theSameElementsInOrderAs Seq(
+        ByteString(1),
+        ByteString(2, 3, 4),
+        ByteString(5),
+        ByteString(6, 7, 8),
+        ByteString(9))
     }
   }
 }

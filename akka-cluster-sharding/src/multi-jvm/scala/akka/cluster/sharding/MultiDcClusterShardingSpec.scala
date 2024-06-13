@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
@@ -41,19 +41,19 @@ object MultiDcClusterShardingSpec {
 
   val extractShardId: ShardRegion.ExtractShardId = {
     case m: EntityMsg => m.id.charAt(0).toString
+    case _            => throw new IllegalArgumentException()
   }
 }
 
 object MultiDcClusterShardingSpecConfig
     extends MultiNodeClusterShardingConfig(
       loglevel = "DEBUG", //issue #23741
-      additionalConfig = s"""
+      additionalConfig = """
     akka.cluster {
       debug.verbose-heartbeat-logging = on
       debug.verbose-gossip-logging = on
       sharding.retry-interval = 200ms
     }
-    akka.remote.log-remote-lifecycle-events = on
     """) {
 
   val first = role("first")

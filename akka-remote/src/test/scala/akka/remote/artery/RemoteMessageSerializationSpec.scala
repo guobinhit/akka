@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -7,11 +7,19 @@ package akka.remote.artery
 import java.io.NotSerializableException
 import java.util.concurrent.ThreadLocalRandom
 
+import scala.annotation.nowarn
 import scala.concurrent.duration._
-import com.github.ghik.silencer.silent
-import akka.actor.{ Actor, ActorRef, Dropped, PoisonPill, Props }
-import akka.remote.{ AssociationErrorEvent, DisassociatedEvent, OversizedPayloadException, RARP }
-import akka.testkit.{ EventFilter, ImplicitSender, TestActors, TestProbe }
+
+import akka.actor.Actor
+import akka.actor.ActorRef
+import akka.actor.Dropped
+import akka.actor.PoisonPill
+import akka.actor.Props
+import akka.remote.RARP
+import akka.testkit.EventFilter
+import akka.testkit.ImplicitSender
+import akka.testkit.TestActors
+import akka.testkit.TestProbe
 import akka.util.ByteString
 
 object RemoteMessageSerializationSpec {
@@ -36,7 +44,7 @@ class RemoteMessageSerializationSpec extends ArteryMultiNodeSpec with ImplicitSe
       object Unserializable
       EventFilter[NotSerializableException](pattern = ".*No configured serialization.*", occurrences = 1).intercept {
         verifySend(Unserializable) {
-          expectNoMessage(1.second) // No AssocitionErrorEvent should be published
+          expectNoMessage(1.second) // No AssociationErrorEvent should be published
         }
       }
     }
@@ -56,7 +64,7 @@ class RemoteMessageSerializationSpec extends ArteryMultiNodeSpec with ImplicitSe
       EventFilter[OversizedPayloadException](start = "Failed to serialize oversized message", occurrences = 1)
         .intercept {
           verifySend(oversized) {
-            expectNoMessage(1.second) // No AssocitionErrorEvent should be published
+            expectNoMessage(1.second) // No AssociationErrorEvent should be published
           }
         }
       droppedProbe.expectMsgType[Dropped].message should ===(oversized)
@@ -68,7 +76,7 @@ class RemoteMessageSerializationSpec extends ArteryMultiNodeSpec with ImplicitSe
       EventFilter[OversizedPayloadException](pattern = ".*Discarding oversized payload received.*", occurrences = 1)
         .intercept {
           verifySend(maxPayloadBytes + 1) {
-            expectNoMessage(1.second) // No AssocitionErrorEvent should be published
+            expectNoMessage(1.second) // No AssociationErrorEvent should be published
           }
         }
     }
@@ -86,6 +94,7 @@ class RemoteMessageSerializationSpec extends ArteryMultiNodeSpec with ImplicitSe
   }
 
   private def verifySend(msg: Any)(afterSend: => Unit): Unit = {
+
     val bigBounceId = s"bigBounce-${ThreadLocalRandom.current.nextInt()}"
     val bigBounceOther = remoteSystem.actorOf(Props(new Actor {
       def receive = {
@@ -93,25 +102,15 @@ class RemoteMessageSerializationSpec extends ArteryMultiNodeSpec with ImplicitSe
         case x      => sender() ! x
       }
     }), bigBounceId)
-    @silent
+    @nowarn
     val bigBounceHere =
       RARP(system).provider.resolveActorRef(s"akka://${remoteSystem.name}@localhost:$remotePort/user/$bigBounceId")
 
-    val eventForwarder = localSystem.actorOf(Props(new Actor {
-      def receive = {
-        case x => testActor ! x
-      }
-    }))
-    localSystem.eventStream.subscribe(eventForwarder, classOf[AssociationErrorEvent])
-    localSystem.eventStream.subscribe(eventForwarder, classOf[DisassociatedEvent])
     try {
       bigBounceHere ! msg
       afterSend
       expectNoMessage(500.millis)
     } finally {
-      localSystem.eventStream.unsubscribe(eventForwarder, classOf[AssociationErrorEvent])
-      localSystem.eventStream.unsubscribe(eventForwarder, classOf[DisassociatedEvent])
-      eventForwarder ! PoisonPill
       bigBounceOther ! PoisonPill
     }
   }

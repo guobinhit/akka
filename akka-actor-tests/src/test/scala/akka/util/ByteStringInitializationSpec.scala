@@ -1,16 +1,16 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.util
 
 import java.io.InputStream
 
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpec
-
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuilder
+
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 class ByteStringInitializationSpec extends AnyWordSpec with Matchers {
   "ByteString intialization" should {
@@ -37,19 +37,17 @@ class ByteStringInitializationSpec extends AnyWordSpec with Matchers {
         }
       }
 
-      import scala.language.reflectiveCalls
-      type WithRun = { def run(): Unit }
       cleanCl
         .loadClass("akka.util.ByteStringInitTest")
         .getDeclaredConstructor()
         .newInstance()
-        .asInstanceOf[WithRun]
+        .asInstanceOf[Runnable]
         .run()
     }
   }
 }
 
-class ByteStringInitTest {
+class ByteStringInitTest extends Runnable {
   def run(): Unit = {
     require(CompactByteString.empty ne null)
     require(ByteString.empty ne null)

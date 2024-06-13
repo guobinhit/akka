@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
@@ -10,7 +10,7 @@ import akka.actor.Actor
 import akka.actor.ActorRef
 import akka.actor.Props
 import akka.cluster.MemberStatus
-import akka.remote.transport.ThrottlerTransportAdapter.Direction
+import akka.remote.testkit.Direction
 import akka.serialization.jackson.CborSerializable
 import akka.testkit._
 import akka.util.ccompat._
@@ -42,6 +42,7 @@ object ClusterShardCoordinatorDowningSpec {
 
   val extractShardId: ShardRegion.ExtractShardId = {
     case Ping(id: String) => id.charAt(0).toString
+    case _                => throw new IllegalArgumentException()
   }
 }
 
@@ -84,9 +85,8 @@ class DDataClusterShardCoordinatorDowningMultiJvmNode3 extends DDataClusterShard
 abstract class ClusterShardCoordinatorDowningSpec(multiNodeConfig: ClusterShardCoordinatorDowningSpecConfig)
     extends MultiNodeClusterShardingSpec(multiNodeConfig)
     with ImplicitSender {
-  import multiNodeConfig._
-
   import ClusterShardCoordinatorDowningSpec._
+  import multiNodeConfig._
 
   def startSharding(): Unit = {
     startSharding(
@@ -99,7 +99,7 @@ abstract class ClusterShardCoordinatorDowningSpec(multiNodeConfig: ClusterShardC
 
   lazy val region = ClusterSharding(system).shardRegion("Entity")
 
-  s"Cluster sharding ($mode) with down member, scenario 1" must {
+  s"Cluster sharding (${multiNodeConfig.mode}) with down member, scenario 1" must {
 
     "join cluster" in within(20.seconds) {
       startPersistenceIfNeeded(startOn = controller, setStoreOn = Seq(first, second))

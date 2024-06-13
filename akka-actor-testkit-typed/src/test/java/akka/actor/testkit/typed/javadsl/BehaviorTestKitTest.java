@@ -1,8 +1,10 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.testkit.typed.javadsl;
+
+import static org.junit.Assert.*;
 
 import akka.Done;
 import akka.actor.testkit.typed.CapturedLogEvent;
@@ -11,19 +13,15 @@ import akka.actor.typed.ActorRef;
 import akka.actor.typed.Behavior;
 import akka.actor.typed.Props;
 import akka.actor.typed.javadsl.Behaviors;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.scalatestplus.junit.JUnitSuite;
-import org.slf4j.event.Level;
-
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.IntStream;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import org.junit.Ignore;
+import org.junit.Test;
+import org.scalatestplus.junit.JUnitSuite;
+import org.slf4j.event.Level;
 
 public class BehaviorTestKitTest extends JUnitSuite {
 
@@ -117,6 +115,34 @@ public class BehaviorTestKitTest extends JUnitSuite {
 
     public Log(String what) {
       this.what = what;
+    }
+  }
+
+  public static class AskForCookiesFrom implements Command {
+    private final ActorRef<CookieDistributorCommand> distributor;
+
+    public AskForCookiesFrom(ActorRef<CookieDistributorCommand> distributor) {
+      this.distributor = distributor;
+    }
+  }
+
+  public interface CookieDistributorCommand {}
+
+  public static class GiveMeCookies implements CookieDistributorCommand {
+    public final int nrCookies;
+    public final ActorRef<CookiesForYou> replyTo;
+
+    public GiveMeCookies(int nrCookies, ActorRef<CookiesForYou> replyTo) {
+      this.nrCookies = nrCookies;
+      this.replyTo = replyTo;
+    }
+  }
+
+  public static class CookiesForYou {
+    public final int nrCookies;
+
+    public CookiesForYou(int nrCookies) {
+      this.nrCookies = nrCookies;
     }
   }
 
@@ -215,6 +241,24 @@ public class BehaviorTestKitTest extends JUnitSuite {
                     Log.class,
                     message -> {
                       context.getLog().info(message.what);
+                      return Behaviors.same();
+                    })
+                .onMessage(
+                    AskForCookiesFrom.class,
+                    message -> {
+                      context.ask(
+                          CookiesForYou.class,
+                          message.distributor,
+                          Duration.ofSeconds(10),
+                          (ActorRef<CookiesForYou> ref) -> new GiveMeCookies(6, ref),
+                          (response, throwable) -> {
+                            if (response != null) {
+                              return new Log(
+                                  "Got " + response.nrCookies + " cookies from distributor");
+                            } else {
+                              return new Log("Failed to get cookies: " + throwable.getMessage());
+                            }
+                          });
                       return Behaviors.same();
                     })
                 .build();
@@ -348,12 +392,13 @@ public class BehaviorTestKitTest extends JUnitSuite {
   @Test
   public void allowRetrievingAndKilling() {
     BehaviorTestKit<Command> test = BehaviorTestKit.create(behavior);
-    TestInbox<ActorRef<String>> i = TestInbox.create();
     TestInbox<String> h = TestInbox.create();
-    test.run(new SpawnSession(i.getRef(), h.getRef()));
 
-    ActorRef<String> sessionRef = i.receiveMessage();
-    assertFalse(i.hasMessages());
+    ReplyInbox<ActorRef<String>> sessionReply =
+        test.runAsk(replyTo -> new SpawnSession(replyTo, h.getRef()));
+
+    ActorRef<String> sessionRef = sessionReply.receiveReply();
+
     Effect.SpawnedAnonymous s = test.expectEffectClass(Effect.SpawnedAnonymous.class);
     assertEquals(sessionRef, s.ref());
 
@@ -361,10 +406,40 @@ public class BehaviorTestKitTest extends JUnitSuite {
     session.run("hello");
     assertEquals(Collections.singletonList("hello"), h.getAllReceived());
 
-    TestInbox<Done> d = TestInbox.create();
-    test.run(new KillSession(sessionRef, d.getRef()));
+    ReplyInbox<Done> doneReply = test.runAsk(replyTo -> new KillSession(sessionRef, replyTo));
+    doneReply.expectReply(Done.getInstance());
 
-    assertEquals(Collections.singletonList(Done.getInstance()), d.getAllReceived());
     test.expectEffectClass(Effect.Stopped.class);
+  }
+
+  @Test
+  public void canUseTimerScheduledInJavaApi() {
+    // this is a compilation test
+    Effect.TimerScheduled<String> timerScheduled =
+        Effects.timerScheduled(
+            "my key",
+            "my msg",
+            Duration.ofSeconds(42),
+            Effect.timerScheduled().fixedDelayMode(),
+            false,
+            () -> {});
+    assertNotNull(timerScheduled);
+  }
+
+  @Test
+  public void reifyAskAsEffect() {
+    BehaviorTestKit<Command> test = BehaviorTestKit.create(behavior);
+    TestInbox<CookieDistributorCommand> cdInbox = TestInbox.create();
+
+    test.run(new AskForCookiesFrom(cdInbox.getRef()));
+
+    Effect expectedEffect =
+        Effects.askInitiated(
+            cdInbox.getRef(), Duration.ofSeconds(10), CookiesForYou.class, Command.class);
+    Effect.AskInitiated actualEffect = test.expectEffectClass(Effect.AskInitiated.class);
+
+    assertEquals(actualEffect, expectedEffect);
+
+    // Other functionality is tested in the scaladsl
   }
 }

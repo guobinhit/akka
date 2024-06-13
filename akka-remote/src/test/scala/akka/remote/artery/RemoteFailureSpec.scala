@@ -1,15 +1,17 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
 
 import scala.concurrent.duration._
 
-import akka.remote.EndpointDisassociatedException
+import akka.actor.ActorIdentity
+import akka.actor.Identify
 import akka.serialization.jackson.CborSerializable
-import akka.testkit.{ EventFilter, ImplicitSender, TestActors, TestEvent }
 import akka.testkit.DeadLettersFilter
+import akka.testkit.ImplicitSender
+import akka.testkit.TestActors
 import akka.testkit.TestEvent.Mute
 
 object RemoteFailureSpec {
@@ -24,15 +26,17 @@ class RemoteFailureSpec extends ArteryMultiNodeSpec with ImplicitSender {
   "Remoting" should {
 
     "not be exhausted by sending to broken connections" in {
-      val remoteSystems = Vector.fill(5)(newRemoteSystem())
+      val remoteSystems = Vector.fill(3)(newRemoteSystem())
 
       remoteSystems.foreach { sys =>
-        sys.eventStream.publish(TestEvent
-          .Mute(EventFilter[EndpointDisassociatedException](), EventFilter.warning(pattern = "received dead letter.*")))
         sys.actorOf(TestActors.echoActorProps, name = "echo")
       }
       val remoteSelections = remoteSystems.map { sys =>
-        system.actorSelection(rootActorPath(sys) / "user" / "echo")
+        val sel = system.actorSelection(rootActorPath(sys) / "user" / "echo")
+        // verify that it's are there
+        sel ! Identify(sel.toSerializationFormat)
+        expectMsgType[ActorIdentity].ref.isDefined should ===(true)
+        sel
       }
 
       system.actorOf(TestActors.echoActorProps, name = "echo")

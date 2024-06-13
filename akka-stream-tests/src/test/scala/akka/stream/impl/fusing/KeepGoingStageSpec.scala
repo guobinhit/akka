@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl.fusing
@@ -22,18 +22,17 @@ import akka.stream.stage.GraphStageWithMaterializedValue
 import akka.stream.stage.InHandler
 import akka.stream.testkit.StreamSpec
 import akka.stream.testkit.Utils._
-import akka.stream.testkit.scaladsl.StreamTestKit._
 
 class KeepGoingStageSpec extends StreamSpec {
 
-  trait PingCmd extends NoSerializationVerificationNeeded
+  sealed trait PingCmd extends NoSerializationVerificationNeeded
   case class Register(probe: ActorRef) extends PingCmd
   case object Ping extends PingCmd
   case object CompleteStage extends PingCmd
   case object FailStage extends PingCmd
   case object Throw extends PingCmd
 
-  trait PingEvt extends NoSerializationVerificationNeeded
+  sealed trait PingEvt extends NoSerializationVerificationNeeded
   case object Pong extends PingEvt
   case object PostStop extends PingEvt
   case object UpstreamCompleted extends PingEvt
@@ -93,7 +92,7 @@ class KeepGoingStageSpec extends StreamSpec {
 
   "A stage with keep-going" must {
 
-    "still be alive after all ports have been closed until explicitly closed" in assertAllStagesStopped {
+    "still be alive after all ports have been closed until explicitly closed" in {
       val (maybePromise, pingerFuture) = Source.maybe[Int].toMat(new PingableSink(keepAlive = true))(Keep.both).run()
       val pinger = Await.result(pingerFuture, 3.seconds)
 
@@ -124,7 +123,7 @@ class KeepGoingStageSpec extends StreamSpec {
 
     }
 
-    "still be alive after all ports have been closed until explicitly failed" in assertAllStagesStopped {
+    "still be alive after all ports have been closed until explicitly failed" in {
       val (maybePromise, pingerFuture) = Source.maybe[Int].toMat(new PingableSink(keepAlive = true))(Keep.both).run()
       val pinger = Await.result(pingerFuture, 3.seconds)
 
@@ -155,7 +154,7 @@ class KeepGoingStageSpec extends StreamSpec {
 
     }
 
-    "still be alive after all ports have been closed until implicitly failed (via exception)" in assertAllStagesStopped {
+    "still be alive after all ports have been closed until implicitly failed (via exception)" in {
       val (maybePromise, pingerFuture) = Source.maybe[Int].toMat(new PingableSink(keepAlive = true))(Keep.both).run()
       val pinger = Await.result(pingerFuture, 3.seconds)
 
@@ -186,7 +185,7 @@ class KeepGoingStageSpec extends StreamSpec {
 
     }
 
-    "close down early if keepAlive is not requested" in assertAllStagesStopped {
+    "close down early if keepAlive is not requested" in {
       val (maybePromise, pingerFuture) = Source.maybe[Int].toMat(new PingableSink(keepAlive = false))(Keep.both).run()
       val pinger = Await.result(pingerFuture, 3.seconds)
 

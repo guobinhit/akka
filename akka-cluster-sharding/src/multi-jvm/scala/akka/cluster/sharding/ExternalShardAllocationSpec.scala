@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
@@ -7,6 +7,7 @@ package akka.cluster.sharding
 import scala.concurrent.duration._
 
 import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.time.Span
 
 import akka.actor.{ Actor, ActorLogging, Address, Props }
 import akka.cluster.Cluster
@@ -48,6 +49,7 @@ object ExternalShardAllocationSpec {
     // shard == id to make testing easier
     val extractShardId: ShardRegion.ExtractShardId = {
       case Get(id) => id
+      case _       => throw new IllegalArgumentException()
     }
   }
 
@@ -73,7 +75,10 @@ abstract class ExternalShardAllocationSpec
   import ExternalShardAllocationSpec.GiveMeYourHome._
   import ExternalShardAllocationSpecConfig._
 
-  override implicit val patienceConfig: PatienceConfig = PatienceConfig(5.second)
+  override implicit val patienceConfig: PatienceConfig = {
+    import akka.testkit.TestDuration
+    PatienceConfig(testKitSettings.DefaultTimeout.duration.dilated, Span(100, org.scalatest.time.Millis))
+  }
 
   val typeName = "home"
   val initiallyOnForth = "on-forth"
@@ -90,7 +95,7 @@ abstract class ExternalShardAllocationSpec
       entityProps = Props[GiveMeYourHome](),
       extractEntityId = extractEntityId,
       extractShardId = extractShardId,
-      allocationStrategy = new ExternalShardAllocationStrategy(system, typeName))
+      allocationStrategy = ExternalShardAllocationStrategy(system, typeName))
 
     "start cluster sharding" in {
       shardRegion

@@ -1,11 +1,12 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.metrics
 
 import java.lang.management.ManagementFactory
 
+import scala.annotation.nowarn
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
@@ -19,13 +20,14 @@ import akka.cluster.MultiNodeClusterSpec
 import akka.cluster.routing.ClusterRouterPool
 import akka.cluster.routing.ClusterRouterPoolSettings
 import akka.pattern.ask
-import akka.remote.testkit.{ MultiNodeConfig, MultiNodeSpec }
+import akka.remote.testkit.MultiNodeConfig
 import akka.routing.ActorRefRoutee
 import akka.routing.FromConfig
 import akka.routing.GetRoutees
 import akka.routing.Routees
 import akka.serialization.jackson.CborSerializable
 import akka.testkit.{ DefaultTimeout, ImplicitSender, LongRunningTest }
+import akka.testkit.GHExcludeTest
 import akka.util.unused
 
 object AdaptiveLoadBalancingRouterConfig extends MultiNodeConfig {
@@ -118,9 +120,9 @@ class AdaptiveLoadBalancingRouterMultiJvmNode1 extends AdaptiveLoadBalancingRout
 class AdaptiveLoadBalancingRouterMultiJvmNode2 extends AdaptiveLoadBalancingRouterSpec
 class AdaptiveLoadBalancingRouterMultiJvmNode3 extends AdaptiveLoadBalancingRouterSpec
 
+@nowarn
 abstract class AdaptiveLoadBalancingRouterSpec
-    extends MultiNodeSpec(AdaptiveLoadBalancingRouterConfig)
-    with MultiNodeClusterSpec
+    extends MultiNodeClusterSpec(AdaptiveLoadBalancingRouterConfig)
     with RedirectLogging
     with ImplicitSender
     with DefaultTimeout {
@@ -156,7 +158,7 @@ abstract class AdaptiveLoadBalancingRouterSpec
     // it may take some time until router receives cluster member events
     awaitAssert { currentRoutees(router).size should ===(roles.size) }
     val routees = currentRoutees(router)
-    routees.map { case ActorRefRoutee(ref) => fullAddress(ref) }.toSet should ===(roles.map(address).toSet)
+    routees.collect { case ActorRefRoutee(ref) => fullAddress(ref) }.toSet should ===(roles.map(address).toSet)
     router
   }
 
@@ -196,7 +198,8 @@ abstract class AdaptiveLoadBalancingRouterSpec
       enterBarrier("after-2")
     }
 
-    "prefer node with more free heap capacity" taggedAs LongRunningTest in {
+    // Excluded on GH Actions: https://github.com/akka/akka/issues/30486
+    "prefer node with more free heap capacity" taggedAs (LongRunningTest, GHExcludeTest) in {
       System.gc()
       enterBarrier("gc")
 
@@ -229,24 +232,26 @@ abstract class AdaptiveLoadBalancingRouterSpec
       enterBarrier("after-3")
     }
 
-    "create routees from configuration" taggedAs LongRunningTest in {
+    // Excluded on GH Actions: https://github.com/akka/akka/issues/30486
+    "create routees from configuration" taggedAs (LongRunningTest, GHExcludeTest) in {
       runOn(node1) {
         val router3 = system.actorOf(FromConfig.props(Props[Memory]()), "router3")
         // it may take some time until router receives cluster member events
         awaitAssert { currentRoutees(router3).size should ===(9) }
         val routees = currentRoutees(router3)
-        routees.map { case ActorRefRoutee(ref) => fullAddress(ref) }.toSet should ===(Set(address(node1)))
+        routees.collect { case ActorRefRoutee(ref) => fullAddress(ref) }.toSet should ===(Set(address(node1)))
       }
       enterBarrier("after-4")
     }
 
-    "create routees from cluster.enabled configuration" taggedAs LongRunningTest in {
+    // Excluded on GH Actions: https://github.com/akka/akka/issues/30486
+    "create routees from cluster.enabled configuration" taggedAs (LongRunningTest, GHExcludeTest) in {
       runOn(node1) {
         val router4 = system.actorOf(FromConfig.props(Props[Memory]()), "router4")
         // it may take some time until router receives cluster member events
         awaitAssert { currentRoutees(router4).size should ===(6) }
         val routees = currentRoutees(router4)
-        routees.map { case ActorRefRoutee(ref) => fullAddress(ref) }.toSet should ===(
+        routees.collect { case ActorRefRoutee(ref) => fullAddress(ref) }.toSet should ===(
           Set(address(node1), address(node2), address(node3)))
       }
       enterBarrier("after-5")

@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.japi.pf;
 
+import static org.junit.Assert.*;
+
 import org.junit.Test;
 import org.scalatestplus.junit.JUnitSuite;
 import scala.PartialFunction;
-
-import static org.junit.Assert.*;
 
 @SuppressWarnings("serial")
 public class PFBuilderTest extends JUnitSuite {

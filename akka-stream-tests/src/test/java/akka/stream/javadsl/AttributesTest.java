@@ -1,22 +1,20 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.javadsl;
 
 import static org.junit.Assert.assertEquals;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Optional;
-
-import org.junit.ClassRule;
-import org.junit.Test;
-
 import akka.stream.Attributes;
 import akka.stream.StreamTest;
 import akka.testkit.AkkaJUnitActorSystemResource;
 import akka.testkit.AkkaSpec;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Optional;
+import org.junit.ClassRule;
+import org.junit.Test;
 
 public class AttributesTest extends StreamTest {
 
@@ -57,18 +55,5 @@ public class AttributesTest extends StreamTest {
   public void mustGetPossiblyMissingAttributeByClass() {
     assertEquals(
         Optional.of(new Attributes.Name("b")), attributes.getAttribute(Attributes.Name.class));
-  }
-
-  @Deprecated
-  @Test
-  public void mustGetPossiblyMissingFirstAttributeByClass() {
-    assertEquals(
-        Optional.of(new Attributes.Name("a")), attributes.getFirstAttribute(Attributes.Name.class));
-  }
-
-  @Deprecated
-  @Test
-  public void mustGetMissingFirstAttributeByClass() {
-    assertEquals(Optional.empty(), attributes.getFirstAttribute(Attributes.LogLevels.class));
   }
 }

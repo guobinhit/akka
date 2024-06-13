@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.util
@@ -21,6 +21,7 @@ import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
 import org.scalatest.wordspec.AnyWordSpec
 
+import akka.testkit.TimingTest
 import akka.util.DefaultExecutionContext._
 import akka.util.ccompat.JavaConverters._
 
@@ -101,43 +102,53 @@ class BoundedBlockingQueueSpec
       val TestContext(queue, events, _, _, _, _) = newBoundedBlockingQueue(1)
       queue.offer("1")
 
-      mustBlockFor(100 milliseconds) {
+      mustBlockFor(100.milliseconds) {
         queue.put("2")
       }
       (events should contain).inOrder(offer("1"), awaitNotFull)
       events should not contain offer("2")
     }
 
-    "block until the backing queue has space" in {
+    "block until the backing queue has space" taggedAs TimingTest in {
       val TestContext(queue, events, _, _, _, _) = newBoundedBlockingQueue(1)
       queue.offer("a")
 
-      val f = Future(queue.put("b"))
-
-      after(10 milliseconds) {
-        f.isCompleted should be(false)
-        queue.take()
+      val latch = new CountDownLatch(1)
+      val f = Future {
+        latch.countDown()
+        queue.put("b")
       }
 
-      Await.result(f, 3 seconds)
+      latch.await(3, TimeUnit.SECONDS)
+      // queue.take() must happen first
+      Thread.sleep(50) // this is why this test is tagged as TimingTest
+      f.isCompleted should be(false)
+      queue.take()
+
+      Await.result(f, 3.seconds)
       (events should contain).inOrder(offer("a"), poll, offer("b"))
     }
 
-    "check the backing queue size before offering" in {
+    "check the backing queue size before offering" taggedAs TimingTest in {
       val TestContext(queue, events, _, notFull, lock, _) = newBoundedBlockingQueue(1)
       queue.offer("a")
 
+      val latch = new CountDownLatch(1)
       // Blocks until another thread signals `notFull`
-      val f = Future(queue.put("b"))
-
-      after(10 milliseconds) {
-        f.isCompleted should be(false)
-        lock.lockInterruptibly()
-        notFull.signal()
-        lock.unlock()
+      val f = Future {
+        latch.countDown()
+        queue.put("b")
       }
 
-      mustBlockFor(100 milliseconds, f)
+      latch.await(3, TimeUnit.SECONDS)
+      // queue.put() must happen first
+      Thread.sleep(50) // this is why this test is tagged as TimingTest
+      f.isCompleted should be(false)
+      lock.lockInterruptibly()
+      notFull.signal()
+      lock.unlock()
+
+      mustBlockFor(100.milliseconds, f)
       events.toList should containInSequence(offer("a"), awaitNotFull, signalNotFull, getSize, awaitNotFull)
       events shouldNot contain(offer("b"))
     }
@@ -159,45 +170,62 @@ class BoundedBlockingQueueSpec
       events should contain(signalNotFull)
     }
 
-    "block when the queue is empty" in {
+    "block when the queue is empty" taggedAs TimingTest in {
       val TestContext(queue, events, _, _, _, _) = newBoundedBlockingQueue(1)
 
-      mustBlockFor(100 milliseconds) {
+      val latch = new CountDownLatch(1)
+      mustBlockFor(100.milliseconds) {
+        latch.countDown()
         queue.take()
       }
+
+      latch.await(3, TimeUnit.SECONDS)
+      // queue.take() must happen first
+      Thread.sleep(50) // this is why this test is tagged as TimingTest
       events should contain(awaitNotEmpty)
       events should not contain (poll)
     }
 
-    "block until the backing queue is non-empty" in {
+    "block until the backing queue is non-empty" taggedAs TimingTest in {
       val TestContext(queue, events, _, _, _, _) = newBoundedBlockingQueue(1)
 
-      val f = Future(queue.take())
-      after(10 milliseconds) {
-        f.isCompleted should be(false)
-        queue.put("a")
+      val latch = new CountDownLatch(1)
+      val f = Future {
+        latch.countDown()
+        queue.take()
       }
 
-      Await.ready(f, 3 seconds)
+      latch.await(3, TimeUnit.SECONDS)
+      // queue.take() must happen first
+      Thread.sleep(50) // this is why this test is tagged as TimingTest
+      f.isCompleted should be(false)
+      queue.put("a")
+
+      Await.ready(f, 3.seconds)
       (events should contain).inOrder(awaitNotEmpty, offer("a"), poll)
     }
 
-    "check the backing queue size before polling" in {
+    "check the backing queue size before polling" taggedAs TimingTest in {
       val TestContext(queue, events, notEmpty, _, lock, _) = newBoundedBlockingQueue(1)
 
+      val latch = new CountDownLatch(1)
       // Blocks until another thread signals `notEmpty`
-      val f = Future(queue.take())
-
-      // Cause `notFull` signal, but don't fill the queue
-      after(10 milliseconds) {
-        f.isCompleted should be(false)
-        lock.lockInterruptibly()
-        notEmpty.signal()
-        lock.unlock()
+      val f = Future {
+        latch.countDown()
+        queue.take()
       }
 
+      // Cause `notFull` signal, but don't fill the queue
+      latch.await(3, TimeUnit.SECONDS)
+      // queue.take() must happen first
+      Thread.sleep(50) // this is why this test is tagged as TimingTest
+      f.isCompleted should be(false)
+      lock.lockInterruptibly()
+      notEmpty.signal()
+      lock.unlock()
+
       // `f` should still block since the queue is still empty
-      mustBlockFor(100 milliseconds, f)
+      mustBlockFor(100.milliseconds, f)
       events.toList should containInSequence(getSize, awaitNotEmpty, signalNotEmpty, getSize, awaitNotEmpty)
       events shouldNot contain(poll)
     }
@@ -245,18 +273,25 @@ class BoundedBlockingQueueSpec
       events should contain(signalNotEmpty)
     }
 
-    "block for at least the timeout if the queue is full" in {
+    "block for at least the timeout if the queue is full" taggedAs TimingTest in {
       val TestContext(queue, events, _, notFull, _, _) = newBoundedBlockingQueue(1)
       queue.put("Hello")
 
       notFull.manualTimeControl(true)
 
-      val f = Future(queue.offer("World", 100, TimeUnit.MILLISECONDS))
-      after(10 milliseconds) {
-        f.isCompleted should be(false)
-        notFull.advanceTime(99 milliseconds)
+      val latch = new CountDownLatch(1)
+      val f = Future {
+        latch.countDown()
+        queue.offer("World", 100, TimeUnit.MILLISECONDS)
       }
-      mustBlockFor(100 milliseconds, f)
+
+      latch.await(3, TimeUnit.SECONDS)
+      // queue.offer() must happen first
+      Thread.sleep(50) // this is why this test is tagged as TimingTest
+      f.isCompleted should be(false)
+      notFull.advanceTime(99.milliseconds)
+
+      mustBlockFor(100.milliseconds, f)
       events shouldNot contain(offer("World"))
     }
 
@@ -267,38 +302,52 @@ class BoundedBlockingQueueSpec
       events shouldNot contain(offer("World"))
     }
 
-    "block for less than the timeout when the queue becomes not full" in {
+    "block for less than the timeout when the queue becomes not full" taggedAs TimingTest in {
 
       val TestContext(queue, events, _, notFull, _, _) = newBoundedBlockingQueue(1)
       queue.put("Hello")
 
       notFull.manualTimeControl(true)
-      val f = Future(queue.offer("World", 100, TimeUnit.MILLISECONDS))
-      notFull.advanceTime(99 milliseconds)
-      after(50 milliseconds) {
-        f.isCompleted should be(false)
-        queue.take()
+
+      val latch = new CountDownLatch(1)
+      val f = Future {
+        latch.countDown()
+        queue.offer("World", 100, TimeUnit.MILLISECONDS)
       }
-      Await.result(f, 3 seconds) should equal(true)
+      notFull.advanceTime(99.milliseconds)
+
+      latch.await(3, TimeUnit.SECONDS)
+      // queue.offer() must happen first
+      Thread.sleep(50) // this is why this test is tagged as TimingTest
+      f.isCompleted should be(false)
+      queue.take()
+
+      Await.result(f, 3.seconds) should equal(true)
       (events should contain).inOrder(awaitNotFull, signalNotFull, offer("World"))
     }
 
-    "check the backing queue size before offering" in {
+    "check the backing queue size before offering" taggedAs TimingTest in {
       val TestContext(queue, events, _, notFull, lock, _) = newBoundedBlockingQueue(1)
       queue.put("Hello")
-      // Blocks until another thread signals `notFull`
-      val f = Future(queue.offer("World", 1000, TimeUnit.DAYS))
 
-      // Cause `notFull` signal, but don't fill the queue
-      after(10 milliseconds) {
-        f.isCompleted should be(false)
-        lock.lockInterruptibly()
-        notFull.signal()
-        lock.unlock()
+      val latch = new CountDownLatch(1)
+      // Blocks until another thread signals `notFull`
+      val f = Future {
+        latch.countDown()
+        queue.offer("World", 1000, TimeUnit.DAYS)
       }
 
+      // Cause `notFull` signal, but don't fill the queue
+      latch.await(3, TimeUnit.SECONDS)
+      // queue.offer() must happen first
+      Thread.sleep(50) // this is why this test is tagged as TimingTest
+      f.isCompleted should be(false)
+      lock.lockInterruptibly()
+      notFull.signal()
+      lock.unlock()
+
       // `f` should still block since the queue is still empty
-      mustBlockFor(100 milliseconds, f)
+      mustBlockFor(100.milliseconds, f)
       events.toList should containInSequence(getSize, awaitNotFull, signalNotFull, getSize, awaitNotFull)
       events shouldNot contain(offer("World"))
     }
@@ -347,16 +396,22 @@ class BoundedBlockingQueueSpec
       events should contain(signalNotFull)
     }
 
-    "block for at least the timeout if the queue is empty" in {
+    "block for at least the timeout if the queue is empty" taggedAs TimingTest in {
       val TestContext(queue, events, notEmpty, _, _, _) = newBoundedBlockingQueue(1)
       notEmpty.manualTimeControl(true)
 
-      val f = Future(queue.poll(100, TimeUnit.MILLISECONDS))
-
-      after(10.milliseconds) {
-        f.isCompleted should be(false)
-        notEmpty.advanceTime(99.milliseconds)
+      val latch = new CountDownLatch(1)
+      val f = Future {
+        latch.countDown()
+        queue.poll(100, TimeUnit.MILLISECONDS)
       }
+
+      latch.await(3, TimeUnit.SECONDS)
+      // queue.poll() must happen first
+      Thread.sleep(50) // this is why this test is tagged as TimingTest
+      f.isCompleted should be(false)
+      notEmpty.advanceTime(99.milliseconds)
+
       mustBlockFor(100.milliseconds, f)
       events should contain(awaitNotEmpty)
     }
@@ -374,18 +429,24 @@ class BoundedBlockingQueueSpec
       queue.poll(100, TimeUnit.MILLISECONDS) should equal(null)
     }
 
-    "block for less than the timeout when the queue becomes non-empty" in {
+    "block for less than the timeout when the queue becomes non-empty" taggedAs TimingTest in {
       val TestContext(queue, events, notEmpty, _, _, _) = newBoundedBlockingQueue(1)
 
       notEmpty.manualTimeControl(true)
 
-      val f = Future(queue.poll(100, TimeUnit.MILLISECONDS))
+      val latch = new CountDownLatch(1)
+      val f = Future {
+        latch.countDown()
+        queue.poll(100, TimeUnit.MILLISECONDS)
+      }
 
       notEmpty.advanceTime(99.milliseconds)
-      after(50.milliseconds) {
-        f.isCompleted should be(false)
-        queue.put("Hello")
-      }
+      latch.await(3, TimeUnit.SECONDS)
+      // queue.poll() must happen first
+      Thread.sleep(50) // this is why this test is tagged as TimingTest
+      f.isCompleted should be(false)
+      queue.put("Hello")
+
       Await.result(f, 3.seconds) should equal("Hello")
       (events should contain).inOrder(awaitNotEmpty, signalNotEmpty, poll)
     }
@@ -619,10 +680,10 @@ trait CustomContainsMatcher {
 
       def attemptMatch(remainingTruth: List[A], remainingSequence: List[A]): MatchResult =
         (remainingTruth, remainingSequence) match {
-          case (_, Nil)                          => matchResult(true)
-          case (Nil, _)                          => matchResult(false)
-          case (x :: xs, y :: ys) if x.equals(y) => attemptMatch(xs, ys)
-          case (_ :: xs, ys)                     => attemptMatch(xs, ys)
+          case (_, Nil)                     => matchResult(true)
+          case (Nil, _)                     => matchResult(false)
+          case (x :: xs, y :: ys) if x == y => attemptMatch(xs, ys)
+          case (_ :: xs, ys)                => attemptMatch(xs, ys)
         }
 
       def matchResult(success: Boolean): MatchResult =

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.io
@@ -7,9 +7,9 @@ package akka.io
 import java.net.DatagramSocket
 import java.net.InetSocketAddress
 
+import scala.annotation.nowarn
 import scala.collection.immutable
 
-import com.github.ghik.silencer.silent
 import com.typesafe.config.Config
 
 import akka.actor._
@@ -26,7 +26,7 @@ import akka.util.ccompat._
  * from whom data can be received. For “connected” UDP mode see [[UdpConnected]].
  *
  * For a full description of the design and philosophy behind this IO
- * implementation please refer to <a href="http://doc.akka.io/">the Akka online documentation</a>.
+ * implementation please refer to <a href="https://akka.io/docs/">the Akka online documentation</a>.
  *
  * The Java API for generating UDP commands is available at [[UdpMessage]].
  */
@@ -100,7 +100,7 @@ object Udp extends ExtensionId[UdpExt] with ExtensionIdProvider {
    * The listener actor for the newly bound port will reply with a [[Bound]]
    * message, or the manager will reply with a [[CommandFailed]] message.
    */
-  @silent("deprecated")
+  @nowarn("msg=deprecated")
   final case class Bind(
       handler: ActorRef,
       localAddress: InetSocketAddress,
@@ -124,7 +124,7 @@ object Udp extends ExtensionId[UdpExt] with ExtensionIdProvider {
    * The “simple sender” will not stop itself, you will have to send it a [[akka.actor.PoisonPill]]
    * when you want to close the socket.
    */
-  @silent("deprecated")
+  @nowarn("msg=deprecated")
   case class SimpleSender(options: immutable.Traversable[SocketOption] = Nil) extends Command
   object SimpleSender extends SimpleSender(Nil)
 
@@ -225,7 +225,7 @@ class UdpExt(system: ExtendedActorSystem) extends IO.Extension {
 
   val manager: ActorRef = {
     system.systemActorOf(
-      props = Props(classOf[UdpManager], this).withDispatcher(settings.ManagementDispatcher).withDeploy(Deploy.local),
+      props = Props(new UdpManager(this)).withDispatcher(settings.ManagementDispatcher).withDeploy(Deploy.local),
       name = "IO-UDP-FF")
   }
 

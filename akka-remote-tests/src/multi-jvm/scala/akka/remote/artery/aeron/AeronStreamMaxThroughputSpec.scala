@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -15,13 +15,10 @@ import scala.concurrent.duration._
 import com.typesafe.config.ConfigFactory
 import io.aeron.Aeron
 import io.aeron.CncFileDescriptor
-import io.aeron.driver.MediaDriver
 import org.agrona.IoUtil
 
 import akka.actor._
-import akka.remote.testconductor.RoleName
 import akka.remote.testkit.MultiNodeConfig
-import akka.remote.testkit.MultiNodeSpec
 import akka.remote.testkit.STMultiNodeSpec
 import akka.stream.KillSwitches
 import akka.stream.scaladsl.Source
@@ -29,6 +26,9 @@ import akka.testkit._
 import akka.util.ByteString
 
 object AeronStreamMaxThroughputSpec extends MultiNodeConfig {
+  // important to not use aeron-udp via system property override because that will cause port conflict
+  System.setProperty("akka.remote.artery.transport", "tcp")
+
   val first = role("first")
   val second = role("second")
 
@@ -43,7 +43,6 @@ object AeronStreamMaxThroughputSpec extends MultiNodeConfig {
          actor {
            provider = remote
          }
-         remote.artery.enabled = off
        }
        """)))
 
@@ -68,7 +67,7 @@ class AeronStreamMaxThroughputSpecMultiJvmNode1 extends AeronStreamMaxThroughput
 class AeronStreamMaxThroughputSpecMultiJvmNode2 extends AeronStreamMaxThroughputSpec
 
 abstract class AeronStreamMaxThroughputSpec
-    extends MultiNodeSpec(AeronStreamMaxThroughputSpec)
+    extends AeronStreamMultiNodeSpec(AeronStreamMaxThroughputSpec)
     with STMultiNodeSpec
     with ImplicitSender {
 
@@ -79,7 +78,7 @@ abstract class AeronStreamMaxThroughputSpec
 
   var plot = PlotResult()
 
-  val driver = MediaDriver.launchEmbedded()
+  val driver = startDriver()
 
   val pool = new EnvelopeBufferPool(1024 * 1024, 128)
 
@@ -105,13 +104,6 @@ abstract class AeronStreamMaxThroughputSpec
   def adjustedTotalMessages(n: Long): Long = (n * totalMessagesFactor).toLong
 
   override def initialParticipants = roles.size
-
-  def channel(roleName: RoleName) = {
-    val n = node(roleName)
-    system.actorSelection(n / "user" / "updPort") ! UdpPortActor.GetUdpPort
-    val port = expectMsgType[Int]
-    s"aeron:udp?endpoint=${n.address.host.get}:$port"
-  }
 
   val streamId = 1
   val giveUpMessageAfter = 30.seconds

@@ -1,30 +1,31 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.javadsl;
 
-import java.util.Arrays;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.*;
-import java.util.stream.Collectors;
+import static org.junit.Assert.*;
 
 import akka.Done;
 import akka.NotUsed;
 import akka.japi.Pair;
 import akka.japi.function.Function;
 import akka.stream.*;
+import akka.stream.testkit.TestSubscriber;
+import akka.stream.testkit.javadsl.TestSink;
+import akka.testkit.AkkaJUnitActorSystemResource;
+import akka.testkit.AkkaSpec;
 import akka.testkit.javadsl.TestKit;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.*;
+import java.util.stream.Collectors;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.reactivestreams.Publisher;
-import akka.testkit.AkkaSpec;
-import akka.testkit.AkkaJUnitActorSystemResource;
-
-import static org.junit.Assert.*;
+import org.reactivestreams.Subscription;
 
 public class SinkTest extends StreamTest {
   public SinkTest() {
@@ -39,8 +40,7 @@ public class SinkTest extends StreamTest {
   public void mustBeAbleToUseFanoutPublisher() throws Exception {
     final Sink<Object, Publisher<Object>> pubSink = Sink.asPublisher(AsPublisher.WITH_FANOUT);
     @SuppressWarnings("unused")
-    final Publisher<Object> publisher =
-        Source.from(new ArrayList<Object>()).runWith(pubSink, system);
+    final Publisher<Object> publisher = Source.from(new ArrayList<>()).runWith(pubSink, system);
   }
 
   @Test
@@ -48,7 +48,7 @@ public class SinkTest extends StreamTest {
     final Sink<Integer, CompletionStage<Integer>> futSink = Sink.head();
     final List<Integer> list = Collections.singletonList(1);
     final CompletionStage<Integer> future = Source.from(list).runWith(futSink, system);
-    assert future.toCompletableFuture().get(1, TimeUnit.SECONDS).equals(1);
+    assertEquals(1, future.toCompletableFuture().get(1, TimeUnit.SECONDS).intValue());
   }
 
   @Test
@@ -76,6 +76,16 @@ public class SinkTest extends StreamTest {
     final Sink<Integer, CompletionStage<List<Integer>>> collectorSink =
         StreamConverters.javaCollector(Collectors::toList);
     CompletionStage<List<Integer>> result = Source.from(list).runWith(collectorSink, system);
+    assertEquals(list, result.toCompletableFuture().get(1, TimeUnit.SECONDS));
+  }
+
+  @Test
+  public void mustBeAbleToUseCollectorOnSink() throws Exception {
+    // #collect-to-list
+    final List<Integer> list = Arrays.asList(1, 2, 3);
+    CompletionStage<List<Integer>> result =
+        Source.from(list).runWith(Sink.collect(Collectors.toList()), system);
+    // #collect-to-list
     assertEquals(list, result.toCompletableFuture().get(1, TimeUnit.SECONDS));
   }
 
@@ -110,6 +120,41 @@ public class SinkTest extends StreamTest {
   }
 
   @Test
+  public void mustBeAbleToUseCombineMat() {
+    final Sink<Integer, TestSubscriber.Probe<Integer>> sink1 = TestSink.create(system);
+    final Sink<Integer, TestSubscriber.Probe<Integer>> sink2 = TestSink.create(system);
+    final Sink<Integer, Pair<TestSubscriber.Probe<Integer>, TestSubscriber.Probe<Integer>>> sink =
+        Sink.combineMat(sink1, sink2, Broadcast::create, Keep.both());
+
+    final Pair<TestSubscriber.Probe<Integer>, TestSubscriber.Probe<Integer>> subscribers =
+        Source.from(Arrays.asList(0, 1)).runWith(sink, system);
+    final TestSubscriber.Probe<Integer> subscriber1 = subscribers.first();
+    final TestSubscriber.Probe<Integer> subscriber2 = subscribers.second();
+    final Subscription sub1 = subscriber1.expectSubscription();
+    final Subscription sub2 = subscriber2.expectSubscription();
+    sub1.request(2);
+    sub2.request(2);
+    subscriber1.expectNext(0, 1).expectComplete();
+    subscriber2.expectNext(0, 1).expectComplete();
+  }
+
+  @Test
+  public void mustBeAbleToUseCombineMany() throws Exception {
+    final Sink<Long, CompletionStage<Long>> firstSink = Sink.head();
+    final Sink<Long, CompletionStage<Long>> secondSink = Sink.head();
+    final Sink<Long, CompletionStage<Long>> thirdSink = Sink.head();
+
+    final Sink<Long, List<CompletionStage<Long>>> combineSink =
+        Sink.combine(Arrays.asList(firstSink, secondSink, thirdSink), Broadcast::create);
+    final List<CompletionStage<Long>> results =
+        Source.single(1L).toMat(combineSink, Keep.right()).run(system);
+    for (CompletionStage<Long> result : results) {
+      final long value = result.toCompletableFuture().get(3, TimeUnit.SECONDS);
+      assertEquals(1L, value);
+    }
+  }
+
+  @Test
   public void mustBeAbleToUseContramap() throws Exception {
     List<Integer> out =
         Source.range(0, 2)
@@ -127,14 +172,14 @@ public class SinkTest extends StreamTest {
         Sink.<String>head().preMaterialize(system);
 
     CompletableFuture<String> future = pair.first().toCompletableFuture();
-    assertEquals(false, future.isDone()); // not yet, only once actually source attached
+    assertFalse(future.isDone()); // not yet, only once actually source attached
 
     String element = "element";
     Source.single(element).runWith(pair.second(), system);
 
     String got = future.get(3, TimeUnit.SECONDS); // should complete nicely
     assertEquals(element, got);
-    assertEquals(true, future.isDone());
+    assertTrue(future.isDone());
   }
 
   public void mustSuitablyOverrideAttributeHandlingMethods() {

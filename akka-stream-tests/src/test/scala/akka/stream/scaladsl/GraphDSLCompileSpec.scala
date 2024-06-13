@@ -1,10 +1,10 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
-import com.github.ghik.silencer.silent
+import scala.annotation.nowarn
 
 import akka.NotUsed
 import akka.stream._
@@ -17,7 +17,7 @@ object GraphDSLCompileSpec {
   class Apple extends Fruit
 }
 
-@silent // tests deprecated APIs
+@nowarn // tests deprecated APIs
 class GraphDSLCompileSpec extends StreamSpec {
   import GraphDSLCompileSpec._
 
@@ -410,8 +410,10 @@ class GraphDSLCompileSpec extends StreamSpec {
         .addAttributes(none)
         .named("useless")
 
-      ga.traversalBuilder.attributes.getFirst[Name] shouldEqual Some(Name("useless"))
-      ga.traversalBuilder.attributes.getFirst[AsyncBoundary.type] shouldEqual (Some(AsyncBoundary))
+      val name = ga.traversalBuilder.attributes.getFirst[Name]
+      name shouldEqual Some(Name("useless"))
+      val boundary = ga.traversalBuilder.attributes.getFirst[AsyncBoundary.type]
+      boundary shouldEqual (Some(AsyncBoundary))
     }
 
     "support mapMaterializedValue" in {

@@ -1,19 +1,17 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor;
 
-import static org.junit.Assert.*;
 import static java.util.stream.Collectors.toCollection;
-
-import java.util.ArrayList;
-import java.util.stream.IntStream;
-
-import org.junit.Test;
+import static org.junit.Assert.*;
 
 import akka.japi.Creator;
-
+import java.util.ArrayList;
+import java.util.stream.IntStream;
+import org.junit.Assert;
+import org.junit.Test;
 import org.scalatestplus.junit.JUnitSuite;
 
 public class ActorCreationTest extends JUnitSuite {
@@ -175,35 +173,32 @@ public class ActorCreationTest extends JUnitSuite {
 
   @Test
   public void testWrongAnonymousInPlaceCreator() {
-    try {
-      Props.create(
-          Actor.class,
-          new Creator<Actor>() {
-            @Override
-            public Actor create() throws Exception {
-              return null;
-            }
-          });
-      assert false;
-    } catch (IllegalArgumentException e) {
-      assertEquals(
-          "cannot use non-static local Creator to create actors; make it static (e.g. local to a static method) or top-level",
-          e.getMessage());
-    }
+    IllegalArgumentException exception =
+        Assert.assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                Props.create(
+                    Actor.class,
+                    new Creator<Actor>() {
+                      @Override
+                      public Actor create() throws Exception {
+                        return null;
+                      }
+                    }));
+    assertEquals(
+        "cannot use non-static local Creator to create actors; make it static (e.g. local to a static method) or top-level",
+        exception.getMessage());
   }
 
   @Test
   @SuppressWarnings("unchecked")
   @Deprecated
   public void testWrongErasedStaticCreator() {
-    try {
-      Props.create(new G());
-      assert false;
-    } catch (IllegalArgumentException e) {
-      assertEquals(
-          "erased Creator types (e.g. lambdas) are unsupported, use Props.create(actorClass, creator) instead",
-          e.getMessage());
-    }
+    IllegalArgumentException exception =
+        Assert.assertThrows(IllegalArgumentException.class, () -> Props.create(new G()));
+    assertEquals(
+        "erased Creator types (e.g. lambdas) are unsupported, use Props.create(actorClass, creator) instead",
+        exception.getMessage());
     Props.create(AbstractActor.class, new G());
   }
 
@@ -217,14 +212,16 @@ public class ActorCreationTest extends JUnitSuite {
   @Test
   @Deprecated
   public void testWrongAnonymousClassStaticCreator() {
-    try {
-      Props.create(new C() {}); // has implicit reference to outer class
-      org.junit.Assert.fail("Should have detected this is not a real static class, and thrown");
-    } catch (IllegalArgumentException e) {
-      assertEquals(
-          "cannot use non-static local Creator to create actors; make it static (e.g. local to a static method) or top-level",
-          e.getMessage());
-    }
+    IllegalArgumentException exception =
+        Assert.assertThrows(
+            "Should have detected this is not a real static class, and thrown",
+            IllegalArgumentException.class,
+            () -> {
+              Props.create(new C() {}); // has implicit reference to outer class
+            });
+    assertEquals(
+        "cannot use non-static local Creator to create actors; make it static (e.g. local to a static method) or top-level",
+        exception.getMessage());
   }
 
   @Test
@@ -257,14 +254,11 @@ public class ActorCreationTest extends JUnitSuite {
 
   @Test
   public void testWrongAbstractActorClass() {
-    try {
-      Props.create(H.class, "a");
-      assert false;
-    } catch (IllegalArgumentException e) {
-      assertEquals(
-          String.format("Actor class [%s] must not be abstract", H.class.getName()),
-          e.getMessage());
-    }
+    IllegalArgumentException exception =
+        Assert.assertThrows(IllegalArgumentException.class, () -> Props.create(H.class, "a"));
+    assertEquals(
+        String.format("Actor class [%s] must not be abstract", H.class.getName()),
+        exception.getMessage());
   }
 
   private static Creator<AbstractActor> createAnonymousCreatorInStaticMethod() {
@@ -294,17 +288,19 @@ public class ActorCreationTest extends JUnitSuite {
   @Test
   @Deprecated
   public void testAnonymousClassCreatorWithArguments() {
-    try {
-      final Creator<AbstractActor> anonymousCreatorFromStaticMethod = new P("hello") {
-            // captures enclosing class
-          };
-      Props.create(anonymousCreatorFromStaticMethod);
-      org.junit.Assert.fail("Should have detected this is not a real static class, and thrown");
-    } catch (IllegalArgumentException e) {
-      assertEquals(
-          "cannot use non-static local Creator to create actors; make it static (e.g. local to a static method) or top-level",
-          e.getMessage());
-    }
+    IllegalArgumentException exception =
+        Assert.assertThrows(
+            "Should have detected this is not a real static class, and thrown",
+            IllegalArgumentException.class,
+            () -> {
+              final Creator<AbstractActor> anonymousCreatorFromStaticMethod = new P("hello") {
+                    // captures enclosing class
+                  };
+              Props.create(anonymousCreatorFromStaticMethod);
+            });
+    assertEquals(
+        "cannot use non-static local Creator to create actors; make it static (e.g. local to a static method) or top-level",
+        exception.getMessage());
   }
 
   @Test
@@ -318,14 +314,15 @@ public class ActorCreationTest extends JUnitSuite {
   public void testWrongPropsUsingLambdaWithoutClass() {
     final Props p = TestActor.propsUsingLamda(17);
     assertEquals(TestActor.class, p.actorClass());
-    try {
-      TestActor.propsUsingLamdaWithoutClass(17);
-      org.junit.Assert.fail("Should have detected lambda erasure, and thrown");
-    } catch (IllegalArgumentException e) {
-      assertEquals(
-          "erased Creator types (e.g. lambdas) are unsupported, use Props.create(actorClass, creator) instead",
-          e.getMessage());
-    }
+
+    IllegalArgumentException exception =
+        Assert.assertThrows(
+            "Should have detected lambda erasure, and thrown",
+            IllegalArgumentException.class,
+            () -> TestActor.propsUsingLamdaWithoutClass(17));
+    assertEquals(
+        "erased Creator types (e.g. lambdas) are unsupported, use Props.create(actorClass, creator) instead",
+        exception.getMessage());
   }
 
   @Test

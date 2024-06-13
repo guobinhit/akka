@@ -1,17 +1,18 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
 
 import scala.concurrent.duration._
 
+import com.typesafe.config.ConfigFactory
+
 import akka.actor._
 import akka.cluster.Cluster
 import akka.cluster.MemberStatus
 import akka.testkit.TestDuration
 import akka.testkit.TestProbe
-import com.typesafe.config.ConfigFactory
 
 object ClusterShardingGetStatsSpec {
   import MultiNodeClusterShardingSpec.PingPongActor
@@ -25,6 +26,7 @@ object ClusterShardingGetStatsSpec {
   }
   val extractShardId: ShardRegion.ExtractShardId = {
     case PingPongActor.Ping(id) => (id % numberOfShards).toString
+    case _                      => throw new IllegalArgumentException()
   }
 }
 

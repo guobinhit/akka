@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.internal.adapter
@@ -15,6 +15,7 @@ import akka.{ actor => classic }
 import akka.Done
 import akka.actor
 import akka.actor.{ ActorRefProvider, Address, ExtendedActorSystem, InvalidMessageException }
+import akka.actor.ActorSystemImpl
 import akka.actor.typed.ActorRef
 import akka.actor.typed.ActorSystem
 import akka.actor.typed.Behavior
@@ -33,6 +34,7 @@ import akka.actor.typed.internal.PropsImpl.DispatcherSameAsParent
 import akka.actor.typed.internal.SystemMessage
 import akka.actor.typed.scaladsl.Behaviors
 import akka.annotation.InternalApi
+import akka.util.OptionVal
 
 /**
  * INTERNAL API. Lightweight wrapper for presenting a classic ActorSystem to a Behavior (via the context).
@@ -88,6 +90,7 @@ import akka.annotation.InternalApi
         case DispatcherDefault(_)         => system.dispatcher
         case DispatcherFromConfig(str, _) => system.dispatchers.lookup(str)
         case DispatcherSameAsParent(_)    => system.dispatcher
+        case unknown                      => throw new RuntimeException(s"Unsupported dispatcher selector: $unknown")
       }
     override def shutdown(): Unit = () // there was no shutdown in classic Akka
   }
@@ -128,7 +131,22 @@ import akka.annotation.InternalApi
 }
 
 private[akka] object ActorSystemAdapter {
-  def apply(system: classic.ActorSystem): ActorSystem[Nothing] = AdapterExtension(system).adapter
+  def apply(system: classic.ActorSystem): ActorSystem[Nothing] = {
+    system match {
+      case system: ActorSystemImpl =>
+        // Optimization to cut out going through adapter lookup if possible
+        system.typedSystem match {
+          case OptionVal.Some(typedSystem: ActorSystem[_]) => typedSystem
+          case _ =>
+            val typedSystem: ActorSystem[_] = AdapterExtension(system).adapter
+            system.typedSystem = OptionVal.Some(typedSystem)
+            typedSystem
+        }
+      case _ =>
+        AdapterExtension(system).adapter
+    }
+
+  }
 
   // to make sure we do never create more than one adapter for the same actor system
   class AdapterExtension(system: classic.ExtendedActorSystem) extends classic.Extension {
@@ -136,7 +154,9 @@ private[akka] object ActorSystemAdapter {
   }
 
   object AdapterExtension extends classic.ExtensionId[AdapterExtension] with classic.ExtensionIdProvider {
-    override def get(system: classic.ActorSystem): AdapterExtension = super.get(system)
+
+    override def get(system: classic.ActorSystem): AdapterExtension = this.apply(system)
+
     override def lookup = AdapterExtension
     override def createExtension(system: classic.ExtendedActorSystem): AdapterExtension =
       new AdapterExtension(system)

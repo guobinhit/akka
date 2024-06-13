@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.ddata
@@ -32,7 +32,7 @@ object LotsOfDataBot {
     ports.foreach { port =>
       // Override the configuration of the port
       val config = ConfigFactory
-        .parseString("akka.remote.classic.netty.tcp.port=" + port)
+        .parseString("akka.remote.artery.canonical.port=" + port)
         .withFallback(
           ConfigFactory.load(ConfigFactory.parseString("""
             passive = off
@@ -115,7 +115,10 @@ class LotsOfDataBot extends Actor with ActorLogging {
     case _: UpdateResponse[_] => // ignore
 
     case c @ Changed(ORSetKey(id)) =>
-      val ORSet(elements) = c.dataValue
+      val elements = c.dataValue match {
+        case ORSet(e) => e
+        case _        => throw new RuntimeException()
+      }
       log.info("Current elements: {} -> {}", id, elements)
   }
 
@@ -130,7 +133,10 @@ class LotsOfDataBot extends Actor with ActorLogging {
         log.info("It took {} ms to replicate {} entries", duration, keys.size)
       }
     case c @ Changed(ORSetKey(id)) =>
-      val ORSet(elements) = c.dataValue
+      val elements = c.dataValue match {
+        case ORSet(e) => e
+        case _        => throw new RuntimeException()
+      }
       log.info("Current elements: {} -> {}", id, elements)
   }
 

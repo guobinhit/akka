@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
@@ -8,15 +8,16 @@ import java.nio.file.Paths
 import java.util.concurrent.TimeUnit.NANOSECONDS
 import java.util.concurrent.atomic.AtomicInteger
 
+import scala.concurrent.duration._
+
+import com.typesafe.config.ConfigFactory
+import org.HdrHistogram.Histogram
+
 import akka.actor._
 import akka.cluster.MemberStatus
 import akka.cluster.sharding.ShardRegion.{ CurrentShardRegionState, GetShardRegionState, Passivate }
 import akka.testkit._
 import akka.util.ccompat._
-import com.typesafe.config.ConfigFactory
-import org.HdrHistogram.Histogram
-
-import scala.concurrent.duration._
 
 @ccompatUsedUntil213
 object ClusterShardingRememberEntitiesPerfSpec {
@@ -61,7 +62,7 @@ object ClusterShardingRememberEntitiesPerfSpec {
 object ClusterShardingRememberEntitiesPerfSpecConfig
     extends MultiNodeClusterShardingConfig(
       rememberEntities = true,
-      additionalConfig = s"""
+      additionalConfig = """
     akka.loglevel = DEBUG 
     akka.testconductor.barrier-timeout = 3 minutes
     akka.remote.artery.advanced.outbound-message-queue-size = 10000

@@ -1,10 +1,13 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.typed
 
+import java.util.concurrent.CompletionStage
+
 import scala.collection.immutable
+import scala.concurrent.Future
 
 import akka.actor.Address
 import akka.actor.typed.{ ActorRef, ActorSystem, Extension, ExtensionId }
@@ -14,6 +17,7 @@ import akka.cluster._
 import akka.cluster.ClusterEvent.{ ClusterDomainEvent, CurrentClusterState }
 import akka.cluster.typed.internal.AdapterClusterImpl
 import akka.japi.Util
+import akka.util.Version
 
 /**
  * Messages for subscribing to changes in the cluster state
@@ -119,6 +123,30 @@ final case class JoinSeedNodes(seedNodes: immutable.Seq[Address]) extends Cluste
 }
 
 /**
+ * Scala API: If the `appVersion` is read from an external system (e.g. Kubernetes) it can be defined after
+ * system startup but before joining by completing the `appVersion` `Future`. In that case,
+ * `SetAppVersionLater` should be sent before [[Join]] or [[JoinSeedNodes]] It's fine to send
+ * `Join` or `JoinSeedNodes` immediately afterwards (before the `Future` is completed. The join will
+ * then wait for the `appVersion` to be completed.
+ */
+final case class SetAppVersionLater(appVersion: Future[Version]) extends ClusterCommand
+
+object SetAppVersionLater {
+
+  /**
+   * Java API: If the `appVersion` is read from an external system (e.g. Kubernetes) it can be defined after
+   * system startup but before joining by completing the `appVersion` `CompletionStage`. In that case,
+   * `SetAppVersionLater` should be sent before [[Join]] or [[JoinSeedNodes]] It's fine to send
+   * `Join` or `JoinSeedNodes` immediately afterwards (before the `CompletionStage` is completed. The join will
+   * then wait for the `appVersion` to be completed.
+   */
+  def create(appVersion: CompletionStage[Version]): SetAppVersionLater = {
+    import scala.compat.java8.FutureConverters._
+    SetAppVersionLater(appVersion.toScala)
+  }
+}
+
+/**
  * Send command to issue state transition to LEAVING for the node specified by 'address'.
  * The member will go through the status changes [[MemberStatus]] `Leaving` (not published to
  * subscribers) followed by [[MemberStatus]] `Exiting` and finally [[MemberStatus]] `Removed`.
@@ -149,6 +177,26 @@ object Leave {
  * this method.
  */
 final case class Down(address: Address) extends ClusterCommand
+
+/**
+ * Initiate a full cluster shutdown. This stops:
+ * - New members joining the cluster
+ * - New rebalances in Cluster Sharding
+ * - Singleton handovers
+ *
+ * However, it does not stop the nodes. That is expected to be signalled externally.
+ *
+ * Not for user extension
+ */
+@DoNotInherit sealed trait PrepareForFullClusterShutdown extends ClusterCommand
+
+case object PrepareForFullClusterShutdown extends PrepareForFullClusterShutdown {
+
+  /**
+   * Java API
+   */
+  def prepareForFullClusterShutdown(): PrepareForFullClusterShutdown = this
+}
 
 /**
  * Akka Typed Cluster API entry point

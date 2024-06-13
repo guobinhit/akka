@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.coordination.lease
@@ -98,7 +98,7 @@ class TestLeaseActorClient(settings: LeaseSettings, system: ExtendedActorSystem)
   import TestLeaseActor.Create
   import TestLeaseActor.Release
 
-  private val log = Logging(system, getClass)
+  private val log = Logging(system, classOf[TestLeaseActorClient])
   val leaseActor = TestLeaseActorClientExt(system).getLeaseActor()
 
   log.info("lease created {}", settings)

@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdoc.akka.serialization.jackson.v2b;
 
 // #add-mandatory
+import akka.serialization.jackson.JacksonMigration;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.DoubleNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import akka.serialization.jackson.JacksonMigration;
 
 public class ItemAddedMigration extends JacksonMigration {
 

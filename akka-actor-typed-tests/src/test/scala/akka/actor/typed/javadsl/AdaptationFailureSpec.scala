@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.javadsl
@@ -86,6 +86,7 @@ class AdaptationFailureSpec extends ScalaTestWithActorTestKit with AnyWordSpecLi
               case (_, Terminated(`ref`)) =>
                 probe.ref ! "actor-stopped"
                 Behaviors.same
+              case _ => Behaviors.unhandled
             }
           })
 

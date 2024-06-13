@@ -1,26 +1,23 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.javadsl;
 
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.TimeUnit;
+import static akka.Done.done;
+import static akka.actor.typed.javadsl.Behaviors.*;
 
 import akka.Done;
 import akka.actor.testkit.typed.javadsl.LogCapturing;
 import akka.actor.testkit.typed.javadsl.TestKitJunitResource;
+import akka.actor.typed.*;
+import java.time.Duration;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeUnit;
 import org.junit.ClassRule;
 import org.junit.Rule;
-import org.scalatestplus.junit.JUnitSuite;
 import org.junit.Test;
-
-import akka.actor.typed.*;
-
-import java.time.Duration;
-
-import static akka.Done.done;
-import static akka.actor.typed.javadsl.Behaviors.*;
+import org.scalatestplus.junit.JUnitSuite;
 
 public class WatchTest extends JUnitSuite {
 

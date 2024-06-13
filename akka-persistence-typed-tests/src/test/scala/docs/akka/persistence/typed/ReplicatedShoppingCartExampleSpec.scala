@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.akka.persistence.typed
@@ -42,7 +42,7 @@ object ReplicatedShoppingCartExampleSpec {
 
     def apply(entityId: String, replicaId: ReplicaId, allReplicaIds: Set[ReplicaId]): Behavior[Command] = {
       ReplicatedEventSourcing.commonJournalConfig(
-        ReplicationId("blog", entityId, replicaId),
+        ReplicationId("cart", entityId, replicaId),
         allReplicaIds,
         PersistenceTestKitReadJournal.Identifier) { replicationContext =>
         EventSourcedBehavior[Command, Event, State](

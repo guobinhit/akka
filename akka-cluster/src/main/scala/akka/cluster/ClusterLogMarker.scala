@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
 
 import akka.actor.Address
-import akka.annotation.ApiMayChange
 import akka.annotation.InternalApi
 import akka.cluster.sbr.DowningStrategy
 import akka.event.LogMarker
@@ -15,7 +14,6 @@ import akka.event.LogMarker
  * No guarantee that it will remain binary compatible, but the marker names and properties
  * are considered public API and will not be changed without notice.
  */
-@ApiMayChange
 object ClusterLogMarker {
 
   /**

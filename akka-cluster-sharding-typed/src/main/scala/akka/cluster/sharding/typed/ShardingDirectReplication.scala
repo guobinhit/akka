@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding.typed
@@ -76,7 +76,9 @@ private[akka] object ShardingDirectReplication {
               replicaShardingProxies.foreach {
                 case (replica, proxy) =>
                   val newId = replicationId.withReplica(replica)
-                  val envelopedEvent = ShardingEnvelope(newId.persistenceId.id, event)
+                  // receiving side is responsible for any tagging, so drop/unwrap any tags added by the local tagger
+                  val withoutTags = event.withoutTags
+                  val envelopedEvent = ShardingEnvelope(newId.persistenceId.id, withoutTags)
                   if (!selfReplica.contains(replica)) {
                     proxy.asInstanceOf[ActorRef[ShardingEnvelope[PublishedEvent]]] ! envelopedEvent
                   }

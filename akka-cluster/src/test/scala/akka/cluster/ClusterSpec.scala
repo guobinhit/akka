@@ -1,12 +1,12 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
 
 import java.lang.management.ManagementFactory
-
 import javax.management.ObjectName
+
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
@@ -40,8 +40,6 @@ object ClusterSpec {
       app-version = "1.2.3"
     }
     akka.actor.provider = "cluster"
-    akka.remote.log-remote-lifecycle-events = off
-    akka.remote.classic.netty.tcp.port = 0
     akka.remote.artery.canonical.port = 0
     """
 
@@ -137,17 +135,12 @@ class ClusterSpec extends AkkaSpec(ClusterSpec.config) with ImplicitSender {
 
     // this should be the last test step, since the cluster is shutdown
     "publish MemberRemoved when shutdown" in {
-      val callbackProbe = TestProbe()
-      cluster.registerOnMemberRemoved(callbackProbe.ref ! "OnMemberRemoved")
-
       cluster.subscribe(testActor, classOf[ClusterEvent.MemberRemoved])
       // first, is in response to the subscription
       expectMsgClass(classOf[ClusterEvent.CurrentClusterState])
 
       cluster.shutdown()
       expectMsgType[ClusterEvent.MemberRemoved].member.address should ===(selfAddress)
-
-      callbackProbe.expectMsg("OnMemberRemoved")
     }
 
     "allow join and leave with local address" in {
@@ -155,7 +148,6 @@ class ClusterSpec extends AkkaSpec(ClusterSpec.config) with ImplicitSender {
         "ClusterSpec2",
         ConfigFactory.parseString("""
         akka.actor.provider = "cluster"
-        akka.remote.classic.netty.tcp.port = 0
         akka.remote.artery.canonical.port = 0
         """))
       try {
@@ -189,7 +181,6 @@ class ClusterSpec extends AkkaSpec(ClusterSpec.config) with ImplicitSender {
         "ClusterSpec2",
         ConfigFactory.parseString("""
         akka.actor.provider = "cluster"
-        akka.remote.classic.netty.tcp.port = 0
         akka.remote.artery.canonical.port = 0
         """))
       try {
@@ -219,7 +210,6 @@ class ClusterSpec extends AkkaSpec(ClusterSpec.config) with ImplicitSender {
         "ClusterSpec2",
         ConfigFactory.parseString("""
         akka.actor.provider = "cluster"
-        akka.remote.classic.netty.tcp.port = 0
         akka.remote.artery.canonical.port = 0
         akka.coordinated-shutdown.terminate-actor-system = on
         """))
@@ -257,7 +247,6 @@ class ClusterSpec extends AkkaSpec(ClusterSpec.config) with ImplicitSender {
         "ClusterSpec2",
         ConfigFactory.parseString("""
         akka.actor.provider = "cluster"
-        akka.remote.classic.netty.tcp.port = 0
         akka.remote.artery.canonical.port = 0
         akka.cluster.min-nr-of-members = 2
         """))
@@ -288,7 +277,6 @@ class ClusterSpec extends AkkaSpec(ClusterSpec.config) with ImplicitSender {
         "ClusterSpec2",
         ConfigFactory.parseString("""
         akka.actor.provider = "cluster"
-        akka.remote.classic.netty.tcp.port = 0
         akka.remote.artery.canonical.port = 0
         akka.coordinated-shutdown.terminate-actor-system = on
         """))
@@ -322,7 +310,6 @@ class ClusterSpec extends AkkaSpec(ClusterSpec.config) with ImplicitSender {
         "ClusterSpec3",
         ConfigFactory.parseString("""
         akka.actor.provider = "cluster"
-        akka.remote.classic.netty.tcp.port = 0
         akka.remote.artery.canonical.port = 0
         akka.coordinated-shutdown.terminate-actor-system = on
         akka.cluster.run-coordinated-shutdown-when-down = on
@@ -348,8 +335,7 @@ class ClusterSpec extends AkkaSpec(ClusterSpec.config) with ImplicitSender {
     "register multiple cluster JMX MBeans with akka.cluster.jmx.multi-mbeans-in-same-jvm = on" in {
       def getConfig = (port: Int) => ConfigFactory.parseString(s"""
              akka.cluster.jmx.multi-mbeans-in-same-jvm = on
-             akka.remote.classic.netty.tcp.port = ${port}
-             akka.remote.artery.canonical.port = ${port}
+             akka.remote.artery.canonical.port = $port
           """).withFallback(ConfigFactory.parseString(ClusterSpec.config))
 
       val sys1 = ActorSystem("ClusterSpec4", getConfig(2552))

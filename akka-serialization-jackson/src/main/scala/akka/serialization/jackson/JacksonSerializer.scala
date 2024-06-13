@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.serialization.jackson
@@ -177,7 +177,7 @@ import akka.util.OptionVal
   // TODO issue #27107: it should be possible to implement ByteBufferSerializer as well, using Jackson's
   //      ByteBufferBackedOutputStream/ByteBufferBackedInputStream
 
-  private val log = Logging.withMarker(system, getClass)
+  private val log = Logging.withMarker(system, classOf[JacksonSerializer])
   private val conf = JacksonObjectMapperProvider.configForBinding(bindingName, system.settings.config)
   private val isDebugEnabled = conf.getBoolean("verbose-debug-logging") && log.isDebugEnabled
   private final val BufferSize = 1024 * 4
@@ -327,7 +327,7 @@ import akka.util.OptionVal
         throw new IllegalStateException(
           s"Migration version ${transformer.supportedForwardVersion} is " +
           s"behind version $fromVersion of deserialized type [$manifestClassName]")
-      case None =>
+      case _ =>
         manifestClassName
     }
 
@@ -370,7 +370,7 @@ import akka.util.OptionVal
           val jsonTree = objectMapper.readTree(decompressedBytes)
           val newJsonTree = transformer.transform(fromVersion, jsonTree)
           objectMapper.treeToValue(newJsonTree, clazz)
-        case None =>
+        case _ =>
           objectMapper.readValue(decompressedBytes, clazz)
       }
 
@@ -539,10 +539,10 @@ import akka.util.OptionVal
       out.toByteArray
     } else {
       LZ4Meta.get(bytes) match {
-        case OptionVal.None => bytes
         case OptionVal.Some(meta) =>
           val srcLen = bytes.length - meta.offset
           lz4Decompressor.decompress(bytes, meta.offset, srcLen, meta.length)
+        case _ => bytes
       }
     }
   }

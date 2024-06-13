@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
@@ -10,6 +10,7 @@ import com.typesafe.config.ConfigFactory
 
 import akka.actor._
 import akka.cluster.{ Cluster, MemberStatus }
+import akka.remote.testkit.MultiNodeSpec
 import akka.testkit._
 import akka.util.ccompat._
 
@@ -23,6 +24,7 @@ object ClusterShardingRememberEntitiesSpec {
   val extractShardId: ShardRegion.ExtractShardId = {
     case id: Int                     => id.toString
     case ShardRegion.StartEntity(id) => id
+    case _                           => throw new IllegalArgumentException()
   }
 
 }
@@ -35,7 +37,7 @@ abstract class ClusterShardingRememberEntitiesSpecConfig(
       mode,
       rememberEntities,
       rememberEntitiesStore = rememberEntitiesStore,
-      additionalConfig = s"""
+      additionalConfig = """
       akka.testconductor.barrier-timeout = 60 s
       akka.test.single-expect-default = 60 s
       akka.persistence.journal.leveldb-shared.store.native = off
@@ -121,27 +123,28 @@ abstract class ClusterShardingRememberEntitiesSpec(multiNodeConfig: ClusterShard
       sys,
       typeName = dataType,
       entityProps = Props(new EntityActor(probe)),
-      settings = ClusterShardingSettings(sys).withRememberEntities(rememberEntities),
+      settings = ClusterShardingSettings(sys).withRememberEntities(multiNodeConfig.rememberEntities),
       extractEntityId = extractEntityId,
       extractShardId = extractShardId)
   }
 
   lazy val region = ClusterSharding(system).shardRegion(dataType)
 
-  def expectEntityRestarted(
-      sys: ActorSystem,
-      event: Int,
-      probe: TestProbe,
-      entityProbe: TestProbe): EntityActor.Started = {
-    if (!rememberEntities) {
-      probe.send(ClusterSharding(sys).shardRegion(dataType), event)
-      probe.expectMsg(1)
+  def expectEntityRestarted(sys: ActorSystem, event: Int, entityProbe: TestProbe): EntityActor.Started = {
+    if (!multiNodeConfig.rememberEntities) {
+      val probe = TestProbe()(sys)
+      within(20.seconds) {
+        awaitAssert {
+          probe.send(ClusterSharding(sys).shardRegion(dataType), event)
+          probe.expectMsg(1.second, 1)
+        }
+      }
     }
 
     entityProbe.expectMsgType[EntityActor.Started](30.seconds)
   }
 
-  s"Cluster sharding with remember entities ($mode)" must {
+  s"Cluster sharding with remember entities (${multiNodeConfig.mode})" must {
 
     "start remembered entities when coordinator fail over" in within(30.seconds) {
       startPersistenceIfNeeded(startOn = first, setStoreOn = Seq(first, second, third))
@@ -183,7 +186,7 @@ abstract class ClusterShardingRememberEntitiesSpec(multiNodeConfig: ClusterShard
       enterBarrier("crash-second")
 
       runOn(third) {
-        expectEntityRestarted(system, 1, probe, entityProbe)
+        expectEntityRestarted(system, 1, entityProbe)
       }
 
       enterBarrier("after-2")
@@ -199,9 +202,8 @@ abstract class ClusterShardingRememberEntitiesSpec(multiNodeConfig: ClusterShard
         }
         // no nodes left of the original cluster, start a new cluster
 
-        val sys2 = ActorSystem(system.name, system.settings.config)
+        val sys2 = ActorSystem(system.name, MultiNodeSpec.configureNextPortIfFixed(system.settings.config))
         val entityProbe2 = TestProbe()(sys2)
-        val probe2 = TestProbe()(sys2)
 
         if (persistenceIsNeeded) setStore(sys2, storeOn = first)
 
@@ -209,7 +211,7 @@ abstract class ClusterShardingRememberEntitiesSpec(multiNodeConfig: ClusterShard
 
         startSharding(sys2, entityProbe2.ref)
 
-        expectEntityRestarted(sys2, 1, probe2, entityProbe2)
+        expectEntityRestarted(sys2, 1, entityProbe2)
 
         shutdown(sys2)
       }

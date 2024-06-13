@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.serialization
@@ -45,6 +45,7 @@ object AsyncSerializeSpec {
       o match {
         case Message1(msg) => Future.successful(msg.getBytes)
         case Message2(msg) => Future.successful(msg.getBytes)
+        case _             => throw new IllegalArgumentException(s"Unknown type $o")
       }
     }
 
@@ -52,6 +53,7 @@ object AsyncSerializeSpec {
       manifest match {
         case "1" => Future.successful(Message1(new String(bytes)))
         case "2" => Future.successful(Message2(new String(bytes)))
+        case _   => throw new IllegalArgumentException(s"Unknown manifest $manifest")
       }
     }
 
@@ -60,6 +62,7 @@ object AsyncSerializeSpec {
     override def manifest(o: AnyRef): String = o match {
       case _: Message1 => "1"
       case _: Message2 => "2"
+      case _           => throw new IllegalArgumentException(s"Unknown type $o")
     }
   }
 
@@ -69,6 +72,7 @@ object AsyncSerializeSpec {
       o match {
         case Message3(msg) => CompletableFuture.completedFuture(msg.getBytes)
         case Message4(msg) => CompletableFuture.completedFuture(msg.getBytes)
+        case _             => throw new IllegalArgumentException(s"Unknown type $o")
       }
     }
 
@@ -76,6 +80,7 @@ object AsyncSerializeSpec {
       manifest match {
         case "1" => CompletableFuture.completedFuture(Message3(new String(bytes)))
         case "2" => CompletableFuture.completedFuture(Message4(new String(bytes)))
+        case _   => throw new IllegalArgumentException(s"Unknown manifest $manifest")
       }
     }
 
@@ -84,6 +89,7 @@ object AsyncSerializeSpec {
     override def manifest(o: AnyRef): String = o match {
       case _: Message3 => "1"
       case _: Message4 => "2"
+      case _           => throw new IllegalArgumentException(s"Unknown type $o")
     }
   }
 

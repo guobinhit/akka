@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed
@@ -76,7 +76,7 @@ object AbstractStashSpec {
                   context.self ! Unstash // continue unstashing until buffer is empty
                   val numberOfMessages = 2
                   context.log.debug(s"Unstash $numberOfMessages of ${buffer.size}, starting with ${buffer.head}")
-                  buffer.unstash(unstashing(processed), numberOfMessages, Unstashed)
+                  buffer.unstash(unstashing(processed), numberOfMessages, Unstashed.apply)
                 }
               case Stash =>
                 Behaviors.unhandled
@@ -113,7 +113,7 @@ object AbstractStashSpec {
                   context.self ! Unstash // continue unstashing until buffer is empty
                   val numberOfMessages = 2
                   context.log.debug(s"Unstash $numberOfMessages of ${buffer.size}, starting with ${buffer.head}")
-                  buffer.unstash(unstashing(processed), numberOfMessages, Unstashed)
+                  buffer.unstash(unstashing(processed), numberOfMessages, Unstashed.apply)
                 }
               case GetStashSize(replyTo) =>
                 replyTo ! buffer.size
@@ -166,7 +166,7 @@ object AbstractStashSpec {
             context.self ! Unstash // continue unstashing until buffer is empty
             val numberOfMessages = 2
             context.log.debug(s"Unstash $numberOfMessages of ${buffer.size}, starting with ${buffer.head}")
-            buffer.unstash(this, numberOfMessages, Unstashed)
+            buffer.unstash(this, numberOfMessages, Unstashed.apply)
           }
         case Unstashed(message: Msg) =>
           context.log.debug(s"unstashed $message")
@@ -299,7 +299,7 @@ class UnstashingSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike with
                 Behaviors.same
             }
 
-        Behaviors.receiveMessage[String] {
+        Behaviors.receiveMessagePartial[String] {
           case msg if msg.startsWith("stash") =>
             stash.stash(msg)
             Behaviors.same
@@ -484,7 +484,7 @@ class UnstashingSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike with
       ref ! "stash"
       LoggingTestKit
         .error[TestException]
-        .withMessageContains("Supervisor RestartSupervisor saw failure: unstash-fail")
+        .withMessageRegex("Supervisor RestartSupervisor saw failure.*: unstash-fail")
         .expect {
           ref ! "unstash"
           // when childLatch is defined this be stashed in the internal stash of the RestartSupervisor
@@ -635,14 +635,14 @@ class UnstashingSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike with
         stash.stash("handled")
 
         def unstashing(n: Int): Behavior[String] =
-          Behaviors.receiveMessage {
+          Behaviors.receiveMessagePartial {
             case "unhandled" => Behaviors.unhandled
             case "handled" =>
               probe.ref ! s"handled $n"
               unstashing(n + 1)
           }
 
-        Behaviors.receiveMessage {
+        Behaviors.receiveMessagePartial {
           case "unstash" =>
             stash.unstashAll(unstashing(1))
         }
@@ -665,7 +665,7 @@ class UnstashingSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike with
       val ref = spawn(Behaviors.withStash[String](10) { stash =>
         stash.stash("one")
 
-        Behaviors.receiveMessage {
+        Behaviors.receiveMessagePartial {
           case "unstash" =>
             stash.unstashAll(Behaviors.stopped)
         }
@@ -683,7 +683,7 @@ class UnstashingSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike with
         stash.stash("one")
         stash.stash("two")
 
-        Behaviors.receiveMessage {
+        Behaviors.receiveMessagePartial {
           case "unstash" =>
             stash.unstashAll(Behaviors.receiveMessage { unstashed =>
               probe.ref ! unstashed

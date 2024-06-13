@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
 
 import scala.concurrent.duration._
+
 import akka.actor.Actor
 import akka.actor.ActorRef
 import akka.actor.Props
@@ -22,7 +23,6 @@ object ConcurrentStartupShardingSpec {
     akka.actor.provider = "cluster"
     akka.loglevel = DEBUG
     akka.loggers = ["akka.testkit.SilenceAllTestEventListener"]
-    akka.remote.classic.netty.tcp.port = 0
     akka.remote.artery.canonical.port = 0
     akka.log-dead-letters = off
     akka.log-dead-letters-during-shutdown = off

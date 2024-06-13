@@ -1,27 +1,28 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.jackson
+
+import com.fasterxml.jackson.databind.annotation.{ JsonDeserialize, JsonSerialize }
+import org.scalatest.wordspec.AnyWordSpecLike
 
 import akka.actor.testkit.typed.scaladsl.{ LogCapturing, ScalaTestWithActorTestKit, SerializationTestKit }
 import akka.persistence.typed.ReplicaId
 import akka.persistence.typed.crdt.{ Counter, LwwTime, ORSet }
 import akka.persistence.typed.jackson.ReplicatedEventSourcingJacksonSpec.{ WithCounter, WithLwwTime, WithOrSet }
 import akka.serialization.jackson.{ AkkaSerializationDeserializer, AkkaSerializationSerializer, JsonSerializable }
-import com.fasterxml.jackson.databind.annotation.{ JsonDeserialize, JsonSerialize }
-import org.scalatest.wordspec.AnyWordSpecLike
 
 object ReplicatedEventSourcingJacksonSpec {
   final case class WithLwwTime(lwwTime: LwwTime) extends JsonSerializable
   final case class WithOrSet(
-      @JsonDeserialize(using = classOf[AkkaSerializationDeserializer])
-      @JsonSerialize(using = classOf[AkkaSerializationSerializer])
+      @JsonDeserialize(`using` = classOf[AkkaSerializationDeserializer])
+      @JsonSerialize(`using` = classOf[AkkaSerializationSerializer])
       orSet: ORSet[String])
       extends JsonSerializable
   final case class WithCounter(
-      @JsonDeserialize(using = classOf[AkkaSerializationDeserializer])
-      @JsonSerialize(using = classOf[AkkaSerializationSerializer])
+      @JsonDeserialize(`using` = classOf[AkkaSerializationDeserializer])
+      @JsonSerialize(`using` = classOf[AkkaSerializationSerializer])
       counter: Counter)
       extends JsonSerializable
 

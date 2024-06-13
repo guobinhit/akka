@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
@@ -47,7 +47,7 @@ private[cluster] final class ClusterHeartbeatReceiver(getCluster: () => Cluster)
   def receive: Receive = {
     case hb: Heartbeat =>
       // TODO log the sequence nr once serializer is enabled
-      if (verboseHeartbeat) clusterLogger.logDebug("Heartbeat from [{}]", hb.from)
+      if (verboseHeartbeat) clusterLogger.logDebug("Heartbeat #{} from [{}]", hb.sequenceNr, hb.from)
       sender() ! HeartbeatRsp(cluster.selfUniqueAddress, hb.sequenceNr, hb.creationTimeNanos)
   }
 
@@ -212,9 +212,9 @@ private[cluster] class ClusterHeartbeatSender extends Actor {
     val nextHB = selfHeartbeat()
     state.activeReceivers.foreach { to =>
       if (failureDetector.isMonitoring(to.address)) {
-        if (verboseHeartbeat) logDebug("Heartbeat to [{}]", to.address)
+        if (verboseHeartbeat) logDebug("Heartbeat #{} to [{}]", nextHB.sequenceNr, to.address)
       } else {
-        if (verboseHeartbeat) logDebug("First Heartbeat to [{}]", to.address)
+        if (verboseHeartbeat) logDebug("First Heartbeat #{} to [{}]", nextHB.sequenceNr, to.address)
         // schedule the expected first heartbeat for later, which will give the
         // other side a chance to reply, and also trigger some resends if needed
         scheduler.scheduleOnce(HeartbeatExpectedResponseAfter, self, ExpectedFirstHeartbeat(to))
@@ -232,8 +232,7 @@ private[cluster] class ClusterHeartbeatSender extends Actor {
         ClusterLogMarker.heartbeatStarvation,
         "Scheduled sending of heartbeat was delayed. " +
         "Previous heartbeat was sent [{}] ms ago, expected interval is [{}] ms. This may cause failure detection " +
-        "to mark members as unreachable. The reason can be thread starvation, e.g. by running blocking tasks on the " +
-        "default dispatcher, CPU overload, or GC.",
+        "to mark members as unreachable. The reason can be thread starvation, CPU overload, or GC.",
         TimeUnit.NANOSECONDS.toMillis(now - tickTimestamp),
         HeartbeatInterval.toMillis)
     tickTimestamp = now
@@ -241,8 +240,14 @@ private[cluster] class ClusterHeartbeatSender extends Actor {
   }
 
   def heartbeatRsp(response: HeartbeatRsp): Unit = {
-    // TODO: log response time and validate sequence nrs once serialisation of sendTime is released
-    if (verboseHeartbeat) logDebug("Heartbeat response from [{}]", response.from.address)
+    if (verboseHeartbeat) {
+      val latencyMs = (System.nanoTime() - response.creationTimeNanos) / 1000000
+      logDebug(
+        "Heartbeat #{} response from [{}] (round trip [{}] ms)",
+        response.sequenceNr,
+        response.from.address,
+        latencyMs)
+    }
     state = state.heartbeatRsp(response.from)
   }
 

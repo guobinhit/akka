@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.io
@@ -104,9 +104,8 @@ private[io] object SelectionHandler {
     override def supervisorStrategy = connectionSupervisorStrategy
 
     val selectorPool: ActorRef = {
-      val routeeProps = Props(classOf[SelectionHandler], selectorSettings)
-        .withDispatcher(context.props.dispatcher)
-        .withDeploy(Deploy.local)
+      val routeeProps =
+        Props(new SelectionHandler(selectorSettings)).withDispatcher(context.props.dispatcher).withDeploy(Deploy.local)
       context.actorOf(
         props = RandomPool(nrOfSelectors, routerDispatcher = context.props.dispatcher)
           .props(routeeProps)

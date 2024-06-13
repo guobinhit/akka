@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding.external.internal
@@ -70,6 +70,7 @@ final private[external] class ExternalShardAllocationClientImpl(system: ActorSys
       case UpdateSuccess(_, _) => Future.successful(Done)
       case UpdateTimeout =>
         Future.failed(new ClientTimeoutException(s"Unable to update shard location after ${timeout.duration.pretty}"))
+      case _ => throw new IllegalArgumentException() // compiler exhaustiveness check pleaser
     }
   }
 
@@ -86,6 +87,7 @@ final private[external] class ExternalShardAllocationClientImpl(system: ActorSys
           Future.successful(Map.empty[ShardId, ShardLocation])
         case GetFailure(_, _) =>
           Future.failed((new ClientTimeoutException(s"Unable to get shard locations after ${timeout.duration.pretty}")))
+        case _ => throw new IllegalArgumentException() // compiler exhaustiveness check pleaser
       }
       .map { locations =>
         new ShardLocations(locations)
@@ -104,6 +106,7 @@ final private[external] class ExternalShardAllocationClientImpl(system: ActorSys
       case UpdateSuccess(_, _) => Future.successful(Done)
       case UpdateTimeout =>
         Future.failed(new ClientTimeoutException(s"Unable to update shard location after ${timeout.duration.pretty}"))
+      case _ => throw new IllegalArgumentException() // compiler exhaustiveness check pleaser
     }
   }
 

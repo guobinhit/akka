@@ -1,28 +1,27 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
 
 import scala.concurrent.duration._
 
-import akka.actor._
-import akka.testkit._
 import com.typesafe.config.ConfigFactory
 
+import akka.actor._
 import akka.remote.artery.ArteryMultiNodeSpec
 import akka.remote.artery.ArterySpecSupport
+import akka.testkit._
 
 object ClusterDeathWatchNotificationSpec {
 
-  val config = ConfigFactory.parseString(s"""
+  val config = ConfigFactory.parseString("""
     akka {
         loglevel = INFO
         actor {
             provider = cluster
         }
     }
-    akka.remote.classic.netty.tcp.port = 0
     akka.remote.artery.canonical.port = 0
     """).withFallback(ArterySpecSupport.defaultConfig)
 
@@ -81,6 +80,7 @@ class ClusterDeathWatchNotificationSpec
     }
   }
 
+  // https://github.com/akka/akka/issues/30135
   "receive Terminated after ordinary messages" in {
     val receiverProbe = TestProbe()
     setupSender(system2, receiverProbe, "sender")

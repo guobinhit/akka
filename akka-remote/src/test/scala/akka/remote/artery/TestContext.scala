@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -93,7 +93,7 @@ private[remote] class TestOutboundContext(
   }
 
   override def quarantine(reason: String): Unit = synchronized {
-    _associationState = _associationState.newQuarantined()
+    _associationState = _associationState.newQuarantined(harmless = false)
   }
 
   override def isOrdinaryMessageStreamActive(): Boolean = true

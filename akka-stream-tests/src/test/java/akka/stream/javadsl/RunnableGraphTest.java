@@ -1,8 +1,10 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.javadsl;
+
+import static org.junit.Assert.*;
 
 import akka.NotUsed;
 import akka.stream.StreamTest;
@@ -11,8 +13,6 @@ import akka.testkit.AkkaJUnitActorSystemResource;
 import akka.testkit.AkkaSpec;
 import org.junit.ClassRule;
 import org.junit.Test;
-
-import static org.junit.Assert.*;
 
 public class RunnableGraphTest extends StreamTest {
   public RunnableGraphTest() {

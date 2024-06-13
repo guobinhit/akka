@@ -1,15 +1,12 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.actor.typed;
 
-import java.util.concurrent.Executor;
-
-import scala.concurrent.ExecutionContextExecutor;
-
 import akka.actor.typed.*;
 import akka.actor.typed.javadsl.*;
+import scala.concurrent.ExecutionContextExecutor;
 
 @SuppressWarnings("unused")
 public class DispatcherDocTest {

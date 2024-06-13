@@ -1,15 +1,11 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.io.japi;
 
-import java.net.InetSocketAddress;
-import java.util.LinkedList;
-import java.util.Queue;
-
-import akka.actor.ActorRef;
 import akka.actor.AbstractActor;
+import akka.actor.ActorRef;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
 import akka.io.Tcp.ConnectionClosed;
@@ -17,6 +13,9 @@ import akka.io.Tcp.Event;
 import akka.io.Tcp.Received;
 import akka.io.TcpMessage;
 import akka.util.ByteString;
+import java.net.InetSocketAddress;
+import java.util.LinkedList;
+import java.util.Queue;
 
 // #simple-echo-handler
 public class SimpleEchoHandler extends AbstractActor {
@@ -58,7 +57,7 @@ public class SimpleEchoHandler extends AbstractActor {
         .build();
   }
 
-  private final Receive buffering() {
+  private Receive buffering() {
     return receiveBuilder()
         .match(
             Received.class,
@@ -91,7 +90,7 @@ public class SimpleEchoHandler extends AbstractActor {
 
   private long transferred;
   private long stored = 0;
-  private Queue<ByteString> storage = new LinkedList<ByteString>();
+  private Queue<ByteString> storage = new LinkedList<>();
 
   private boolean suspended = false;
   private boolean closing = false;

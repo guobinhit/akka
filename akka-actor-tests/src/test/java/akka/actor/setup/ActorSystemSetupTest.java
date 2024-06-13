@@ -1,15 +1,14 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.setup;
 
-import org.junit.Test;
-import org.scalatestplus.junit.JUnitSuite;
+import static org.junit.Assert.*;
 
 import java.util.Optional;
-
-import static org.junit.Assert.*;
+import org.junit.Test;
+import org.scalatestplus.junit.JUnitSuite;
 
 public class ActorSystemSetupTest extends JUnitSuite {
 
@@ -28,6 +27,6 @@ public class ActorSystemSetupTest extends JUnitSuite {
         ActorSystemSetup.create().withSetup(javaSetting).get(JavaSetup.class);
 
     assertTrue(result.isPresent());
-    assertEquals(result.get(), javaSetting);
+    assertEquals(javaSetting, result.get());
   }
 }

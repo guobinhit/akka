@@ -1,14 +1,13 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdoc.akka.discovery;
 
 import akka.actor.ActorSystem;
-import akka.discovery.Lookup;
 import akka.discovery.Discovery;
+import akka.discovery.Lookup;
 import akka.discovery.ServiceDiscovery;
-
 import java.time.Duration;
 import java.util.concurrent.CompletionStage;
 

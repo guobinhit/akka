@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed
@@ -66,7 +66,8 @@ private[akka] object ActorRefAdapter {
       case internal.Unwatch(watchee, watcher) =>
         classicRef.sendSystemMessage(sysmsg.Unwatch(toClassic(watchee), toClassic(watcher)))
       case internal.DeathWatchNotification(ref, _) =>
-        classicRef.sendSystemMessage(sysmsg.DeathWatchNotification(toClassic(ref), true, false))
+        classicRef.sendSystemMessage(
+          sysmsg.DeathWatchNotification(toClassic(ref), existenceConfirmed = true, addressTerminated = false))
       case internal.NoMessage => // just to suppress the warning
     }
 }

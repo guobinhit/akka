@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.serialization
@@ -38,7 +38,7 @@ object ProtobufSerializer {
 }
 
 /**
- * This Serializer serializes `akka.protobuf.Message` and `com.google.protobuf.Message`
+ * This Serializer serializes `akka.protobufv3.internal.GeneratedMessageV3` and `com.google.protobuf.Message`
  * It is using reflection to find the `parseFrom` and `toByteArray` methods to avoid
  * dependency to `com.google.protobuf`.
  */
@@ -55,7 +55,7 @@ class ProtobufSerializer(val system: ExtendedActorSystem) extends BaseSerializer
   // This must lazy otherwise it will deadlock the ActorSystem creation
   private lazy val serialization = SerializationExtension(system)
 
-  private val log = Logging.withMarker(system, getClass)
+  private val log = Logging.withMarker(system, classOf[ProtobufSerializer])
 
   override def includeManifest: Boolean = true
 
@@ -130,7 +130,7 @@ class ProtobufSerializer(val system: ExtendedActorSystem) extends BaseSerializer
    *
    * If an old class is removed from `serialization-bindings` when it's not used for serialization
    * but still used for deserialization (e.g. rolling update with serialization changes) it can
-   * be allowed by specifying in `akka.protobuf.allowed-classes`.
+   * be allowed by specifying in `akka.serialization.protobuf.allowed-classes`.
    *
    * That is also possible when changing a binding from a ProtobufSerializer to another serializer (e.g. Jackson)
    * and still bind with the same class (interface).

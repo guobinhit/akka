@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.pubsub
@@ -31,7 +31,6 @@ object DistributedPubSubMediatorSpec extends MultiNodeConfig {
   commonConfig(ConfigFactory.parseString("""
     akka.loglevel = INFO
     akka.actor.provider = "cluster"
-    akka.remote.log-remote-lifecycle-events = off
     akka.cluster.downing-provider-class = akka.cluster.testkit.AutoDowning
     akka.cluster.testkit.auto-down-unreachable-after = 0s
     akka.cluster.pub-sub.max-delta-elements = 500
@@ -161,14 +160,16 @@ class DistributedPubSubMediatorSpec
   def awaitCount(expected: Int): Unit = {
     awaitAssert {
       mediator ! Count
-      expectMsgType[Int] should ===(expected)
+      val actual = expectMsgType[Int]
+      actual should ===(expected)
     }
   }
 
   def awaitCountSubscribers(expected: Int, topic: String): Unit = {
     awaitAssert {
       mediator ! CountSubscribers(topic)
-      expectMsgType[Int] should ===(expected)
+      val actual = expectMsgType[Int]
+      actual should ===(expected)
     }
   }
 
@@ -195,6 +196,7 @@ class DistributedPubSubMediatorSpec
         expectMsg("hello")
         lastSender should ===(u2)
       }
+      enterBarrier("2-registered")
 
       runOn(second) {
         val u3 = createChatUser("u3")

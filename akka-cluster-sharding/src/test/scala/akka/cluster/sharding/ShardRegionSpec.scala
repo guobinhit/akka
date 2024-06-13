@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
@@ -8,6 +8,7 @@ import java.io.File
 
 import com.typesafe.config.ConfigFactory
 import org.apache.commons.io.FileUtils
+
 import akka.actor.{ Actor, ActorLogging, ActorRef, ActorSystem, PoisonPill, Props }
 import akka.cluster.{ Cluster, MemberStatus }
 import akka.cluster.ClusterEvent.CurrentClusterState
@@ -18,18 +19,17 @@ object ShardRegionSpec {
   val host = "127.0.0.1"
   val tempConfig =
     s"""
-       akka.remote.classic.netty.tcp.hostname = "$host"
        akka.remote.artery.canonical.hostname = "$host"
        """
 
   val config =
-    ConfigFactory.parseString(tempConfig).withFallback(ConfigFactory.parseString(s"""
+    ConfigFactory
+      .parseString(tempConfig)
+      .withFallback(ConfigFactory.parseString("""
         akka.loglevel = DEBUG
         akka.loggers = ["akka.testkit.SilenceAllTestEventListener"]
         akka.actor.provider = "cluster"
-        akka.remote.classic.netty.tcp.port = 0
         akka.remote.artery.canonical.port = 0
-        akka.remote.log-remote-lifecycle-events = off
         akka.test.single-expect-default = 5 s
         akka.cluster.sharding.distributed-data.durable.lmdb {
             dir = "target/ShardRegionSpec/sharding-ddata"
@@ -47,11 +47,13 @@ object ShardRegionSpec {
 
   val extractEntityId: ShardRegion.ExtractEntityId = {
     case msg: Int => (msg.toString, msg)
+    case _        => throw new IllegalArgumentException()
   }
 
   val extractShardId: ShardRegion.ExtractShardId = {
     case msg: Int                    => (msg % 10).toString
     case ShardRegion.StartEntity(id) => (id.toLong % numberOfShards).toString
+    case _                           => throw new IllegalArgumentException()
   }
 
   class EntityActor extends Actor with ActorLogging {

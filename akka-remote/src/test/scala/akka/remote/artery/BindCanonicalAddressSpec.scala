@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
 
 import java.net.InetAddress
+import java.net.InetSocketAddress
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
@@ -14,17 +15,38 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import akka.actor.{ ActorSystem, Address }
-import akka.remote.classic.transport.netty.NettyTransportSpec._
+import akka.actor.ExtendedActorSystem
+import akka.remote.BoundAddressesExtension
 import akka.testkit.SocketUtil
+
+object BindCanonicalAddressBehaviors {
+  def getInternal()(implicit sys: ActorSystem) =
+    BoundAddressesExtension(sys).boundAddresses.values.flatten
+
+  def getExternal()(implicit sys: ActorSystem) =
+    sys.asInstanceOf[ExtendedActorSystem].provider.getDefaultAddress
+
+  implicit class RichInetSocketAddress(address: InetSocketAddress) {
+    def toAkkaAddress(protocol: String)(implicit system: ActorSystem) =
+      Address(protocol, system.name, address.getAddress.getHostAddress, address.getPort)
+  }
+
+  implicit class RichAkkaAddress(address: Address) {
+    def withProtocol(protocol: String) =
+      address.copy(protocol = protocol)
+  }
+}
 
 trait BindCanonicalAddressBehaviors {
   this: AnyWordSpec with Matchers =>
+  import BindCanonicalAddressBehaviors._
+
   def arteryConnectionTest(transport: String, isUDP: Boolean): Unit = {
 
     val commonConfig = BindCanonicalAddressSpec.commonConfig(transport)
 
     "bind to a random port" in {
-      val config = ConfigFactory.parseString(s"""
+      val config = ConfigFactory.parseString("""
         akka.remote.artery.canonical.port = 0
       """)
 
@@ -60,7 +82,7 @@ trait BindCanonicalAddressBehaviors {
     }
 
     "bind to a specified bind hostname and remoting aspects from canonical hostname" in {
-      val config = ConfigFactory.parseString(s"""
+      val config = ConfigFactory.parseString("""
         akka.remote.artery.canonical.port = 0
         akka.remote.artery.canonical.hostname = "127.0.0.1"
         akka.remote.artery.bind.hostname = "localhost"
@@ -87,7 +109,7 @@ trait BindCanonicalAddressBehaviors {
     }
 
     "bind to all interfaces" in {
-      val config = ConfigFactory.parseString(s"""
+      val config = ConfigFactory.parseString("""
         akka.remote.artery.bind.hostname = "0.0.0.0"
       """)
 

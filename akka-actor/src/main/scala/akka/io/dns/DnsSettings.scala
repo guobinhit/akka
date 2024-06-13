@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.io.dns
@@ -78,7 +78,7 @@ private[dns] final class DnsSettings(system: ExtendedActorSystem, c: Config) {
       parsed match {
         case Success(value) => Some(value)
         case Failure(exception) =>
-          val log = Logging(system, getClass)
+          val log = Logging(system, classOf[DnsSettings])
           if (log.isWarningEnabled) {
             log.error(exception, "Error parsing /etc/resolv.conf, ignoring.")
           }
@@ -119,6 +119,46 @@ private[dns] final class DnsSettings(system: ExtendedActorSystem, c: Config) {
     }
   }
 
+  val RandomStrategyName: String = c.getString("id-strategy")
+
+  /**
+   * A thunk to generate the next request ID.  Not thread-safe, requires some other coordination.
+   */
+  def idGenerator: Function0[Short] =
+    if (RandomStrategyName == "NOT-IN-ANY-WAY-RANDOM-test-sequential") {
+      new Function0[Short] {
+        var lastId: Short = 0
+        def apply(): Short = {
+          lastId = (lastId + 1).toShort
+          lastId
+        }
+
+        override def toString: String = "NOT-IN-ANY-WAY-RANDOM-test-sequential"
+      }
+    } else {
+      import java.security.SecureRandom
+
+      new Function0[Short] {
+        val rng = RandomStrategyName match {
+          case "" | "SecureRandom" =>
+            system.log.debug("Using platform default SecureRandom algorithm for DNS request IDs")
+            new SecureRandom
+
+          case custom =>
+            system.log.debug("Using {} SecureRandom algorithm for DNS request IDs", custom)
+            SecureRandom.getInstance(custom)
+        }
+
+        // toShort just uses the low order 16-bits, so the distribution is as unpredictable as for ints
+        def apply(): Short = rng.nextInt().toShort
+
+        override val toString: String = RandomStrategyName match {
+          case "" => "platform default SecureRandom algorithm"
+          case s  => s"$s SecureRandom algorithm"
+        }
+      }
+    }
+
   // -------------------------
 
   def failUnableToDetermineDefaultNameservers =
@@ -136,10 +176,13 @@ object DnsSettings {
   /**
    * INTERNAL API
    */
-  @InternalApi private[akka] def parseNameserverAddress(str: String): InetSocketAddress = {
-    val inetSocketAddress(host, port) = str
-    new InetSocketAddress(host, Option(port).fold(DnsFallbackPort)(_.toInt))
-  }
+  @InternalApi private[akka] def parseNameserverAddress(str: String): InetSocketAddress =
+    str match {
+      case inetSocketAddress(host, port) =>
+        new InetSocketAddress(host, Option(port).fold(DnsFallbackPort)(_.toInt))
+      case unexpected =>
+        throw new IllegalArgumentException(s"Unparseable address string: $unexpected") // will not happen, for exhaustiveness check
+    }
 
   /**
    * INTERNAL API
@@ -170,8 +213,8 @@ object DnsSettings {
       // Using jndi-dns to obtain the default name servers.
       //
       // See:
-      // - http://docs.oracle.com/javase/8/docs/technotes/guides/jndi/jndi-dns.html
-      // - http://mail.openjdk.java.net/pipermail/net-dev/2017-March/010695.html
+      // - https://docs.oracle.com/javase/8/docs/technotes/guides/jndi/jndi-dns.html
+      // - https://mail.openjdk.java.net/pipermail/net-dev/2017-March/010695.html
       val env = new util.Hashtable[String, String]
       env.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.dns.DnsContextFactory")
       env.put("java.naming.provider.url", "dns://")
@@ -192,7 +235,7 @@ object DnsSettings {
     // this method is used as a fallback in case JNDI results in an empty list
     // this method will not work when running modularised of course since it needs access to internal sun classes
     def getNameserversUsingReflection: Try[List[InetSocketAddress]] = {
-      system.dynamicAccess.getClassFor("sun.net.dns.ResolverConfiguration").flatMap { c =>
+      system.dynamicAccess.getClassFor[Any]("sun.net.dns.ResolverConfiguration").flatMap { c =>
         Try {
           val open = c.getMethod("open")
           val nameservers = c.getMethod("nameservers")

@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.cluster;
 
-import java.math.BigInteger;
-import java.util.concurrent.CompletableFuture;
+import static akka.pattern.Patterns.pipe;
 
 import akka.actor.AbstractActor;
-import static akka.pattern.Patterns.pipe;
+import java.math.BigInteger;
+import java.util.concurrent.CompletableFuture;
 
 // #backend
 public class FactorialBackend extends AbstractActor {

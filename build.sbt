@@ -1,4 +1,11 @@
-import akka.{ AutomaticModuleName, CopyrightHeaderForBuild, Paradox, ScalafixIgnoreFilePlugin }
+import akka.Dependencies.{ allScalaVersions, fortifySCAVersion, scalaFortifyVersion }
+import akka.{ AutomaticModuleName, CopyrightHeaderForBuild, Paradox }
+import com.geirsson.CiReleasePlugin
+
+import scala.language.postfixOps
+import scala.sys.process._
+
+scalaVersion := allScalaVersions.head
 
 enablePlugins(
   UnidocRoot,
@@ -6,38 +13,43 @@ enablePlugins(
   NoPublish,
   CopyrightHeader,
   CopyrightHeaderInPr,
-  ScalafixIgnoreFilePlugin,
-  JavaFormatterPlugin)
-disablePlugins(MimaPlugin)
+  JavaFormatterPlugin,
+  JdkOptions)
+disablePlugins(MimaPlugin, CiReleasePlugin // we use publishSigned, but use a pgp utility from CiReleasePlugin
+)
 
-// check format and headers
-TaskKey[Unit]("verifyCodeFmt") := {
-  javafmtCheckAll.all(ScopeFilter(inAnyProject)).result.value.toEither.left.foreach { _ =>
-    throw new MessageOnlyException(
-      "Unformatted Java code found. Please run 'javafmtAll' (or use the 'applyCodeStyle' alias) and commit the reformatted code")
-  }
+addCommandAlias("verifyCodeStyle", "scalafmtCheckAll; scalafmtSbtCheck; headerCheckAll")
+addCommandAlias("applyCodeStyle", "headerCreateAll; scalafmtAll; scalafmtSbt")
 
-  scalafmtCheckAll.all(ScopeFilter(inAnyProject)).result.value.toEither.left.foreach { _ =>
-    throw new MessageOnlyException(
-      "Unformatted Scala code found. Please run 'scalafmtAll' (or use the 'applyCodeStyle' alias) and commit the reformatted code")
-  }
-}
-
-addCommandAlias("verifyCodeStyle", "headerCheckAll; verifyCodeFmt")
-addCommandAlias("applyCodeStyle", "headerCreateAll; javafmtAll; scalafmtAll")
+addCommandAlias(name = "fixall", value = ";scalafmtAll; test:compile; multi-jvm:compile; reload")
 
 addCommandAlias(
-  name = "fixall",
-  value =
-    ";scalafixEnable; compile:scalafix; test:scalafix; multi-jvm:scalafix; scalafmtAll; test:compile; multi-jvm:compile; reload")
-
-addCommandAlias(
-  name = "sortImports",
-  value = ";scalafixEnable; compile:scalafix SortImports; test:scalafix SortImports; scalafmtAll")
+  "regenerateAllNativeImageMetadata",
+  Seq(
+    "akka-actor-tests/Test/runMain akka.NativeImageMetadataSpec",
+    "akka-actor-typed-tests/Test/runMain akka.actor.typed.NativeImageMetadataSpec",
+    "akka-cluster/Test/runMain akka.cluster.NativeImageMetadataSpec",
+    "akka-cluster-metrics/Test/runMain akka.cluster.metrics.NativeImageMetadataSpec",
+    "akka-cluster-sharding/Test/runMain akka.cluster.sharding.NativeImageMetadataSpec",
+    "akka-cluster-sharding-typed/Test/runMain akka.cluster.sharding.typed.NativeImageMetadataSpec",
+    "akka-cluster-tools/Test/runMain akka.cluster.tools.NativeImageMetadataSpec",
+    "akka-cluster-typed/Test/runMain akka.cluster.typed.NativeImageMetadataSpec",
+    "akka-coordination/Test/runMain akka.coordination.NativeImageMetadataSpec",
+    "akka-discovery/Test/runMain akka.discovery.NativeImageMetadataSpec",
+    "akka-distributed-data/Test/runMain akka.cluster.ddata.NativeImageMetadataSpec",
+    "akka-persistence/Test/runMain akka.persistence.NativeImageMetadataSpec",
+    "akka-persistence-query/Test/runMain akka.persistence.query.NativeImageMetadataSpec",
+    "akka-persistence-typed/Test/runMain akka.persistence.typed.NativeImageMetadataSpec",
+    "akka-pki/Test/runMain akka.pki.NativeImageMetadataSpec",
+    "akka-remote/Test/runMain akka.remote.NativeImageMetadataSpec",
+    "akka-serialization-jackson/Test/runMain akka.serialization.jackson.NativeImageMetadataSpec",
+    "akka-slf4j/Test/runMain akka.event.slf4j.NativeImageMetadataSpec",
+    "akka-stream-tests/Test/runMain akka.stream.NativeImageMetadataSpec",
+    "akka-stream-typed/Test/runMain akka.stream.typed.NativeImageMetadataSpec").mkString("; "))
 
 import akka.AkkaBuild._
-import akka.{ AkkaBuild, Dependencies, OSGi, Protobuf, SigarLoader, VersionGenerator }
-import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
+import akka.{ AkkaBuild, Dependencies, Protobuf, SigarLoader, VersionGenerator }
+import com.typesafe.sbt.MultiJvmPlugin.MultiJvmKeys.MultiJvm
 import com.typesafe.tools.mima.plugin.MimaPlugin
 import sbt.Keys.{ initialCommands, parallelExecution }
 import spray.boilerplate.BoilerplatePlugin
@@ -53,8 +65,6 @@ shellPrompt := { s =>
   Project.extract(s).currentProject.id + " > "
 }
 resolverSettings
-
-def isScala213: Boolean = System.getProperty("akka.build.scalaVersion", "").startsWith("2.13")
 
 // When this is updated the set of modules in ActorSystem.allModules should also be updated
 lazy val userProjects: Seq[ProjectReference] = List[ProjectReference](
@@ -72,12 +82,10 @@ lazy val userProjects: Seq[ProjectReference] = List[ProjectReference](
   distributedData,
   jackson,
   multiNodeTestkit,
-  osgi,
   persistence,
   persistenceQuery,
   persistenceTyped,
   persistenceTestkit,
-  protobuf,
   protobufV3,
   pki,
   remote,
@@ -104,26 +112,26 @@ lazy val root = Project(id = "akka", base = file("."))
   .aggregate(aggregatedProjects: _*)
   .enablePlugins(PublishRsyncPlugin)
   .settings(rootSettings: _*)
-  .settings(unidocRootIgnoreProjects := Seq(remoteTests, benchJmh, protobuf, protobufV3, akkaScalaNightly, docs))
-  .settings(unmanagedSources in (Compile, headerCreate) := (baseDirectory.value / "project").**("*.scala").get)
+  .settings(unidocRootIgnoreProjects := Seq(remoteTests, benchJmh, protobufV3, akkaScalaNightly, docs))
+  .settings(Compile / headerCreate / unmanagedSources := (baseDirectory.value / "project").**("*.scala").get)
+  .settings(akka.AkkaBuild.welcomeSettings)
   .enablePlugins(CopyrightHeaderForBuild)
 
 lazy val actor = akkaModule("akka-actor")
   .settings(Dependencies.actor)
-  .settings(OSGi.actor)
   .settings(AutomaticModuleName.settings("akka.actor"))
-  .settings(unmanagedSourceDirectories in Compile += {
+  .settings(Compile / unmanagedSourceDirectories += {
     val ver = scalaVersion.value.take(4)
-    (scalaSource in Compile).value.getParentFile / s"scala-$ver"
+    (Compile / scalaSource).value.getParentFile / s"scala-$ver"
   })
   .settings(VersionGenerator.settings)
   .enablePlugins(BoilerplatePlugin)
 
 lazy val actorTests = akkaModule("akka-actor-tests")
-  .dependsOn(testkit % "compile->compile;test->test")
+  .dependsOn(testkit % "compile->compile;test->test", actor)
   .settings(Dependencies.actorTests)
   .enablePlugins(NoPublish)
-  .disablePlugins(MimaPlugin, WhiteSourcePlugin)
+  .disablePlugins(MimaPlugin)
 
 lazy val akkaScalaNightly = akkaModule("akka-scala-nightly")
   .aggregate(aggregatedProjects: _*)
@@ -131,13 +139,12 @@ lazy val akkaScalaNightly = akkaModule("akka-scala-nightly")
   .disablePlugins(ValidatePullRequest, MimaPlugin, CopyrightHeaderInPr)
 
 lazy val benchJmh = akkaModule("akka-bench-jmh")
-  .enablePlugins(Jdk9)
   .dependsOn(Seq(actor, actorTyped, stream, streamTestkit, persistence, distributedData, jackson, testkit).map(
     _ % "compile->compile;compile->test"): _*)
   .settings(Dependencies.benchJmh)
   .settings(javacOptions += "-parameters") // for Jackson
   .enablePlugins(JmhPlugin, ScaladocNoVerificationOfDiagrams, NoPublish, CopyrightHeader)
-  .disablePlugins(MimaPlugin, WhiteSourcePlugin, ValidatePullRequest, CopyrightHeaderInPr)
+  .disablePlugins(MimaPlugin, ValidatePullRequest, CopyrightHeaderInPr)
 
 lazy val cluster = akkaModule("akka-cluster")
   .dependsOn(
@@ -148,9 +155,8 @@ lazy val cluster = akkaModule("akka-cluster")
     jackson % "test->test")
   .settings(Dependencies.cluster)
   .settings(AutomaticModuleName.settings("akka.cluster"))
-  .settings(OSGi.cluster)
   .settings(Protobuf.settings)
-  .settings(parallelExecution in Test := false)
+  .settings(Test / parallelExecution := false)
   .configs(MultiJvm)
   .enablePlugins(MultiNodeScalaTest)
 
@@ -159,12 +165,11 @@ lazy val clusterMetrics = akkaModule("akka-cluster-metrics")
     cluster % "compile->compile;test->test;multi-jvm->multi-jvm",
     slf4j % "test->compile",
     jackson % "test->test")
-  .settings(OSGi.clusterMetrics)
   .settings(Dependencies.clusterMetrics)
   .settings(AutomaticModuleName.settings("akka.cluster.metrics"))
   .settings(Protobuf.settings)
   .settings(SigarLoader.sigarSettings)
-  .settings(parallelExecution in Test := false)
+  .settings(Test / parallelExecution := false)
   .configs(MultiJvm)
   .enablePlugins(MultiNodeScalaTest)
 
@@ -181,11 +186,9 @@ lazy val clusterSharding = akkaModule("akka-cluster-sharding")
     jackson % "test->test")
   .settings(Dependencies.clusterSharding)
   .settings(AutomaticModuleName.settings("akka.cluster.sharding"))
-  .settings(OSGi.clusterSharding)
   .settings(Protobuf.settings)
   .configs(MultiJvm)
   .enablePlugins(MultiNode, ScaladocNoVerificationOfDiagrams)
-  .enablePlugins(Jdk9)
 
 lazy val clusterTools = akkaModule("akka-cluster-tools")
   .dependsOn(
@@ -194,7 +197,6 @@ lazy val clusterTools = akkaModule("akka-cluster-tools")
     jackson % "test->test")
   .settings(Dependencies.clusterTools)
   .settings(AutomaticModuleName.settings("akka.cluster.tools"))
-  .settings(OSGi.clusterTools)
   .settings(Protobuf.settings)
   .configs(MultiJvm)
   .enablePlugins(MultiNode, ScaladocNoVerificationOfDiagrams)
@@ -203,24 +205,20 @@ lazy val distributedData = akkaModule("akka-distributed-data")
   .dependsOn(cluster % "compile->compile;test->test;multi-jvm->multi-jvm", jackson % "test->test")
   .settings(Dependencies.distributedData)
   .settings(AutomaticModuleName.settings("akka.cluster.ddata"))
-  .settings(OSGi.distributedData)
   .settings(Protobuf.settings)
   .configs(MultiJvm)
   .enablePlugins(MultiNodeScalaTest)
 
 lazy val docs = akkaModule("akka-docs")
-  .configs(akka.Jdk9.TestJdk9)
   .dependsOn(
     actor,
     cluster,
     clusterMetrics,
     slf4j,
-    osgi,
     persistenceTck,
     persistenceQuery,
     distributedData,
     stream,
-    stream % "TestJdk9->CompileJdk9",
     actorTyped,
     clusterTools % "compile->compile;test->test",
     clusterSharding % "compile->compile;test->test",
@@ -245,10 +243,10 @@ lazy val docs = akkaModule("akka-docs")
     NoPublish,
     ParadoxBrowse,
     ScaladocNoVerificationOfDiagrams,
-    StreamOperatorsIndexGenerator,
-    Jdk9)
-  .disablePlugins(MimaPlugin, WhiteSourcePlugin)
-  .disablePlugins(ScalafixPlugin)
+    StreamOperatorsIndexGenerator)
+  .disablePlugins(MimaPlugin)
+  // TODO https://github.com/akka/akka/issues/30243
+  .settings(crossScalaVersions -= akka.Dependencies.scala3Version)
 
 lazy val jackson = akkaModule("akka-serialization-jackson")
   .dependsOn(
@@ -259,7 +257,6 @@ lazy val jackson = akkaModule("akka-serialization-jackson")
     testkit % "test->test")
   .settings(Dependencies.jackson)
   .settings(AutomaticModuleName.settings("akka.serialization.jackson"))
-  .settings(OSGi.jackson)
   .settings(javacOptions += "-parameters")
   .enablePlugins(ScaladocNoVerificationOfDiagrams)
 
@@ -270,43 +267,41 @@ lazy val multiNodeTestkit = akkaModule("akka-multi-node-testkit")
   .settings(AutomaticModuleName.settings("akka.remote.testkit"))
   .settings(AkkaBuild.mayChangeSettings)
 
-lazy val osgi = akkaModule("akka-osgi")
-  .dependsOn(actor)
-  .settings(Dependencies.osgi)
-  .settings(AutomaticModuleName.settings("akka.osgi"))
-  .settings(OSGi.osgi)
-  .settings(parallelExecution in Test := false)
-
 lazy val persistence = akkaModule("akka-persistence")
   .dependsOn(actor, stream, testkit % "test->test")
   .settings(Dependencies.persistence)
   .settings(AutomaticModuleName.settings("akka.persistence"))
-  .settings(OSGi.persistence)
   .settings(Protobuf.settings)
-  .settings(fork in Test := true)
+  .settings(Test / fork := true)
 
 lazy val persistenceQuery = akkaModule("akka-persistence-query")
-  .dependsOn(stream, persistence % "compile->compile;test->test", streamTestkit % "test")
+  .dependsOn(
+    stream,
+    persistence % "compile->compile;test->test",
+    remote % "provided",
+    protobufV3,
+    streamTestkit % "test")
   .settings(Dependencies.persistenceQuery)
   .settings(AutomaticModuleName.settings("akka.persistence.query"))
-  .settings(OSGi.persistenceQuery)
-  .settings(fork in Test := true)
+  .settings(Protobuf.settings)
+  // To be able to import ContainerFormats.proto
+  .settings(Protobuf.importPath := Some(baseDirectory.value / ".." / "akka-remote" / "src" / "main" / "protobuf"))
+  .settings(Test / fork := true)
   .enablePlugins(ScaladocNoVerificationOfDiagrams)
 
 lazy val persistenceShared = akkaModule("akka-persistence-shared")
   .dependsOn(persistence % "test->test", testkit % "test->test", remote % "test")
   .settings(Dependencies.persistenceShared)
   .settings(AutomaticModuleName.settings("akka.persistence.shared"))
-  .settings(fork in Test := true)
+  .settings(Test / fork := true)
   .enablePlugins(NoPublish)
-  .disablePlugins(MimaPlugin, WhiteSourcePlugin)
+  .disablePlugins(MimaPlugin)
 
 lazy val persistenceTck = akkaModule("akka-persistence-tck")
   .dependsOn(persistence % "compile->compile;test->test", testkit % "compile->compile;test->test")
   .settings(Dependencies.persistenceTck)
   .settings(AutomaticModuleName.settings("akka.persistence.tck"))
-  //.settings(OSGi.persistenceTck) TODO: we do need to export this as OSGi bundle too?
-  .settings(fork in Test := true)
+  .settings(Test / fork := true)
   .disablePlugins(MimaPlugin)
 
 lazy val persistenceTestkit = akkaModule("akka-persistence-testkit")
@@ -320,54 +315,49 @@ lazy val persistenceTestkit = akkaModule("akka-persistence-testkit")
   .disablePlugins(MimaPlugin)
 
 lazy val persistenceTypedTests = akkaModule("akka-persistence-typed-tests")
-  .dependsOn(persistenceTyped, persistenceTestkit % "test", actorTestkitTyped % "test", jackson % "test->test")
+  .dependsOn(
+    persistenceTyped,
+    persistenceTestkit % "test",
+    actorTestkitTyped % "test",
+    streamTestkit % "test",
+    persistence % "test->test", // for SteppingInMemJournal
+    jackson % "test->test")
   .settings(AkkaBuild.mayChangeSettings)
   .settings(Dependencies.persistenceTypedTests)
   .settings(javacOptions += "-parameters") // for Jackson
   .disablePlugins(MimaPlugin)
   .enablePlugins(NoPublish)
 
-lazy val protobuf = akkaModule("akka-protobuf")
-  .settings(OSGi.protobuf)
-  .settings(AutomaticModuleName.settings("akka.protobuf"))
-  .enablePlugins(ScaladocNoVerificationOfDiagrams)
-  .disablePlugins(MimaPlugin)
-
 lazy val protobufV3 = akkaModule("akka-protobuf-v3")
-  .settings(OSGi.protobufV3)
   .settings(AutomaticModuleName.settings("akka.protobuf.v3"))
   .enablePlugins(ScaladocNoVerificationOfDiagrams)
   .disablePlugins(MimaPlugin)
   .settings(
-    libraryDependencies += Dependencies.Compile.Provided.protobufRuntime,
-    assemblyShadeRules in assembly := Seq(
+    libraryDependencies += Dependencies.Provided.protobufRuntime,
+    assembly / assemblyShadeRules := Seq(
         ShadeRule
           .rename("com.google.protobuf.**" -> "akka.protobufv3.internal.@1")
           // https://github.com/sbt/sbt-assembly/issues/400
-          .inLibrary(Dependencies.Compile.Provided.protobufRuntime)
+          .inLibrary(Dependencies.Provided.protobufRuntime)
           .inProject),
-    assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = false, includeBin = false),
+    assembly / assemblyOption := (assembly / assemblyOption).value.withIncludeScala(false).withIncludeBin(false),
     autoScalaLibrary := false, // do not include scala dependency in pom
     exportJars := true, // in dependent projects, use assembled and shaded jar
     makePomConfiguration := makePomConfiguration.value
         .withConfigurations(Vector(Compile)), // prevent original dependency to be added to pom as runtime dep
-    packagedArtifact in (Compile, packageBin) := Scoped.mkTuple2(
-        (artifact in (Compile, packageBin)).value,
-        ReproducibleBuildsPlugin.postProcessJar(OsgiKeys.bundle.value)),
-    packageBin in Compile := ReproducibleBuildsPlugin
-        .postProcessJar((assembly in Compile).value), // package by running assembly
+    Compile / packageBin := ReproducibleBuildsPlugin
+        .postProcessJar((Compile / assembly).value), // package by running assembly
     // Prevent cyclic task dependencies, see https://github.com/sbt/sbt-assembly/issues/365
-    fullClasspath in assembly := (managedClasspath in Runtime).value, // otherwise, there's a cyclic dependency between packageBin and assembly
-    test in assembly := {}, // assembly runs tests for unknown reason which introduces another cyclic dependency to packageBin via exportedJars
-    description := "Akka Protobuf V3 is a shaded version of the protobuf runtime. Original POM: https://github.com/protocolbuffers/protobuf/blob/v3.9.0/java/pom.xml")
+    assembly / fullClasspath := (Runtime / managedClasspath).value, // otherwise, there's a cyclic dependency between packageBin and assembly
+    assembly / test := {}, // assembly runs tests for unknown reason which introduces another cyclic dependency to packageBin via exportedJars
+    description := s"Akka Protobuf V3 is a shaded version of ${Dependencies.Provided.protobufRuntime.name} ${Dependencies.Provided.protobufRuntime.revision}.")
 
 lazy val pki =
   akkaModule("akka-pki")
     .dependsOn(actor) // this dependency only exists for "@ApiMayChange"
+    .dependsOn(testkit % "test->test")
     .settings(Dependencies.pki)
     .settings(AutomaticModuleName.settings("akka.pki"))
-    // The akka-pki artifact was added in Akka 2.6.2, no MiMa checks yet.
-    .disablePlugins(MimaPlugin)
 
 lazy val remote =
   akkaModule("akka-remote")
@@ -375,58 +365,51 @@ lazy val remote =
       actor,
       stream,
       pki,
-      protobuf % "test",
       actorTests % "test->test",
       testkit % "test->test",
       streamTestkit % "test",
       jackson % "test->test")
     .settings(Dependencies.remote)
     .settings(AutomaticModuleName.settings("akka.remote"))
-    .settings(OSGi.remote)
     .settings(Protobuf.settings)
-    .settings(parallelExecution in Test := false)
-    .enablePlugins(Jdk9)
+    .settings(Test / parallelExecution := false)
 
 lazy val remoteTests = akkaModule("akka-remote-tests")
   .dependsOn(
     actorTests % "test->test",
-    remote % "compile->CompileJdk9;test->test",
+    remote % "compile->compile;test->test",
     streamTestkit % "test",
     multiNodeTestkit,
     jackson % "test->test")
   .settings(Dependencies.remoteTests)
   .settings(Protobuf.settings)
-  .settings(parallelExecution in Test := false)
+  .settings(Test / parallelExecution := false)
   .configs(MultiJvm)
   .enablePlugins(MultiNodeScalaTest, NoPublish)
-  .disablePlugins(MimaPlugin, WhiteSourcePlugin)
+  .disablePlugins(MimaPlugin)
 
 lazy val slf4j = akkaModule("akka-slf4j")
   .dependsOn(actor, testkit % "test->test")
   .settings(Dependencies.slf4j)
   .settings(AutomaticModuleName.settings("akka.slf4j"))
-  .settings(OSGi.slf4j)
 
 lazy val stream = akkaModule("akka-stream")
   .dependsOn(actor, protobufV3)
   .settings(Dependencies.stream)
   .settings(AutomaticModuleName.settings("akka.stream"))
-  .settings(OSGi.stream)
   .settings(Protobuf.settings)
-  .enablePlugins(BoilerplatePlugin, Jdk9)
+  .enablePlugins(BoilerplatePlugin)
 
 lazy val streamTestkit = akkaModule("akka-stream-testkit")
   .dependsOn(stream, testkit % "compile->compile;test->test")
   .settings(Dependencies.streamTestkit)
   .settings(AutomaticModuleName.settings("akka.stream.testkit"))
-  .settings(OSGi.streamTestkit)
 
 lazy val streamTests = akkaModule("akka-stream-tests")
-  .configs(akka.Jdk9.TestJdk9)
-  .dependsOn(streamTestkit % "test->test", remote % "test->test", stream % "TestJdk9->CompileJdk9")
+  .dependsOn(streamTestkit % "test->test", remote % "test->test", stream % "test->test")
   .settings(Dependencies.streamTests)
-  .enablePlugins(NoPublish, Jdk9)
-  .disablePlugins(MimaPlugin, WhiteSourcePlugin)
+  .enablePlugins(NoPublish)
+  .disablePlugins(MimaPlugin)
 
 lazy val streamTestsTck = akkaModule("akka-stream-tests-tck")
   .dependsOn(streamTestkit % "test->test", stream)
@@ -436,22 +419,20 @@ lazy val streamTestsTck = akkaModule("akka-stream-tests-tck")
     // is causing long GC pauses when running with G1 on
     // the CI build servers. Therefore we fork these tests
     // to run with small heap without G1.
-    fork in Test := true)
+    Test / fork := true)
   .enablePlugins(NoPublish)
-  .disablePlugins(MimaPlugin, WhiteSourcePlugin)
+  .disablePlugins(MimaPlugin)
 
 lazy val testkit = akkaModule("akka-testkit")
   .dependsOn(actor)
   .settings(Dependencies.testkit)
   .settings(AutomaticModuleName.settings("akka.actor.testkit"))
-  .settings(OSGi.testkit)
   .settings(initialCommands += "import akka.testkit._")
 
 lazy val actorTyped = akkaModule("akka-actor-typed")
   .dependsOn(actor, slf4j)
   .settings(AutomaticModuleName.settings("akka.actor.typed"))
   .settings(Dependencies.actorTyped)
-  .settings(OSGi.actorTyped)
   .settings(initialCommands :=
     """
       import akka.actor.typed._
@@ -461,7 +442,6 @@ lazy val actorTyped = akkaModule("akka-actor-typed")
       import akka.util.Timeout
       implicit val timeout = Timeout(5.seconds)
     """)
-  .enablePlugins(Jdk9)
 
 lazy val persistenceTyped = akkaModule("akka-persistence-typed")
   .dependsOn(
@@ -480,7 +460,6 @@ lazy val persistenceTyped = akkaModule("akka-persistence-typed")
   .settings(Protobuf.settings)
   // To be able to import ContainerFormats.proto
   .settings(Protobuf.importPath := Some(baseDirectory.value / ".." / "akka-remote" / "src" / "main" / "protobuf"))
-  .settings(OSGi.persistenceTyped)
 
 lazy val clusterTyped = akkaModule("akka-cluster-typed")
   .dependsOn(
@@ -504,14 +483,14 @@ lazy val clusterTyped = akkaModule("akka-cluster-typed")
 
 lazy val clusterShardingTyped = akkaModule("akka-cluster-sharding-typed")
   .dependsOn(
-    actorTyped % "compile->CompileJdk9",
+    actorTyped,
     clusterTyped % "compile->compile;test->test;multi-jvm->multi-jvm",
-    clusterSharding % "compile->compile;compile->CompileJdk9;multi-jvm->multi-jvm",
+    clusterSharding % "compile->compile;multi-jvm->multi-jvm",
     actorTestkitTyped % "test->test",
     actorTypedTests % "test->test",
     persistenceTyped % "optional->compile;test->test",
     persistenceTestkit % "test->test",
-    remote % "compile->CompileJdk9;test->test",
+    remote % "compile->compile;test->test",
     remoteTests % "test->test",
     remoteTests % "test->test;multi-jvm->multi-jvm",
     jackson % "test->test")
@@ -539,8 +518,9 @@ lazy val actorTestkitTyped = akkaModule("akka-actor-testkit-typed")
   .settings(Dependencies.actorTestkitTyped)
 
 lazy val actorTypedTests = akkaModule("akka-actor-typed-tests")
-  .dependsOn(actorTyped % "compile->CompileJdk9", actorTestkitTyped % "compile->compile;test->test")
+  .dependsOn(actorTyped, actorTestkitTyped % "compile->compile;test->test", actor)
   .settings(AkkaBuild.mayChangeSettings)
+  .settings(JdkOptions.maybeJdk21PlusTests)
   .disablePlugins(MimaPlugin)
   .enablePlugins(NoPublish)
 
@@ -548,17 +528,15 @@ lazy val discovery = akkaModule("akka-discovery")
   .dependsOn(actor, testkit % "test->test", actorTests % "test->test")
   .settings(Dependencies.discovery)
   .settings(AutomaticModuleName.settings("akka.discovery"))
-  .settings(OSGi.discovery)
 
 lazy val coordination = akkaModule("akka-coordination")
   .dependsOn(actor, testkit % "test->test", actorTests % "test->test")
   .settings(Dependencies.coordination)
   .settings(AutomaticModuleName.settings("akka.coordination"))
-  .settings(OSGi.coordination)
 
 lazy val billOfMaterials = Project("akka-bill-of-materials", file("akka-bill-of-materials"))
   .enablePlugins(BillOfMaterialsPlugin)
-  .disablePlugins(MimaPlugin, AkkaDisciplinePlugin)
+  .disablePlugins(MimaPlugin, AkkaDisciplinePlugin, CiReleasePlugin)
   // buildSettings and defaultSettings configure organization name, licenses, etc...
   .settings(AkkaBuild.buildSettings)
   .settings(AkkaBuild.defaultSettings)
@@ -567,12 +545,31 @@ lazy val billOfMaterials = Project("akka-bill-of-materials", file("akka-bill-of-
     bomIncludeProjects := userProjects,
     description := s"${description.value} (depending on Scala ${CrossVersion.binaryScalaVersion(scalaVersion.value)})")
 
+lazy val doesFortifyLicenseExist: Boolean = {
+  import java.nio.file.Files
+  val home = System.getProperty("user.home")
+  val fortifyLicense = new File(s"$home/.lightbend/fortify.license")
+  Files.exists(fortifyLicense.toPath)
+}
+
+def fortifySettings(name: String) = {
+  if (doesFortifyLicenseExist) {
+    Seq(
+      addCompilerPlugin(("com.lightbend" %% "scala-fortify" % scalaFortifyVersion).cross(CrossVersion.patch)),
+      scalacOptions ++= Seq(s"-P:fortify:scaversion=$fortifySCAVersion", s"-P:fortify:build=$name"))
+  } else {
+    Seq()
+  }
+}
+
 def akkaModule(name: String): Project =
   Project(id = name, base = file(name))
     .enablePlugins(ReproducibleBuildsPlugin)
     .settings(akka.AkkaBuild.buildSettings)
     .settings(akka.AkkaBuild.defaultSettings)
+    .settings(fortifySettings(name))
     .enablePlugins(BootstrapGenjavadoc)
+    .disablePlugins(CiReleasePlugin) // we use publishSigned, but use a pgp utility from CiReleasePlugin
 
 /* Command aliases one can run locally against a module
   - where three or more tasks should be checked for faster turnaround
@@ -607,3 +604,19 @@ addCommandAlias(
     commandValue(clusterShardingTyped),
     commandValue(persistenceTyped),
     commandValue(streamTyped)).mkString)
+
+// Convenience task allowing all Fortify steps to be done in the sbt shell
+lazy val analyzeSource = taskKey[Unit]("Analyzing NST files emitted by Fortify  SCA")
+analyzeSource := {
+  val s = streams.value
+  val shell = Seq("bash", "-c")
+  val scan = shell :+ s"./scripts/runSourceAnalyzer.sh $fortifySCAVersion"
+  if (doesFortifyLicenseExist) {
+    s.log.info("Analyzing NST files emitted by Fortify SCA.")
+    scan !
+  } else {
+    s.log.info("Fortify license not found so NST files creation was skipped.")
+  }
+}
+
+addCommandAlias("runSourceAnalyzer", "; clean; compile; analyzeSource")

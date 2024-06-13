@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.scaladsl
@@ -28,7 +28,7 @@ object PersistentFSMMigration {
       override def fromJournal(from: Any): State = {
         from match {
           case PersistentFSMSnapshot(stateIdentifier, data, timeout) => adapt(stateIdentifier, data, timeout)
-          case data: State @unchecked                                => data
+          case data                                                  => data.asInstanceOf[State]
         }
       }
     }

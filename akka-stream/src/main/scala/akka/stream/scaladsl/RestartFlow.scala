@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
 import scala.concurrent.duration._
+import scala.util.control.NoStackTrace
 
 import akka.NotUsed
 import akka.event.Logging
@@ -199,12 +200,13 @@ private final class RestartWithBackoffFlow[In, Out](
         val sourceOut: SubSourceOutlet[In] = createSubOutlet(in)
         val sinkIn: SubSinkInlet[Out] = createSubInlet(out)
 
-        Source
+        val graph = Source
           .fromGraph(sourceOut.source)
           // Temp fix while waiting cause of cancellation. See #23909
           .via(RestartWithBackoffFlow.delayCancellation[In](delay))
           .via(flowFactory())
-          .runWith(sinkIn.sink)(subFusingMaterializer)
+          .to(sinkIn.sink)
+        subFusingMaterializer.materialize(graph, inheritedAttributes)
 
         if (isAvailable(out)) {
           sinkIn.pull()
@@ -213,12 +215,8 @@ private final class RestartWithBackoffFlow[In, Out](
       }
 
       override protected def backoff() = {
-        setHandler(in, new InHandler {
-          override def onPush() = ()
-        })
-        setHandler(out, new OutHandler {
-          override def onPull() = ()
-        })
+        setHandler(in, GraphStageLogic.EagerTerminateInput)
+        setHandler(out, GraphStageLogic.EagerTerminateOutput)
 
         // We need to ensure that the other end of the sub flow is also completed, so that we don't
         // receive any callbacks from it.
@@ -263,7 +261,9 @@ private abstract class RestartWithBackoffLogic[S <: Shape](
 
   private def loggingEnabled = inheritedAttributes.get[LogLevels] match {
     case Some(levels) => levels.onFailure != LogLevels.Off
-    case None         => true
+    case None         =>
+      // Allows for system wide disable at least
+      LogLevels.defaultErrorLevel(materializer.system) != LogLevels.Off
   }
 
   /**
@@ -280,6 +280,10 @@ private abstract class RestartWithBackoffLogic[S <: Shape](
         if (finishing || maxRestartsReached() || onlyOnFailures) {
           complete(out)
         } else {
+          logIt(
+            s"Restarting stream due to completion [${restartCount + 1}]",
+            OptionVal.None,
+            minLogLevel = Logging.InfoLevel)
           scheduleRestartTimer()
         }
       }
@@ -288,11 +292,10 @@ private abstract class RestartWithBackoffLogic[S <: Shape](
        * Upstream in this context is the wrapped stage.
        */
       override def onUpstreamFailure(ex: Throwable) = {
-        if (finishing || maxRestartsReached()) {
+        if (finishing || maxRestartsReached() || !settings.restartOn(ex)) {
           fail(out, ex)
         } else {
-          if (loggingEnabled)
-            log.warning("Restarting graph due to failure. stack_trace: {}", Logging.stackTraceFor(ex))
+          logIt(s"Restarting stream due to failure [${restartCount + 1}]: $ex", OptionVal.Some(ex))
           scheduleRestartTimer()
         }
       }
@@ -306,6 +309,39 @@ private abstract class RestartWithBackoffLogic[S <: Shape](
       }
     })
     sinkIn
+  }
+
+  private def logLevel(minLogLevel: Logging.LogLevel): Logging.LogLevel = {
+    val level =
+      if (restartCount >= logSettings.criticalLogLevelAfter) logSettings.criticalLogLevel else logSettings.logLevel
+    if (level >= minLogLevel || level == Logging.OffLevel) level else minLogLevel
+  }
+
+  private def logIt(
+      message: String,
+      exc: OptionVal[Throwable],
+      minLogLevel: Logging.LogLevel = Logging.ErrorLevel): Unit = {
+    if (loggingEnabled) {
+      logLevel(minLogLevel) match {
+        case Logging.ErrorLevel =>
+          exc match {
+            case OptionVal.Some(e) => log.error(e, message)
+            case _                 => log.error(message)
+          }
+        case Logging.WarningLevel =>
+          if (log.isWarningEnabled) {
+            exc match {
+              case OptionVal.Some(e) if !e.isInstanceOf[NoStackTrace] =>
+                log.warning(message + s"${Logging.stackTraceFor(e)}")
+              case _ =>
+                log.warning(message)
+            }
+          }
+        case Logging.InfoLevel  => log.info(message)
+        case Logging.DebugLevel => log.debug(message)
+        case _                  => // off
+      }
+    }
   }
 
   /**
@@ -332,7 +368,7 @@ private abstract class RestartWithBackoffLogic[S <: Shape](
        * onlyOnFailures is thus racy so a delay to cancellation is added in the case of a flow.
        */
       override def onDownstreamFinish(cause: Throwable) = {
-        if (finishing || maxRestartsReached() || onlyOnFailures) {
+        if (finishing || maxRestartsReached() || onlyOnFailures || !settings.restartOn(cause)) {
           cancel(in, cause)
         } else {
           scheduleRestartTimer()
@@ -362,7 +398,7 @@ private abstract class RestartWithBackoffLogic[S <: Shape](
   protected final def maxRestartsReached(): Boolean = {
     // Check if the last start attempt was more than the reset deadline
     if (resetDeadline.isOverdue()) {
-      log.debug("Last restart attempt was more than {} ago, resetting restart count", maxRestartsWithin)
+      log.debug("Last restart attempt was more than {} ago, resetting restart count", maxRestartsWithin.toCoarsest)
       restartCount = 0
     }
     restartCount == maxRestarts
@@ -371,7 +407,7 @@ private abstract class RestartWithBackoffLogic[S <: Shape](
   // Set a timer to restart after the calculated delay
   protected final def scheduleRestartTimer(): Unit = {
     val restartDelay = BackoffSupervisor.calculateDelay(restartCount, minBackoff, maxBackoff, randomFactor)
-    log.debug("Restarting graph in {}", restartDelay)
+    log.debug("Restarting graph in {}", restartDelay.toCoarsest)
     scheduleOnce("RestartTimer", restartDelay)
     restartCount += 1
     // And while we wait, we go into backoff mode
@@ -424,9 +460,7 @@ object RestartWithBackoffFlow {
         override def onDownstreamFinish(cause: Throwable): Unit = {
           this.cause = OptionVal.Some(cause)
           scheduleOnce("CompleteState", delay)
-          setHandler(in, new InHandler {
-            def onPush(): Unit = {}
-          })
+          setHandler(in, GraphStageLogic.EagerTerminateInput)
         }
 
         override protected def onTimer(timerKey: Any): Unit = {
@@ -434,7 +468,7 @@ object RestartWithBackoffFlow {
           cause match {
             case OptionVal.Some(ex) =>
               cancelStage(ex)
-            case OptionVal.None =>
+            case _ =>
               throw new IllegalStateException("Timer hitting without first getting a cancel cannot happen")
           }
 

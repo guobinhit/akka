@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl
@@ -15,7 +15,6 @@ import akka.stream.scaladsl._
 import akka.stream.stage._
 import akka.stream.stage.GraphStageLogic.{ EagerTerminateInput, EagerTerminateOutput }
 import akka.stream.testkit.StreamSpec
-import akka.stream.testkit.scaladsl.StreamTestKit._
 import akka.stream.testkit.scaladsl.TestSink
 
 class GraphStageLogicSpec extends StreamSpec with GraphInterpreterSpecKit with ScalaFutures {
@@ -135,38 +134,38 @@ class GraphStageLogicSpec extends StreamSpec with GraphInterpreterSpecKit with S
 
   "A GraphStageLogic" must {
 
-    "read N and emit N before completing" in assertAllStagesStopped {
-      Source(1 to 10).via(ReadNEmitN(2)).runWith(TestSink.probe).request(10).expectNext(1, 2).expectComplete()
+    "read N and emit N before completing" in {
+      Source(1 to 10).via(ReadNEmitN(2)).runWith(TestSink()).request(10).expectNext(1, 2).expectComplete()
     }
 
-    "read N should not emit if upstream completes before N is sent" in assertAllStagesStopped {
-      Source(1 to 5).via(ReadNEmitN(6)).runWith(TestSink.probe).request(10).expectComplete()
+    "read N should not emit if upstream completes before N is sent" in {
+      Source(1 to 5).via(ReadNEmitN(6)).runWith(TestSink()).request(10).expectComplete()
     }
 
-    "read N should not emit if upstream fails before N is sent" in assertAllStagesStopped {
+    "read N should not emit if upstream fails before N is sent" in {
       val error = new IllegalArgumentException("Don't argue like that!")
       Source(1 to 5)
         .map(x => if (x > 3) throw error else x)
         .via(ReadNEmitN(6))
-        .runWith(TestSink.probe)
+        .runWith(TestSink())
         .request(10)
         .expectError(error)
     }
 
-    "read N should provide elements read if onComplete happens before N elements have been seen" in assertAllStagesStopped {
+    "read N should provide elements read if onComplete happens before N elements have been seen" in {
       Source(1 to 5)
         .via(ReadNEmitRestOnComplete(6))
-        .runWith(TestSink.probe)
+        .runWith(TestSink())
         .request(10)
         .expectNext(1, 2, 3, 4, 5)
         .expectComplete()
     }
 
-    "emit all things before completing" in assertAllStagesStopped {
+    "emit all things before completing" in {
 
       Source.empty
         .via(emit1234.named("testStage"))
-        .runWith(TestSink.probe)
+        .runWith(TestSink())
         .request(5)
         .expectNext(1)
         //emitting with callback gives nondeterminism whether 2 or 3 will be pushed first
@@ -176,13 +175,13 @@ class GraphStageLogicSpec extends StreamSpec with GraphInterpreterSpecKit with S
 
     }
 
-    "emit properly after empty iterable" in assertAllStagesStopped {
+    "emit properly after empty iterable" in {
 
       Source.fromGraph(emitEmptyIterable).runWith(Sink.seq).futureValue should ===(List(42))
 
     }
 
-    "invoke lifecycle hooks in the right order" in assertAllStagesStopped {
+    "invoke lifecycle hooks in the right order" in {
       val g = new GraphStage[FlowShape[Int, Int]] {
         val in = Inlet[Int]("in")
         val out = Outlet[Int]("out")
@@ -282,7 +281,7 @@ class GraphStageLogicSpec extends StreamSpec with GraphInterpreterSpecKit with S
           })
           .runWith(Sink.ignore)
       }
-      ex.getMessage should startWith("No handler defined in stage [stage-name] for in port [in")
+      ex.getMessage should startWith("No handler defined in stage [").and(include("] for in port [in"))
     }
 
     "give a good error message if out handler missing" in {
@@ -308,7 +307,7 @@ class GraphStageLogicSpec extends StreamSpec with GraphInterpreterSpecKit with S
           .map(_ => "whatever")
           .runWith(Sink.ignore)
       }
-      ex.getMessage should startWith("No handler defined in stage [stage-name] for out port [out")
+      ex.getMessage should startWith("No handler defined in stage [").and(include("] for out port [out"))
     }
 
     "give a good error message if out handler missing with downstream boundary" in {
@@ -332,7 +331,7 @@ class GraphStageLogicSpec extends StreamSpec with GraphInterpreterSpecKit with S
           })
           .runWith(Sink.ignore.async)
       }
-      ex.getMessage should startWith("No handler defined in stage [stage-name] for out port [out")
+      ex.getMessage should startWith("No handler defined in stage [").and(include("] for out port [out"))
     }
 
     "give a good error message if handler missing with downstream publisher" in {
@@ -357,7 +356,7 @@ class GraphStageLogicSpec extends StreamSpec with GraphInterpreterSpecKit with S
           })
           .runWith(Sink.ignore)
       }
-      ex.getMessage should startWith("No handler defined in stage [stage-name] for out port [out")
+      ex.getMessage should startWith("No handler defined in stage [").and(include("] for out port [out"))
     }
 
     "give a good error message if handler missing when stage is an island" in {
@@ -382,7 +381,7 @@ class GraphStageLogicSpec extends StreamSpec with GraphInterpreterSpecKit with S
           .async
           .runWith(Sink.ignore)
       }
-      ex.getMessage should startWith("No handler defined in stage [stage-name] for out port [out")
+      ex.getMessage should startWith("No handler defined in stage [").and(include("] for out port [out"))
     }
 
     "give a good error message if sub source is pushed twice" in {

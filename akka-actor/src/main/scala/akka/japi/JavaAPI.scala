@@ -1,18 +1,17 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.japi
 
 import java.util.Collections.{ emptyList, singletonList }
 
+import scala.annotation.nowarn
 import scala.collection.immutable
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
 import scala.runtime.AbstractPartialFunction
 import scala.util.control.NoStackTrace
-
-import com.github.ghik.silencer.silent
 
 import akka.util.Collections.EmptyImmutableSeq
 
@@ -21,6 +20,7 @@ import akka.util.Collections.EmptyImmutableSeq
  *
  * This class is kept for compatibility, but for future API's please prefer [[akka.japi.function.Function]].
  */
+@FunctionalInterface
 trait Function[T, R] {
   @throws(classOf[Exception])
   def apply(param: T): R
@@ -31,6 +31,7 @@ trait Function[T, R] {
  *
  * This class is kept for compatibility, but for future API's please prefer [[akka.japi.function.Function2]].
  */
+@FunctionalInterface
 trait Function2[T1, T2, R] {
   @throws(classOf[Exception])
   def apply(arg1: T1, arg2: T2): R
@@ -41,6 +42,7 @@ trait Function2[T1, T2, R] {
  *
  * This class is kept for compatibility, but for future API's please prefer [[akka.japi.function.Procedure]].
  */
+@FunctionalInterface
 trait Procedure[T] {
   @throws(classOf[Exception])
   def apply(param: T): Unit
@@ -51,6 +53,7 @@ trait Procedure[T] {
  *
  * This class is kept for compatibility, but for future API's please prefer [[akka.japi.function.Effect]].
  */
+@FunctionalInterface
 trait Effect {
   @throws(classOf[Exception])
   def apply(): Unit
@@ -61,6 +64,7 @@ trait Effect {
  *
  * This class is kept for compatibility, but for future API's please prefer [[java.util.function.Predicate]].
  */
+@FunctionalInterface
 trait Predicate[T] {
   def test(param: T): Boolean
 }
@@ -84,8 +88,9 @@ object Pair {
  *
  * This class is kept for compatibility, but for future API's please prefer [[akka.japi.function.Creator]].
  */
-@silent("@SerialVersionUID has no effect")
+@nowarn("msg=@SerialVersionUID has no effect")
 @SerialVersionUID(1L)
+@FunctionalInterface
 trait Creator[T] extends Serializable {
 
   /**
@@ -145,13 +150,13 @@ abstract class JavaPartialFunction[A, B] extends AbstractPartialFunction[A, B] {
 
   final def isDefinedAt(x: A): Boolean =
     try {
-      apply(x, true); true
+      apply(x, isCheck = true); true
     } catch { case NoMatch => false }
   final override def apply(x: A): B =
-    try apply(x, false)
+    try apply(x, isCheck = false)
     catch { case NoMatch => throw new MatchError(x) }
   final override def applyOrElse[A1 <: A, B1 >: B](x: A1, default: A1 => B1): B1 =
-    try apply(x, false)
+    try apply(x, isCheck = false)
     catch { case NoMatch => default(x) }
 }
 
@@ -184,7 +189,7 @@ object Option {
   /**
    * <code>Option</code> factory that creates <code>None</code>
    */
-  def none[A] = None.asInstanceOf[Option[A]]
+  def none[A]: Option[A] = None.asInstanceOf[Option[A]]
 
   /**
    * <code>Option</code> factory that creates <code>None</code> if

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding.typed
@@ -58,6 +58,11 @@ abstract class MultiDcClusterShardingSpec
   import MultiDcClusterShardingSpecConfig._
   import MultiDcPinger._
 
+  override implicit def patienceConfig: PatienceConfig = {
+    import akka.testkit.TestDuration
+    PatienceConfig(testKitSettings.DefaultTimeout.duration.dilated, 100.millis)
+  }
+
   val typeKey = EntityTypeKey[Command]("ping")
   val entityId = "ping-1"
 
@@ -87,7 +92,7 @@ abstract class MultiDcClusterShardingSpec
   "be able to ask via entity ref" in {
     implicit val timeout = Timeout(remainingOrDefault)
     val entityRef = ClusterSharding(typedSystem).entityRefFor(typeKey, entityId)
-    val response = entityRef ? Ping
+    val response = entityRef.ask(Ping.apply)
     response.futureValue shouldEqual Pong(cluster.selfMember.dataCenter)
     enterBarrier("ask")
   }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.akka.persistence.typed;
@@ -8,7 +8,6 @@ import akka.actor.typed.Behavior;
 import akka.persistence.typed.ReplicaId;
 import akka.persistence.typed.ReplicationId;
 import akka.persistence.typed.javadsl.*;
-
 import java.util.*;
 
 // #factory

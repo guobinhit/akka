@@ -2,9 +2,18 @@
 
 ## Dependency
 
+The Akka dependencies are available from Akka's library repository. To access them there, you need to configure the URL for this repository.
+
+@@repository [sbt,Maven,Gradle] {
+id="akka-repository"
+name="Akka library repository"
+url="https://repo.akka.io/maven"
+}
+
 To use Akka Actor Typed, you must add the following dependency in your project:
 
 @@dependency[sbt,Maven,Gradle] {
+  bomGroup=com.typesafe.akka bomArtifact=akka-bom_$scala.binary.version$ bomVersionSymbols=AkkaVersion
   symbol1=AkkaVersion
   value1="$akka.version$"
   group=com.typesafe.akka
@@ -17,7 +26,7 @@ To use Akka Actor Typed, you must add the following dependency in your project:
 We believe Akka Typed will be adopted in existing systems gradually and therefore it's important to be able to use typed
 and classic actors together, within the same `ActorSystem`. Also, we will not be able to integrate with all existing modules in one big bang release and that is another reason for why these two ways of writing actors must be able to coexist.
 
-There are two different `ActorSystem`s: `akka.actor.ActorSystem` and `akka.actor.typed.ActorSystem`. 
+There are two different `ActorSystem`s: @apidoc[akka.actor.ActorSystem](actor.ActorSystem) and @apidoc[akka.actor.typed.ActorSystem](typed.ActorSystem). 
 
 Currently the typed actor system is implemented using the classic actor system under the hood. This may change in the future.
 
@@ -86,8 +95,18 @@ Java
 
 
 @scala[That adds some implicit extension methods that are added to classic and typed `ActorSystem`, `ActorContext` and `ActorRef` in both directions.]
-@java[To convert between typed and classic `ActorSystem`, `ActorContext` and `ActorRef` in both directions there are adapter methods in `akka.actor.typed.javadsl.Adapter`.]
-Note the inline comments in the example above.
+@java[To convert between typed and classic `ActorSystem`, `ActorContext` and `ActorRef` in both directions there are adapter methods in @javadoc[akka.actor.typed.javadsl.Adapter](akka.actor.typed.javadsl.Adapter).]
+Note the inline comments in the example above. 
+
+This method of using a top level classic actor is the suggested path for this type of co-existence. However, if you prefer to start with a typed top level actor then you can use the @scala[implicit @scaladoc[spawn](akka.actor.typed.scaladsl.adapter.package$$ClassicActorSystemOps#spawn[T](behavior:akka.actor.typed.Behavior[T],name:String,props:akka.actor.typed.Props):akka.actor.typed.ActorRef[T]) -method]@java[@javadoc[Adapter.spawn](akka.actor.typed.javadsl.Adapter#spawn(akka.actor.ActorSystem,akka.actor.typed.Behavior,java.lang.String,akka.actor.typed.Props))] directly from the typed system:
+
+Scala
+:  @@snip [TypedWatchingClassicSpec.scala](/akka-actor-typed-tests/src/test/scala/docs/akka/typed/coexistence/TypedWatchingClassicSpec.scala) { #create }
+
+Java
+:  @@snip [TypedWatchingClassicTest.java](/akka-actor-typed-tests/src/test/java/jdocs/akka/typed/coexistence/TypedWatchingClassicTest.java) { #create }
+
+The above classic-typed difference is further elaborated in @ref:[the `ActorSystem` section](./from-classic.md#actorsystem) of "Learning Akka Typed from Classic". 
 
 ## Typed to classic
 
@@ -101,6 +120,8 @@ Scala
 
 Java
 :  @@snip [TypedWatchingClassicTest.java](/akka-actor-typed-tests/src/test/java/jdocs/akka/typed/coexistence/TypedWatchingClassicTest.java) { #classic }
+
+<a id="top-level-typed-actor-classic-system"></a>
 
 Creating the actor system and the typed actor:
 
@@ -120,15 +141,15 @@ Java
 
 @@@ div { .group-scala }
 
-Note that when sending from a typed actor to a classic `ActorRef` there is no sender in scope as in classic.
-The typed sender should use its own `ActorContext[T].self` explicitly, as shown in the snippet.
+Note that when sending from a typed actor to a classic @apidoc[actor.ActorRef] there is no sender in scope as in classic.
+The typed sender should use its own @scaladoc[ActorContext[T].self](akka.actor.typed.scaladsl.ActorContext#self:akka.actor.typed.ActorRef[T]) explicitly, as shown in the snippet.
 
 @@@
 
 @@@ Note
 
 One important difference when having a typed system and a typed user guardian actor and combining that with classic actors  
-is that even if you can turn the typed `ActorSystem` to a classic one it is no longer possible to spawn user level
+is that even if you can turn the typed @apidoc[typed.ActorSystem] to a classic one it is no longer possible to spawn user level
 actors, trying to do this will throw an exception, such usage must instead be replaced with bootstrap directly in the 
 guardian actor, or commands telling the guardian to spawn children. 
  
@@ -140,6 +161,5 @@ The default supervision for classic actors is to restart whereas for typed it is
 When combining classic and typed actors the default supervision is based on the default behavior of
 the child, for example if a classic actor creates a typed child, its default supervision will be to stop. If a typed
 actor creates a classic child, its default supervision will be to restart.
-
 
 

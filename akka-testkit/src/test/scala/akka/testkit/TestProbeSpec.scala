@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.testkit
@@ -141,7 +141,7 @@ class TestProbeSpec extends AkkaSpec with DefaultTimeout with Eventually {
 
     "be able to expect primitive types" in {
       for (_ <- 1 to 7) testActor ! 42
-      expectMsgType[Int] should ===(42)
+      (expectMsgType[Int]: Int) should ===(42)
       expectMsgAnyClassOf(classOf[Int]) should ===(42)
       expectMsgAllClassOf(classOf[Int]) should ===(Seq(42))
       expectMsgAllConformingOf(classOf[Int]) should ===(Seq(42))
@@ -173,7 +173,7 @@ class TestProbeSpec extends AkkaSpec with DefaultTimeout with Eventually {
       probe.ref ! "done"
 
       val msg: String = probe.fishForSpecificMessage() {
-        case msg @ "fishForMe" => msg
+        case msg: String if msg == "fishForMe" => msg
       }
 
       msg should be("fishForMe")
@@ -198,7 +198,7 @@ class TestProbeSpec extends AkkaSpec with DefaultTimeout with Eventually {
       probe.ref ! "hello"
       probe.watch(target)
       probe.expectMsg(1.seconds, "hello")
-      probe.expectMsg(1.seconds, Terminated(target)(false, false))
+      probe.expectMsg(1.seconds, Terminated(target)(existenceConfirmed = false, addressTerminated = false))
     }
 
     "allow user-defined name" in {

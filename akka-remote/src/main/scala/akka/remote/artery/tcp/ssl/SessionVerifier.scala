@@ -1,13 +1,13 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery.tcp.ssl
 
 import java.security.cert.X509Certificate
+import javax.net.ssl.SSLSession
 
 import akka.annotation.InternalApi
-import javax.net.ssl.SSLSession
 
 /**
  * Allows hooking in extra verification before finishing the SSL handshake.
@@ -26,7 +26,7 @@ private[ssl] trait SessionVerifier {
  * INTERNAL API
  */
 @InternalApi
-private[ssl] final object NoopSessionVerifier extends SessionVerifier {
+private[ssl] object NoopSessionVerifier extends SessionVerifier {
   override def verifyClientSession(hostname: String, session: SSLSession): Option[Throwable] = None
   override def verifyServerSession(hostname: String, session: SSLSession): Option[Throwable] = None
 }

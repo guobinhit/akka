@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.singleton;
 
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
+import akka.cluster.singleton.TestSingletonMessages.*;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
-import akka.cluster.singleton.TestSingletonMessages.*;
 
 public class Consumer extends AbstractActor {
 

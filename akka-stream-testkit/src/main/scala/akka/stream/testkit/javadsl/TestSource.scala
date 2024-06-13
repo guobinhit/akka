@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.testkit.javadsl
@@ -15,13 +15,14 @@ object TestSource {
   /**
    * A Source that materializes to a [[akka.stream.testkit.TestPublisher.Probe]].
    */
+  @deprecated("Use `TestSource.create` with ClassicActorSystemProvider instead.", "2.7.0")
   def probe[T](system: ActorSystem): Source[T, TestPublisher.Probe[T]] =
-    new Source(scaladsl.TestSource.probe[T](system))
+    create(system)
 
   /**
    * A Source that materializes to a [[akka.stream.testkit.TestPublisher.Probe]].
    */
   def create[T](system: ClassicActorSystemProvider): Source[T, TestPublisher.Probe[T]] =
-    probe(system.classicSystem)
+    new Source(scaladsl.TestSource[T]()(system))
 
 }

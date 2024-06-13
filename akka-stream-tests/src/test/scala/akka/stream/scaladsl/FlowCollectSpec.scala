@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -34,7 +34,7 @@ class FlowCollectSpec extends StreamSpec with ScriptedTest {
       Source(1 to 3)
         .collect(pf)
         .withAttributes(supervisionStrategy(restartingDecider))
-        .runWith(TestSink.probe[Int])
+        .runWith(TestSink[Int]())
         .request(1)
         .expectNext(1)
         .request(1)

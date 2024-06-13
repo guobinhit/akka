@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding.typed.delivery.internal
@@ -125,7 +125,7 @@ import akka.util.Timeout
       .narrow
   }
 
-  private def createInitialState[A: ClassTag](hasDurableQueue: Boolean) = {
+  private def createInitialState[A](hasDurableQueue: Boolean) = {
     if (hasDurableQueue) None else Some(DurableProducerQueue.State.empty[A])
   }
 
@@ -142,7 +142,7 @@ import akka.util.Timeout
     def becomeActive(p: ActorRef[RequestNext[A]], s: DurableProducerQueue.State[A]): Behavior[InternalCommand] = {
       Behaviors.withTimers { timers =>
         timers.startTimerWithFixedDelay(CleanupUnused, settings.cleanupUnusedAfter / 2)
-        timers.startTimerWithFixedDelay(ResendFirstUnconfirmed, settings.resendFirsUnconfirmedIdleTimeout / 2)
+        timers.startTimerWithFixedDelay(ResendFirstUnconfirmed, settings.resendFirstUnconfirmedIdleTimeout / 2)
 
         // resend unconfirmed before other stashed messages
         Behaviors.withStash[InternalCommand](settings.bufferSize) { newStashBuffer =>
@@ -226,12 +226,12 @@ import akka.util.Timeout
     }
   }
 
-  private def checkStashFull[A: ClassTag](stashBuffer: StashBuffer[InternalCommand]): Unit = {
+  private def checkStashFull[A](stashBuffer: StashBuffer[InternalCommand]): Unit = {
     if (stashBuffer.isFull)
       throw new IllegalArgumentException(s"Buffer is full, size [${stashBuffer.size}].")
   }
 
-  private def askLoadState[A: ClassTag](
+  private def askLoadState[A](
       context: ActorContext[InternalCommand],
       durableQueueBehavior: Option[Behavior[DurableProducerQueue.Command[A]]],
       settings: ShardingProducerController.Settings): Option[ActorRef[DurableProducerQueue.Command[A]]] = {
@@ -244,7 +244,7 @@ import akka.util.Timeout
     }
   }
 
-  private def askLoadState[A: ClassTag](
+  private def askLoadState[A](
       context: ActorContext[InternalCommand],
       durableQueue: Option[ActorRef[DurableProducerQueue.Command[A]]],
       settings: ShardingProducerController.Settings,
@@ -476,7 +476,7 @@ private class ShardingProducerControllerImpl[A: ClassTag](
       s.out.foreach {
         case (outKey: OutKey, outState) =>
           val idleDurationMillis = (now - outState.usedNanoTime) / 1000 / 1000
-          if (outState.unconfirmed.nonEmpty && idleDurationMillis >= settings.resendFirsUnconfirmedIdleTimeout.toMillis) {
+          if (outState.unconfirmed.nonEmpty && idleDurationMillis >= settings.resendFirstUnconfirmedIdleTimeout.toMillis) {
             context.log.debug(
               "Resend first unconfirmed for [{}], because it was idle for [{} ms]",
               outKey,
@@ -509,7 +509,7 @@ private class ShardingProducerControllerImpl[A: ClassTag](
 
     Behaviors.receiveMessage {
 
-      case msg: Msg[A] =>
+      case msg: Msg[A @unchecked] =>
         if (durableQueue.isEmpty) {
           // currentSeqNr is only updated when durableQueue is enabled
           onMessage(msg.envelope.entityId, msg.envelope.message, None, s.currentSeqNr, s.replyAfterStore)
@@ -518,7 +518,12 @@ private class ShardingProducerControllerImpl[A: ClassTag](
           onMessage(msg.envelope.entityId, msg.envelope.message, None, msg.alreadyStored, s.replyAfterStore)
         } else {
           storeMessageSent(
-            MessageSent(s.currentSeqNr, msg.envelope.message, false, msg.envelope.entityId, System.currentTimeMillis()),
+            MessageSent(
+              s.currentSeqNr,
+              msg.envelope.message,
+              ack = false,
+              msg.envelope.entityId,
+              System.currentTimeMillis()),
             attempt = 1)
           active(s.copy(currentSeqNr = s.currentSeqNr + 1))
         }
@@ -537,13 +542,13 @@ private class ShardingProducerControllerImpl[A: ClassTag](
       case StoreMessageSentCompleted(MessageSent(seqNr, msg: A, _, entityId, _)) =>
         receiveStoreMessageSentCompleted(seqNr, msg, entityId)
 
-      case f: StoreMessageSentFailed[A] =>
+      case f: StoreMessageSentFailed[A @unchecked] =>
         receiveStoreMessageSentFailed(f)
 
       case ack: Ack =>
         receiveAck(ack)
 
-      case w: WrappedRequestNext[A] =>
+      case w: WrappedRequestNext[A @unchecked] =>
         receiveWrappedRequestNext(w)
 
       case ResendFirstUnconfirmed =>
@@ -552,7 +557,7 @@ private class ShardingProducerControllerImpl[A: ClassTag](
       case CleanupUnused =>
         receiveCleanupUnused()
 
-      case start: Start[A] =>
+      case start: Start[A @unchecked] =>
         receiveStart(start)
 
       case AskTimeout(outKey, outSeqNr) =>
@@ -565,6 +570,8 @@ private class ShardingProducerControllerImpl[A: ClassTag](
       case DurableQueueTerminated =>
         throw new IllegalStateException("DurableQueue was unexpectedly terminated.")
 
+      case unexpected =>
+        throw new RuntimeException(s"Unexpected message: $unexpected")
     }
   }
 

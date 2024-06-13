@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.internal
@@ -11,6 +11,14 @@ import akka.persistence.typed.ReplicationId
 import akka.util.OptionVal
 import akka.util.WallClock
 import akka.util.ccompat.JavaConverters._
+
+/**
+ * INTERNAL API
+ */
+@InternalApi
+private[akka] object ReplicationContextImpl {
+  val NoPlugin = "no-plugin"
+}
 
 /**
  * INTERNAL API
@@ -37,7 +45,7 @@ private[akka] final class ReplicationContextImpl(
     _currentThread match {
       case OptionVal.Some(t) =>
         if (callerThread ne t) error()
-      case OptionVal.None =>
+      case _ =>
         error()
     }
   }
@@ -50,7 +58,7 @@ private[akka] final class ReplicationContextImpl(
     checkAccess("origin")
     _origin match {
       case OptionVal.Some(origin) => origin
-      case OptionVal.None         => throw new IllegalStateException("origin can only be accessed from the event handler")
+      case _                      => throw new IllegalStateException("origin can only be accessed from the event handler")
     }
   }
 

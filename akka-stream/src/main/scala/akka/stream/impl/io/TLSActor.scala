@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl.io
 
 import java.nio.ByteBuffer
-
 import javax.net.ssl._
 import javax.net.ssl.SSLEngineResult.HandshakeStatus
 import javax.net.ssl.SSLEngineResult.HandshakeStatus._
@@ -33,8 +32,8 @@ import akka.util.ByteString
 
   def props(
       maxInputBufferSize: Int,
-      createSSLEngine: ActorSystem => SSLEngine, // ActorSystem is only needed to support the AkkaSSLConfig legacy, see #21753
-      verifySession: (ActorSystem, SSLSession) => Try[Unit], // ActorSystem is only needed to support the AkkaSSLConfig legacy, see #21753
+      createSSLEngine: () => SSLEngine,
+      verifySession: SSLSession => Try[Unit],
       closing: TLSClosing,
       tracing: Boolean = false): Props =
     Props(new TLSActor(maxInputBufferSize, createSSLEngine, verifySession, closing, tracing)).withDeploy(Deploy.local)
@@ -51,8 +50,8 @@ import akka.util.ByteString
  */
 @InternalApi private[stream] class TLSActor(
     maxInputBufferSize: Int,
-    createSSLEngine: ActorSystem => SSLEngine, // ActorSystem is only needed to support the AkkaSSLConfig legacy, see #21753
-    verifySession: (ActorSystem, SSLSession) => Try[Unit], // ActorSystem is only needed to support the AkkaSSLConfig legacy, see #21753
+    createSSLEngine: () => SSLEngine,
+    verifySession: SSLSession => Try[Unit],
     closing: TLSClosing,
     tracing: Boolean)
     extends Actor
@@ -60,6 +59,9 @@ import akka.util.ByteString
     with Pump {
 
   import TLSActor._
+
+  private var stopped = false
+  private var unwrapPutBackCounter: Int = 0
 
   protected val outputBunch = new OutputBunch(outputCount = 2, self, this)
   outputBunch.markAllOutputs()
@@ -103,6 +105,7 @@ import akka.util.ByteString
           case n: NegotiateNewSession =>
             setNewSessionParameters(n)
             ByteString.empty
+          case _ => throw new RuntimeException() // won't happen, compiler exhaustiveness check pleaser
         }
         if (tracing) log.debug(s"chopping from new chunk of ${buffer.size} into $name (${b.position()})")
       } else {
@@ -158,7 +161,7 @@ import akka.util.ByteString
   // The engine could also be instantiated in ActorMaterializerImpl but if creation fails
   // during materialization it would be worse than failing later on.
   val engine =
-    try createSSLEngine(context.system)
+    try createSSLEngine()
     catch { case NonFatal(ex) => fail(ex, closeTransport = true); throw ex }
 
   engine.beginHandshake()
@@ -353,6 +356,7 @@ import akka.util.ByteString
 
   def flushToUser(): Unit = {
     if (tracing) log.debug("flushToUser")
+    if (unwrapPutBackCounter > 0) unwrapPutBackCounter = 0
     userOutBuffer.flip()
     if (userOutBuffer.hasRemaining) {
       val bs = ByteString(userOutBuffer)
@@ -368,10 +372,20 @@ import akka.util.ByteString
       log.debug(
         s"wrap: status=${result.getStatus} handshake=$lastHandshakeStatus remaining=${userInBuffer.remaining} out=${transportOutBuffer
           .position()}")
+
     if (lastHandshakeStatus == FINISHED) handshakeFinished()
     runDelegatedTasks()
     result.getStatus match {
       case OK =>
+        // https://github.com/akka/akka/issues/29922
+        // It seems to be possible to get the SSLEngine into a state where
+        // result.getStatus == OK && getHandshakeStatus == NEED_WRAP but
+        // it doesn't make any progress any more.
+        //
+        // We guard against this JDK bug by checking for reasonable invariants after the call to engine.wrap
+        if (transportOutBuffer.position() == 0 && lastHandshakeStatus == NEED_WRAP)
+          throw new IllegalStateException("SSLEngine trying to loop NEED_WRAP without producing output")
+
         flushToTransport()
         userInChoppingBlock.putBack(userInBuffer)
       case CLOSED =>
@@ -384,6 +398,7 @@ import akka.util.ByteString
 
   @tailrec
   private def doUnwrap(ignoreOutput: Boolean): Unit = {
+    val oldInPosition = transportInBuffer.position()
     val result = engine.unwrap(transportInBuffer, userOutBuffer)
     if (ignoreOutput) userOutBuffer.clear()
     lastHandshakeStatus = result.getHandshakeStatus
@@ -396,12 +411,27 @@ import akka.util.ByteString
       case OK =>
         result.getHandshakeStatus match {
           case NEED_WRAP =>
-            flushToUser()
+            // https://github.com/akka/akka/issues/29922
+            // A second workaround for an infinite loop we have not been able to reproduce/isolate,
+            // if you see this, and can reproduce consistently, please report back to the Akka team
+            // with a reproducer or details about the client causing it
+            unwrapPutBackCounter += 1
+            if (unwrapPutBackCounter > 1000) {
+              throw new IllegalStateException(
+                s"Stuck in unwrap loop, bailing out, last handshake status [$lastHandshakeStatus], " +
+                s"remaining=${transportInBuffer.remaining}, out=${userOutBuffer.position()}, " +
+                "(https://github.com/akka/akka/issues/29922)")
+            }
             transportInChoppingBlock.putBack(transportInBuffer)
           case FINISHED =>
             flushToUser()
             handshakeFinished()
             transportInChoppingBlock.putBack(transportInBuffer)
+          case NEED_UNWRAP
+              if transportInBuffer.hasRemaining &&
+              userOutBuffer.position() == 0 &&
+              transportInBuffer.position() == oldInPosition =>
+            throw new IllegalStateException("SSLEngine trying to loop NEED_UNWRAP without producing output")
           case _ =>
             if (transportInBuffer.hasRemaining) doUnwrap(ignoreOutput = false)
             else flushToUser()
@@ -414,7 +444,7 @@ import akka.util.ByteString
       case BUFFER_OVERFLOW =>
         flushToUser()
         transportInChoppingBlock.putBack(transportInBuffer)
-      case s => fail(new IllegalStateException(s"unexpected status $s in doUnwrap()"))
+      case null => fail(new IllegalStateException(s"unexpected status 'null' in doUnwrap()"))
     }
   }
 
@@ -436,10 +466,11 @@ import akka.util.ByteString
     if (tracing) log.debug("handshake finished")
     val session = engine.getSession
 
-    verifySession(context.system, session) match {
+    verifySession(session) match {
       case Success(()) =>
         currentSession = session
         corkUser = false
+        flushToUser()
       case Failure(ex) =>
         fail(ex, closeTransport = true)
     }
@@ -460,12 +491,21 @@ import akka.util.ByteString
       outputBunch.error(TransportOut, e)
     }
     outputBunch.error(UserOut, e)
+    stopped = true
     pump()
   }
 
-  // FIXME: what happens if this actor dies unexpectedly?
   override def postStop(): Unit = {
-    if (tracing) log.debug("postStop")
+    if (!stopped) {
+      val e = new RuntimeException(
+        s"Unexpected termination of TLS actor for connection to ${engine.getPeerHost}:${engine.getPeerPort}")
+      log.warning(e.getMessage)
+      inputBunch.cancel()
+      outputBunch.error(TransportOut, e)
+      outputBunch.error(UserOut, e)
+    } else if (tracing) {
+      log.debug("postStop")
+    }
     super.postStop()
   }
 
@@ -475,6 +515,7 @@ import akka.util.ByteString
     inputBunch.cancel()
     outputBunch.complete()
     if (tracing) log.debug(s"STOP Outbound Closed: ${engine.isOutboundDone} Inbound closed: ${engine.isInboundDone}")
+    stopped = true
     context.stop(self)
   }
 }
@@ -486,14 +527,15 @@ import akka.util.ByteString
   def applySessionParameters(engine: SSLEngine, sessionParameters: NegotiateNewSession): Unit = {
     sessionParameters.enabledCipherSuites.foreach(cs => engine.setEnabledCipherSuites(cs.toArray))
     sessionParameters.enabledProtocols.foreach(p => engine.setEnabledProtocols(p.toArray))
+
+    sessionParameters.sslParameters.foreach(engine.setSSLParameters)
+
     sessionParameters.clientAuth match {
       case Some(TLSClientAuth.None) => engine.setNeedClientAuth(false)
       case Some(TLSClientAuth.Want) => engine.setWantClientAuth(true)
       case Some(TLSClientAuth.Need) => engine.setNeedClientAuth(true)
       case _                        => // do nothing
     }
-
-    sessionParameters.sslParameters.foreach(engine.setSSLParameters)
   }
 
   def cloneParameters(old: SSLParameters): SSLParameters = {

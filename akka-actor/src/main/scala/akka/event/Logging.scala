@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.event
@@ -8,12 +8,11 @@ import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicInteger
 
 import scala.annotation.implicitNotFound
+import scala.annotation.nowarn
 import scala.collection.immutable
 import scala.concurrent.Await
 import scala.language.existentials
 import scala.util.control.{ NoStackTrace, NonFatal }
-
-import com.github.ghik.silencer.silent
 
 import akka.{ AkkaException, ConfigurationException }
 import akka.actor._
@@ -170,7 +169,7 @@ trait LoggingBus extends ActorEventBus {
    * Internal Akka use only
    */
   private[akka] def stopDefaultLoggers(system: ActorSystem): Unit = {
-    @silent("never used")
+    @nowarn("msg=never used")
     val level = _logLevel // volatile access before reading loggers
     if (!(loggers contains StandardOutLogger)) {
       setUpStdoutLogger(system.settings)
@@ -1199,6 +1198,7 @@ trait LoggingAdapter {
   protected def notifyError(message: String): Unit
   protected def notifyError(cause: Throwable, message: String): Unit
   protected def notifyWarning(message: String): Unit
+  protected def notifyWarning(@unused cause: Throwable, message: String): Unit = notifyWarning(message)
   protected def notifyInfo(message: String): Unit
   protected def notifyDebug(message: String): Unit
 
@@ -1284,6 +1284,49 @@ trait LoggingAdapter {
    */
   def error(template: String, arg1: Any, arg2: Any, arg3: Any, arg4: Any): Unit = {
     if (isErrorEnabled) notifyError(format(template, arg1, arg2, arg3, arg4))
+  }
+
+  /**
+   * Log message at warning level, including the exception that indicated the warning.
+   * @see [[LoggingAdapter]]
+   */
+  def warning(cause: Throwable, message: String): Unit = {
+    if (isWarningEnabled) notifyWarning(cause, message)
+  }
+
+  /**
+   * Message template with 1 replacement argument.
+   *
+   * If `arg1` is an `Array` it will be expanded into replacement arguments, which is useful when
+   * there are more than four arguments.
+   * @see [[LoggingAdapter]]
+   */
+  def warning(cause: Throwable, template: String, arg1: Any): Unit = {
+    if (isWarningEnabled) notifyWarning(cause, format1(template, arg1))
+  }
+
+  /**
+   * Message template with 2 replacement arguments.
+   * @see [[LoggingAdapter]]
+   */
+  def warning(cause: Throwable, template: String, arg1: Any, arg2: Any): Unit = {
+    if (isWarningEnabled) notifyWarning(cause, format(template, arg1, arg2))
+  }
+
+  /**
+   * Message template with 3 replacement arguments.
+   * @see [[LoggingAdapter]]
+   */
+  def warning(cause: Throwable, template: String, arg1: Any, arg2: Any, arg3: Any): Unit = {
+    if (isWarningEnabled) notifyWarning(cause, format(template, arg1, arg2, arg3))
+  }
+
+  /**
+   * Message template with 4 replacement arguments.
+   * @see [[LoggingAdapter]]
+   */
+  def warning(cause: Throwable, template: String, arg1: Any, arg2: Any, arg3: Any, arg4: Any): Unit = {
+    if (isWarningEnabled) notifyWarning(cause, format(template, arg1, arg2, arg3, arg4))
   }
 
   /**
@@ -1514,7 +1557,7 @@ trait LoggingFilter {
  * In retrospect should have been abstract, but we cannot change that
  * without breaking binary compatibility
  */
-@silent("never us")
+@nowarn("msg=never us")
 trait LoggingFilterWithMarker extends LoggingFilter {
   def isErrorEnabled(logClass: Class[_], logSource: String, marker: LogMarker): Boolean =
     isErrorEnabled(logClass, logSource)
@@ -1579,7 +1622,7 @@ trait DiagnosticLoggingAdapter extends LoggingAdapter {
    * Scala API:
    * Mapped Diagnostic Context for application defined values
    * which can be used in PatternLayout when `akka.event.slf4j.Slf4jLogger` is configured.
-   * Visit <a href="http://logback.qos.ch/manual/mdc.html">Logback Docs: MDC</a> for more information.
+   * Visit <a href="https://logback.qos.ch/manual/mdc.html">Logback Docs: MDC</a> for more information.
    *
    * @return A Map containing the MDC values added by the application, or empty Map if no value was added.
    */
@@ -1589,7 +1632,7 @@ trait DiagnosticLoggingAdapter extends LoggingAdapter {
    * Scala API:
    * Sets the values to be added to the MDC (Mapped Diagnostic Context) before the log is appended.
    * These values can be used in PatternLayout when `akka.event.slf4j.Slf4jLogger` is configured.
-   * Visit <a href="http://logback.qos.ch/manual/mdc.html">Logback Docs: MDC</a> for more information.
+   * Visit <a href="https://logback.qos.ch/manual/mdc.html">Logback Docs: MDC</a> for more information.
    */
   def mdc(mdc: MDC): Unit = _mdc = if (mdc != null) mdc else emptyMDC
 
@@ -1597,7 +1640,7 @@ trait DiagnosticLoggingAdapter extends LoggingAdapter {
    * Java API:
    * Mapped Diagnostic Context for application defined values
    * which can be used in PatternLayout when `akka.event.slf4j.Slf4jLogger` is configured.
-   * Visit <a href="http://logback.qos.ch/manual/mdc.html">Logback Docs: MDC</a> for more information.
+   * Visit <a href="https://logback.qos.ch/manual/mdc.html">Logback Docs: MDC</a> for more information.
    * Note tha it returns a <b>COPY</b> of the actual MDC values.
    * You cannot modify any value by changing the returned Map.
    * Code like the following won't have any effect unless you set back the modified Map.
@@ -1617,7 +1660,7 @@ trait DiagnosticLoggingAdapter extends LoggingAdapter {
    * Java API:
    * Sets the values to be added to the MDC (Mapped Diagnostic Context) before the log is appended.
    * These values can be used in PatternLayout when `akka.event.slf4j.Slf4jLogger` is configured.
-   * Visit <a href="http://logback.qos.ch/manual/mdc.html">Logback Docs: MDC</a> for more information.
+   * Visit <a href="https://logback.qos.ch/manual/mdc.html">Logback Docs: MDC</a> for more information.
    */
   def setMDC(jMdc: java.util.Map[String, Any]): Unit = mdc(if (jMdc != null) jMdc.asScala.toMap else emptyMDC)
 
@@ -1660,14 +1703,6 @@ object LogMarker {
     import akka.util.ccompat.JavaConverters._
     apply(name, properties.asScala.toMap)
   }
-
-  @Deprecated
-  @deprecated("use akka.event.LogEventWithMarker#marker instead", since = "2.5.12")
-  def extractFromMDC(mdc: MDC): Option[String] =
-    mdc.get(MDCKey) match {
-      case Some(v) => Some(v.toString)
-      case None    => None
-    }
 
   private[akka] final val Security = apply("SECURITY")
 
@@ -1975,15 +2010,17 @@ class BusLogging(val bus: LoggingBus, val logSource: String, val logClass: Class
   def isInfoEnabled = loggingFilter.isInfoEnabled(logClass, logSource)
   def isDebugEnabled = loggingFilter.isDebugEnabled(logClass, logSource)
 
-  protected def notifyError(message: String): Unit =
+  override protected def notifyError(message: String): Unit =
     bus.publish(Error(logSource, logClass, message, mdc))
-  protected def notifyError(cause: Throwable, message: String): Unit =
+  override protected def notifyError(cause: Throwable, message: String): Unit =
     bus.publish(Error(cause, logSource, logClass, message, mdc))
-  protected def notifyWarning(message: String): Unit =
+  override protected def notifyWarning(message: String): Unit =
     bus.publish(Warning(logSource, logClass, message, mdc))
-  protected def notifyInfo(message: String): Unit =
+  override protected def notifyWarning(cause: Throwable, message: String): Unit =
+    bus.publish(Warning(cause, logSource, logClass, message, mdc))
+  override protected def notifyInfo(message: String): Unit =
     bus.publish(Info(logSource, logClass, message, mdc))
-  protected def notifyDebug(message: String): Unit =
+  override protected def notifyDebug(message: String): Unit =
     bus.publish(Debug(logSource, logClass, message, mdc))
 }
 
@@ -2006,6 +2043,7 @@ object NoLogging extends LoggingAdapter {
   final protected override def notifyError(message: String): Unit = ()
   final protected override def notifyError(cause: Throwable, message: String): Unit = ()
   final protected override def notifyWarning(message: String): Unit = ()
+  final protected override def notifyWarning(cause: Throwable, message: String): Unit = ()
   final protected override def notifyInfo(message: String): Unit = ()
   final protected override def notifyDebug(message: String): Unit = ()
 }
@@ -2029,6 +2067,7 @@ object NoMarkerLogging extends MarkerLoggingAdapter(null, "source", classOf[Stri
   final protected override def notifyError(message: String): Unit = ()
   final protected override def notifyError(cause: Throwable, message: String): Unit = ()
   final protected override def notifyWarning(message: String): Unit = ()
+  final protected override def notifyWarning(cause: Throwable, message: String): Unit = ()
   final protected override def notifyInfo(message: String): Unit = ()
   final protected override def notifyDebug(message: String): Unit = ()
   final override def error(marker: LogMarker, cause: Throwable, message: String): Unit = ()

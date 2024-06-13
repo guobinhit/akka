@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -29,13 +29,13 @@ class GraphMergeLatestSpec extends TwoStreamsSetup {
   "mergeLatest" must {
 
     "start emit values only after each input stream emitted value" in assertAllStagesStopped {
-      val up1 = TestSource.probe[Int]
-      val up2 = TestSource.probe[Int]
-      val up3 = TestSource.probe[Int]
+      val up1 = TestSource[Int]()
+      val up2 = TestSource[Int]()
+      val up3 = TestSource[Int]()
       val probe = TestSubscriber.manualProbe[List[Int]]()
 
       val (in1, in2, in3) = RunnableGraph
-        .fromGraph(GraphDSL.create(up1, up2, up3)((_, _, _)) { implicit b => (s1, s2, s3) =>
+        .fromGraph(GraphDSL.createGraph(up1, up2, up3)((_, _, _)) { implicit b => (s1, s2, s3) =>
           val m = b.add(MergeLatest[Int](3))
 
           s1 ~> m
@@ -63,13 +63,13 @@ class GraphMergeLatestSpec extends TwoStreamsSetup {
     }
 
     "update values after message from one stream" in assertAllStagesStopped {
-      val up1 = TestSource.probe[Int]
-      val up2 = TestSource.probe[Int]
-      val up3 = TestSource.probe[Int]
+      val up1 = TestSource[Int]()
+      val up2 = TestSource[Int]()
+      val up3 = TestSource[Int]()
       val probe = TestSubscriber.manualProbe[List[Int]]()
 
       val (in1, in2, in3) = RunnableGraph
-        .fromGraph(GraphDSL.create(up1, up2, up3)((_, _, _)) { implicit b => (s1, s2, s3) =>
+        .fromGraph(GraphDSL.createGraph(up1, up2, up3)((_, _, _)) { implicit b => (s1, s2, s3) =>
           val m = b.add(MergeLatest[Int](3))
 
           s1 ~> m
@@ -129,12 +129,12 @@ class GraphMergeLatestSpec extends TwoStreamsSetup {
     }
 
     "complete stage if eagerComplete is set and one of input stream finished" in assertAllStagesStopped {
-      val up1 = TestSource.probe[Int]
-      val up2 = TestSource.probe[Int]
+      val up1 = TestSource[Int]()
+      val up2 = TestSource[Int]()
       val probe = TestSubscriber.manualProbe[List[Int]]()
 
       val (in1, _) = RunnableGraph
-        .fromGraph(GraphDSL.create(up1, up2)((_, _)) { implicit b => (s1, s2) =>
+        .fromGraph(GraphDSL.createGraph(up1, up2)((_, _)) { implicit b => (s1, s2) =>
           val m = b.add(MergeLatest[Int](2, true))
 
           s1 ~> m

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -140,7 +140,7 @@ object StreamRefsSpec {
         sender() ! sink
 
       case Command("receive-32", probe) =>
-        val (sink, driver) = StreamRefs.sinkRef[String]().toMat(TestSink.probe(context.system))(Keep.both).run()
+        val (sink, driver) = StreamRefs.sinkRef[String]().toMat(TestSink()(context.system))(Keep.both).run()
 
         import context.dispatcher
         Future {
@@ -168,9 +168,9 @@ object StreamRefsSpec {
   final case class BulkSinkMsg(dataSink: SinkRef[ByteString])
 
   def config(): Config = {
-    ConfigFactory.parseString(s"""
+    ConfigFactory.parseString("""
     akka {
-      loglevel = INFO
+      loglevel = DEBUG
 
       actor {
         provider = remote
@@ -179,7 +179,6 @@ object StreamRefsSpec {
       }
       remote {
         artery.canonical.port = 0
-        classic.netty.tcp.port = 0
         use-unsafe-remote-features-outside-cluster = on
       }
     }
@@ -260,7 +259,7 @@ class StreamRefsSpec extends AkkaSpec(StreamRefsSpec.config()) {
       remoteActor.tell("give-infinite", remoteProbe.ref)
       val sourceRef = remoteProbe.expectMsgType[SourceRef[String]]
 
-      val probe = sourceRef.runWith(TestSink.probe)
+      val probe = sourceRef.runWith(TestSink())
 
       probe.ensureSubscription()
       probe.expectNoMessage(100.millis)
@@ -290,7 +289,7 @@ class StreamRefsSpec extends AkkaSpec(StreamRefsSpec.config()) {
 
       Thread.sleep(800) // the timeout is 500ms
 
-      val probe = remoteSource.runWith(TestSink.probe[String](system))
+      val probe = remoteSource.runWith(TestSink[String]()(system))
 
       //      val failure = p.expectMsgType[Failure]
       //      failure.cause.getMessage should include("[SourceRef-0] Remote side did not subscribe (materialize) handed out Sink reference")
@@ -348,6 +347,7 @@ class StreamRefsSpec extends AkkaSpec(StreamRefsSpec.config()) {
       remoteProbe.expectMsg(Done)
     }
 
+    // FIXME https://github.com/akka/akka/issues/30844
     "pass cancellation upstream across remoting before elements has been emitted" in {
       val remoteProbe = TestProbe()(remoteSystem)
       remoteActor.tell("give-nothing-watch", remoteProbe.ref)
@@ -525,7 +525,7 @@ class StreamRefsSpec extends AkkaSpec(StreamRefsSpec.config()) {
       // not materializing it, awaiting the timeout...
       Thread.sleep(800) // the timeout is 500ms
 
-      val probe = TestSource.probe[String](system).to(remoteSink).run()
+      val probe = TestSource[String]()(system).to(remoteSink).run()
 
       val failure = elementProbe.expectMsgType[String]
       failure should include("Remote side did not subscribe (materialize) handed out Sink reference")
@@ -603,8 +603,8 @@ class StreamRefsSpec extends AkkaSpec(StreamRefsSpec.config()) {
       remoteActor.tell(Command("receive", elementProbe.ref), remoteProbe.ref)
       val sinkRef = remoteProbe.expectMsgType[SinkRef[String]]
 
-      val p1: TestPublisher.Probe[String] = TestSource.probe[String].to(sinkRef).run()
-      val p2: TestPublisher.Probe[String] = TestSource.probe[String].to(sinkRef).run()
+      val p1: TestPublisher.Probe[String] = TestSource[String]().to(sinkRef).run()
+      val p2: TestPublisher.Probe[String] = TestSource[String]().to(sinkRef).run()
 
       p1.ensureSubscription()
       p1.expectRequest()

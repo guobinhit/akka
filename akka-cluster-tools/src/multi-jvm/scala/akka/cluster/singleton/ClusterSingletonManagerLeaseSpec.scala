@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.singleton
@@ -15,7 +15,7 @@ import akka.cluster.singleton.ClusterSingletonManagerLeaseSpec.ImportantSingleto
 import akka.coordination.lease.TestLeaseActor
 import akka.coordination.lease.TestLeaseActorClient
 import akka.coordination.lease.TestLeaseActorClientExt
-import akka.remote.testkit.{ MultiNodeConfig, MultiNodeSpec, STMultiNodeSpec }
+import akka.remote.testkit.{ MultiNodeConfig, STMultiNodeSpec }
 import akka.testkit._
 
 object ClusterSingletonManagerLeaseSpec extends MultiNodeConfig {
@@ -30,7 +30,6 @@ object ClusterSingletonManagerLeaseSpec extends MultiNodeConfig {
   commonConfig(ConfigFactory.parseString(s"""
     akka.loglevel = INFO
     akka.actor.provider = "cluster"
-    akka.remote.log-remote-lifecycle-events = off
     akka.cluster.downing-provider-class = akka.cluster.testkit.AutoDowning
     akka.cluster.testkit.auto-down-unreachable-after = 0s
     test-lease {
@@ -74,10 +73,9 @@ class ClusterSingletonManagerLeaseMultiJvmNode4 extends ClusterSingletonManagerL
 class ClusterSingletonManagerLeaseMultiJvmNode5 extends ClusterSingletonManagerLeaseSpec
 
 class ClusterSingletonManagerLeaseSpec
-    extends MultiNodeSpec(ClusterSingletonManagerLeaseSpec)
+    extends MultiNodeClusterSpec(ClusterSingletonManagerLeaseSpec)
     with STMultiNodeSpec
-    with ImplicitSender
-    with MultiNodeClusterSpec {
+    with ImplicitSender {
 
   import ClusterSingletonManagerLeaseSpec._
   import ClusterSingletonManagerLeaseSpec.ImportantSingleton._

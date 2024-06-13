@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.testkit.typed.scaladsl
@@ -77,6 +77,11 @@ import akka.annotation.DoNotInherit
   def withMdc(newMdc: Map[String, String]): LoggingTestKit
 
   /**
+   * After matching the expected number of hits, check for excess messages
+   */
+  def withCheckExcess(checkExcess: Boolean): LoggingTestKit
+
+  /**
    * Matching events for which the supplied function returns`true`.
    */
   def withCustom(newCustom: Function[LoggingEvent, Boolean]): LoggingTestKit
@@ -102,7 +107,7 @@ import akka.annotation.DoNotInherit
    *
    * Care is taken to remove the testkit when the block is finished or aborted.
    */
-  @deprecated("Use except instead.", "2.6.0")
+  @deprecated("Use expect instead.", "2.6.0")
   def intercept[T](code: => T)(implicit system: ActorSystem[_]): T
 
 }

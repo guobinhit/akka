@@ -1,9 +1,10 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence
 
+import java.io.NotSerializableException
 import java.nio.charset.StandardCharsets
 
 import akka.actor.ActorRef
@@ -17,12 +18,14 @@ class TestSerializer(system: ExtendedActorSystem) extends SerializerWithStringMa
   def identifier: Int = 666
   def manifest(o: AnyRef): String = o match {
     case _: TestPayload => "A"
+    case _              => throw new RuntimeException() // compiler exhaustiveness check pleaser
   }
   def toBinary(o: AnyRef): Array[Byte] = o match {
     case TestPayload(ref) =>
       verifyTransportInfo()
       val refStr = Serialization.serializedActorPath(ref)
       refStr.getBytes(StandardCharsets.UTF_8)
+    case _ => throw new NotSerializableException() // compiler exhaustiveness check pleaser
   }
   def fromBinary(bytes: Array[Byte], manifest: String): AnyRef = {
     verifyTransportInfo()
@@ -31,6 +34,7 @@ class TestSerializer(system: ExtendedActorSystem) extends SerializerWithStringMa
         val refStr = new String(bytes, StandardCharsets.UTF_8)
         val ref = system.provider.resolveActorRef(refStr)
         TestPayload(ref)
+      case _ => throw new NotSerializableException() // compiler exhaustiveness check pleaser
     }
   }
 

@@ -1,8 +1,13 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.stream;
+
+import static akka.pattern.Patterns.ask;
+import static jdocs.stream.TwitterStreamQuickstartDocTest.Model.AKKA;
+import static jdocs.stream.TwitterStreamQuickstartDocTest.Model.tweets;
+import static junit.framework.TestCase.assertTrue;
 
 import akka.Done;
 import akka.NotUsed;
@@ -12,16 +17,8 @@ import akka.stream.javadsl.*;
 import akka.testkit.TestProbe;
 import akka.testkit.javadsl.TestKit;
 import akka.util.Timeout;
-
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import jdocs.AbstractJavaTest;
-import jdocs.stream.TwitterStreamQuickstartDocTest.Model.Author;
-import jdocs.stream.TwitterStreamQuickstartDocTest.Model.Tweet;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
-
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -33,10 +30,12 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import static akka.pattern.Patterns.ask;
-import static jdocs.stream.TwitterStreamQuickstartDocTest.Model.AKKA;
-import static jdocs.stream.TwitterStreamQuickstartDocTest.Model.tweets;
-import static junit.framework.TestCase.assertTrue;
+import jdocs.AbstractJavaTest;
+import jdocs.stream.TwitterStreamQuickstartDocTest.Model.Author;
+import jdocs.stream.TwitterStreamQuickstartDocTest.Model.Tweet;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
 @SuppressWarnings("ALL")
 public class IntegrationDocTest extends AbstractJavaTest {
@@ -749,8 +748,8 @@ public class IntegrationDocTest extends AbstractJavaTest {
         int bufferSize = 10;
         int elementsToProcess = 5;
 
-        SourceQueueWithComplete<Integer> sourceQueue =
-            Source.<Integer>queue(bufferSize, OverflowStrategy.backpressure())
+        BoundedSourceQueue<Integer> sourceQueue =
+            Source.<Integer>queue(bufferSize)
                 .throttle(elementsToProcess, Duration.ofSeconds(3))
                 .map(x -> x * x)
                 .to(Sink.foreach(x -> System.out.println("got: " + x)))

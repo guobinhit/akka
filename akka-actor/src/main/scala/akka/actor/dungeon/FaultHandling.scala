@@ -1,11 +1,18 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.dungeon
 
-import akka.actor.{ ActorCell, ActorInterruptedException, ActorRef, InternalActorRef }
+import scala.collection.immutable
+import scala.util.control.Exception._
+import scala.util.control.NonFatal
+
+import akka.actor.ActorCell
+import akka.actor.ActorInterruptedException
+import akka.actor.ActorRef
 import akka.actor.ActorRefScope
+import akka.actor.InternalActorRef
 import akka.actor.PostRestartException
 import akka.actor.PreRestartException
 import akka.annotation.InternalApi
@@ -15,11 +22,6 @@ import akka.dispatch.sysmsg._
 import akka.event.Logging
 import akka.event.Logging.Debug
 import akka.event.Logging.Error
-
-import scala.collection.immutable
-import scala.concurrent.duration.Duration
-import scala.util.control.Exception._
-import scala.util.control.NonFatal
 
 /**
  * INTERNAL API
@@ -144,10 +146,10 @@ private[akka] trait FaultHandling { this: ActorCell =>
    */
   protected def faultCreate(): Unit = {
     assert(mailbox.isSuspended, "mailbox must be suspended during failed creation, status=" + mailbox.currentStatus)
-    assert(perpetrator == self)
+    if (!isFailedFatally) assert(perpetrator == self)
 
-    setReceiveTimeout(Duration.Undefined)
     cancelReceiveTimeout()
+    cancelReceiveTimeoutTask()
 
     // stop all children, which will turn childrenRefs into TerminatingChildrenContainer (if there are children)
     children.foreach(stop)
@@ -165,8 +167,8 @@ private[akka] trait FaultHandling { this: ActorCell =>
   }
 
   protected def terminate(): Unit = {
-    setReceiveTimeout(Duration.Undefined)
     cancelReceiveTimeout()
+    cancelReceiveTimeoutTask()
 
     // prevent Deadletter(Terminated) messages
     unwatchWatchedActors(actor)
@@ -177,8 +179,9 @@ private[akka] trait FaultHandling { this: ActorCell =>
     if (systemImpl.aborting) {
       // separate iteration because this is a very rare case that should not penalize normal operation
       children.foreach {
-        case ref: ActorRefScope if !ref.isLocal => self.sendSystemMessage(DeathWatchNotification(ref, true, false))
-        case _                                  =>
+        case ref: ActorRefScope if !ref.isLocal =>
+          self.sendSystemMessage(DeathWatchNotification(ref, existenceConfirmed = true, addressTerminated = false))
+        case _ =>
       }
     }
 
@@ -240,10 +243,10 @@ private[akka] trait FaultHandling { this: ActorCell =>
     try if (a ne null) a.aroundPostStop()
     catch handleNonFatalOrInterruptedException { e =>
       publish(Error(e, self.path.toString, clazz(a), e.getMessage))
-    } finally try dispatcher.detach(this)
+    } finally try stopFunctionRefs()
+    finally try dispatcher.detach(this)
     finally try parent.sendSystemMessage(
       DeathWatchNotification(self, existenceConfirmed = true, addressTerminated = false))
-    finally try stopFunctionRefs()
     finally try tellWatchersWeDied()
     finally try unwatchWatchedActors(a) // stay here as we expect an emergency stop from handleInvokeFailure
     finally {

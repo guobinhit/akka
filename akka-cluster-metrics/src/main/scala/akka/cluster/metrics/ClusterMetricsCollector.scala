@@ -1,14 +1,13 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.metrics
 
 import java.util.concurrent.ThreadLocalRandom
 
+import scala.annotation.nowarn
 import scala.collection.immutable
-
-import com.github.ghik.silencer.silent
 
 import akka.actor.Actor
 import akka.actor.ActorLogging
@@ -74,7 +73,7 @@ private[metrics] class ClusterMetricsSupervisor extends Actor with ActorLogging 
     case CollectionStartMessage =>
       children.foreach(stop)
       collectorInstance += 1
-      actorOf(Props(classOf[ClusterMetricsCollector]), collectorName)
+      actorOf(Props(new ClusterMetricsCollector), collectorName)
       log.debug(s"Collection started.")
     case CollectionStopMessage =>
       children.foreach(stop)
@@ -96,7 +95,7 @@ trait ClusterMetricsEvent
 final case class ClusterMetricsChanged(nodeMetrics: Set[NodeMetrics]) extends ClusterMetricsEvent {
 
   /** Java API */
-  @silent("deprecated")
+  @nowarn("msg=deprecated")
   def getNodeMetrics: java.lang.Iterable[NodeMetrics] =
     scala.collection.JavaConverters.asJavaIterableConverter(nodeMetrics).asJava
 }

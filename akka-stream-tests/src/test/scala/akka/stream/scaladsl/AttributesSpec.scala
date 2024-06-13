@@ -1,20 +1,23 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
 import java.util.concurrent.{ CompletionStage, TimeUnit }
 
-import com.github.ghik.silencer.silent
+import scala.annotation.nowarn
+
 import com.typesafe.config.ConfigFactory
 
 import akka.{ Done, NotUsed }
 import akka.actor.ActorSystem
 import akka.dispatch.Dispatchers
 import akka.stream._
+import akka.stream.ActorAttributes.Dispatcher
 import akka.stream.Attributes._
 import akka.stream.javadsl
+import akka.stream.snapshot.MaterializerState
 import akka.stream.stage._
 import akka.stream.testkit._
 import akka.testkit.TestKit
@@ -104,7 +107,7 @@ object AttributesSpec {
   case class WhateverAttribute(label: String) extends Attribute
 }
 
-@silent // tests deprecated APIs
+@nowarn // tests deprecated APIs
 class AttributesSpec
     extends StreamSpec(
       ConfigFactory
@@ -133,11 +136,13 @@ class AttributesSpec
     val attributes = Attributes.name("a") and Attributes.name("b") and Attributes.inputBuffer(1, 2)
 
     "give access to the least specific attribute" in {
-      attributes.getFirst[Name] should ===(Some(Attributes.Name("a")))
+      val name = attributes.getFirst[Name]
+      name should ===(Some(Attributes.Name("a")))
     }
 
     "give access to the most specific attribute value" in {
-      attributes.get[Name] should ===(Some(Attributes.Name("b")))
+      val name = attributes.get[Name]
+      name should ===(Some(Attributes.Name("b")))
     }
 
     "return a mandatory value without allocating a some" in {
@@ -161,8 +166,10 @@ class AttributesSpec
           .toMat(Sink.head)(Keep.left)
           .run()
 
-      attributes.get[Name] should contain(Name("re-added"))
-      attributes.get[WhateverAttribute] should contain(WhateverAttribute("other-thing"))
+      val name = attributes.get[Name]
+      name shouldBe Some(Name("re-added"))
+      val whatever = attributes.get[WhateverAttribute]
+      whatever shouldBe Some(WhateverAttribute("other-thing"))
     }
 
     "be replaced withAttributes directly on a stage" in {
@@ -176,8 +183,10 @@ class AttributesSpec
           .toMat(Sink.head)(Keep.left)
           .run()
 
-      attributes.get[Name] should contain(Name("re-added"))
-      attributes.get[WhateverAttribute] shouldBe empty
+      val name = attributes.get[Name]
+      name shouldBe Some(Name("re-added"))
+      val whatever = attributes.get[WhateverAttribute]
+      whatever shouldBe empty
     }
 
     "be overridable on a module basis" in {
@@ -187,7 +196,8 @@ class AttributesSpec
           .toMat(Sink.head)(Keep.left)
           .run()
 
-      attributes.get[Name] should contain(Name("new-name"))
+      val name = attributes.get[Name]
+      name shouldBe Some(Name("new-name"))
     }
 
     "keep the outermost attribute as the least specific" in {
@@ -198,11 +208,11 @@ class AttributesSpec
         .toMat(Sink.head)(Keep.left)
         .run()
 
-      // most specific
-      attributes.get[Name] should contain(Name("original-name"))
+      val mostSpecificName = attributes.get[Name]
+      mostSpecificName shouldBe Some(Name("original-name"))
 
-      // least specific
-      attributes.getFirst[Name] should contain(Name("whole-graph"))
+      val leastSpecificName = attributes.getFirst[Name]
+      leastSpecificName shouldBe Some(Name("whole-graph"))
     }
   }
 
@@ -216,11 +226,11 @@ class AttributesSpec
           .toMat(Sink.head)(Keep.left)
           .run()
 
-      // most specific
-      attributes.get[Name] should contain(Name("new-name"))
+      val mostSpecificName = attributes.get[Name]
+      mostSpecificName shouldBe Some(Name("new-name"))
 
-      // least specific
-      attributes.getFirst[Name] should contain(Name("new-name"))
+      val leastSpecificName = attributes.getFirst[Name]
+      leastSpecificName shouldBe Some(Name("new-name"))
     }
 
     "make the attributes on Source.fromGraph source behave the same as the stage itself" in {
@@ -232,13 +242,15 @@ class AttributesSpec
           .withAttributes(Attributes.name("whole-graph"))
           .run()
 
-      // most specific
-      attributes.get[Name] should contain(Name("replaced"))
-      attributes.get[WhateverAttribute] shouldBe empty
+      val mostSpecificName = attributes.get[Name]
+      mostSpecificName shouldBe Some(Name("replaced"))
+      val mostSpecificWhatever = attributes.get[WhateverAttribute]
+      mostSpecificWhatever shouldBe None
 
-      // least specific
-      attributes.getFirst[Name] should contain(Name("whole-graph"))
-      attributes.getFirst[WhateverAttribute] shouldBe empty
+      val leastSpecificName = attributes.getFirst[Name]
+      leastSpecificName shouldBe Some(Name("whole-graph"))
+      val leastSpecificWhatever = attributes.getFirst[WhateverAttribute]
+      leastSpecificWhatever shouldBe None
     }
 
     "not replace stage specific attributes with attributes on surrounding composite source" in {
@@ -249,11 +261,12 @@ class AttributesSpec
         .toMat(Sink.head)(Keep.left)
         .run()
 
-      // most specific still the original as the attribute was added on the composite source
-      attributes.get[Name] should contain(Name("original-name"))
+      // still the original as the attribute was added on the composite source
+      val mostSpecificName = attributes.get[Name]
+      mostSpecificName shouldBe Some(Name("original-name"))
 
-      // least specific
-      attributes.getFirst[Name] should contain(Name("composite-graph"))
+      val leastSpecificName = attributes.getFirst[Name]
+      leastSpecificName shouldBe Some(Name("composite-graph"))
     }
 
     "make the attributes on Sink.fromGraph source behave the same as the stage itself" in {
@@ -267,11 +280,11 @@ class AttributesSpec
           .withAttributes(Attributes.name("whole-graph"))
           .run()
 
-      // most specific
-      attributes.get[Name] should contain(Name("replaced"))
+      val mostSpecificName = attributes.get[Name]
+      mostSpecificName shouldBe Some(Name("replaced"))
 
-      // least specific
-      attributes.getFirst[Name] should contain(Name("whole-graph"))
+      val leastSpecificName = attributes.getFirst[Name]
+      leastSpecificName shouldBe Some(Name("whole-graph"))
     }
 
     "use the initial attributes for dispatcher" in {
@@ -344,6 +357,28 @@ class AttributesSpec
 
       dispatcher should startWith("AttributesSpec-my-dispatcher")
     }
+
+    // We reverted fix #30076 for this since it had too many side effects, we need something specifically for fromPublisher()
+    "get input buffer size from surrounding .addAttributes for Source.fromPublisher" in pendingUntilFixed {
+      val materializer = Materializer(system) // for isolation
+      try {
+        val pub = TestPublisher.probe()
+        Source.fromPublisher(pub).withAttributes(Attributes.inputBuffer(1, 1)).run()(materializer)
+
+        val streamSnapshot = awaitAssert {
+          val snapshot = MaterializerState.streamSnapshots(materializer).futureValue
+          snapshot should have size (1) // just the one island in this case
+          snapshot.head
+        }
+
+        val logics = streamSnapshot.activeInterpreters.head.logics
+        val inputBoundary = logics.find(_.label.startsWith("BatchingActorInputBoundary")).get
+        inputBoundary.label should include("fill=0/1,") // dodgy but see no other way to inspect from snapshot
+
+      } finally {
+        materializer.shutdown()
+      }
+    }
   }
 
   "attributes on a Flow" must {
@@ -360,8 +395,10 @@ class AttributesSpec
           .withAttributes(Attributes.name("whole-graph"))
           .run()
 
-      attributes.get[Name] should contain(Name("replaced"))
-      attributes.getFirst[Name] should contain(Name("whole-graph"))
+      val name = attributes.get[Name]
+      name shouldBe Some(Name("replaced"))
+      val firstName = attributes.getFirst[Name]
+      firstName shouldBe Some(Name("whole-graph"))
     }
 
     "handle attributes on a composed flow" in {
@@ -378,13 +415,128 @@ class AttributesSpec
           .toMat(Sink.ignore)(Keep.left)
           .run()
 
-      // this verifies that the old docs on flow.withAttribues was in fact incorrect
+      // this verifies that the old docs on flow.withAttributes was in fact incorrect
       // there is no sealing going on here
-      attributes.get[Name] should contain(Name("original-name"))
-      attributes.get[WhateverAttribute] should contain(WhateverAttribute("replaced"))
+      val name = attributes.get[Name]
+      name shouldBe Some(Name("original-name"))
+      val whatever = attributes.get[WhateverAttribute]
+      whatever shouldBe Some(WhateverAttribute("replaced"))
 
-      attributes.getFirst[Name] should contain(Name("replaced-again"))
-      attributes.getFirst[WhateverAttribute] should contain(WhateverAttribute("replaced"))
+      val firstName = attributes.getFirst[Name]
+      firstName shouldBe Some(Name("replaced-again"))
+      val firstWhatever = attributes.getFirst[WhateverAttribute]
+      firstWhatever shouldBe Some(WhateverAttribute("replaced"))
+    }
+
+    "get input buffer size from surrounding .addAttributes (closest)" in {
+      val materializer = Materializer(system) // for isolation
+      try {
+        val (sourcePromise, complete) = Source.maybe
+          .viaMat(
+            Flow[Int]
+              .map { n =>
+                // something else than identity so it's not optimized away
+                n
+              }
+              .async(Dispatchers.DefaultBlockingDispatcherId)
+              .addAttributes(Attributes.inputBuffer(1, 1)))(Keep.left)
+          .toMat(Sink.ignore)(Keep.both)
+          .run()(materializer)
+
+        val snapshot = awaitAssert {
+          val snapshot = MaterializerState.streamSnapshots(materializer).futureValue
+          snapshot should have size (2) // two stream "islands", one on blocking dispatcher and one on default
+          snapshot
+        }
+
+        val islandByDispatcher =
+          snapshot.groupBy(_.activeInterpreters.head.logics.head.attributes.mandatoryAttribute[Dispatcher])
+
+        val logicsOnBlocking =
+          islandByDispatcher(Dispatcher(Dispatchers.DefaultBlockingDispatcherId)).head.activeInterpreters.head.logics
+        val blockingInputBoundary = logicsOnBlocking.find(_.label.startsWith("BatchingActorInputBoundary")).get
+        blockingInputBoundary.label should include("fill=0/1,") // dodgy but see no other way to inspect from snapshot
+
+        sourcePromise.success(None)
+        complete.futureValue // block until stream completes
+      } finally {
+        materializer.shutdown()
+      }
+    }
+
+    "get input buffer size from surrounding .addAttributes (wrapping)" in {
+      val materializer = Materializer(system) // for isolation
+      try {
+        val (sourcePromise, complete) = Source.maybe
+          .viaMat(Flow[Int]
+            .map { n =>
+              // something else than identity so it's not optimized away
+              n
+            }
+            .async(Dispatchers.DefaultBlockingDispatcherId))(Keep.left)
+          .addAttributes(Attributes.inputBuffer(1, 1))
+          .toMat(Sink.ignore)(Keep.both)
+          .run()(SystemMaterializer(system).materializer)
+
+        val snapshot = awaitAssert {
+          val snapshot = MaterializerState.streamSnapshots(system).futureValue
+          snapshot should have size (2) // two stream "islands", one on blocking dispatcher and one on default
+          snapshot
+        }
+
+        val islandByDispatcher =
+          snapshot.groupBy(_.activeInterpreters.head.logics.head.attributes.mandatoryAttribute[Dispatcher])
+
+        val logicsOnBlocking =
+          islandByDispatcher(Dispatcher(Dispatchers.DefaultBlockingDispatcherId)).head.activeInterpreters.head.logics
+        val blockingInputBoundary = logicsOnBlocking.find(_.label.startsWith("BatchingActorInputBoundary")).get
+        blockingInputBoundary.label should include("fill=0/1,") // dodgy but see no other way to inspect from snapshot
+
+        sourcePromise.success(None)
+        complete.futureValue // block until stream completes
+      } finally {
+        materializer.shutdown()
+      }
+    }
+
+    "get input buffer size from async(dispatcher, inputBufferSize)" in {
+      val materializer = Materializer(system) // for isolation
+      try {
+        val (sourcePromise, complete) = Source.maybe
+          .viaMat(Flow[Int]
+            .map { n =>
+              // something else than identity so it's not optimized away
+              n
+            }
+            .async(Dispatchers.DefaultBlockingDispatcherId, 1))(Keep.left)
+          .toMat(Sink.ignore)(Keep.both)
+          .run()(SystemMaterializer(system).materializer)
+
+        val snapshot = awaitAssert {
+          val snapshot = MaterializerState.streamSnapshots(system).futureValue
+          snapshot should have size (2) // two stream "islands", one on blocking dispatcher and one on default
+          snapshot
+        }
+
+        val islandByDispatcher =
+          snapshot.groupBy(_.activeInterpreters.head.logics.head.attributes.mandatoryAttribute[Dispatcher])
+
+        val logicsOnBlocking =
+          islandByDispatcher(Dispatcher(Dispatchers.DefaultBlockingDispatcherId)).head.activeInterpreters.head.logics
+        val blockingInputBoundary = logicsOnBlocking.find(_.label.startsWith("BatchingActorInputBoundary")).get
+        blockingInputBoundary.label should include("fill=0/1,") // dodgy but see no other way to inspect from snapshot
+
+        println(blockingInputBoundary)
+        /* snapshot.foreach(streamSnapshot =>
+          println("RUNNING:\n\t" +
+            streamSnapshot.activeInterpreters.head.logics.map(l => l.label -> l.attributes).mkString("\n\t"))
+        ) */
+
+        sourcePromise.success(None)
+        complete.futureValue // block until stream completes
+      } finally {
+        materializer.shutdown()
+      }
     }
 
   }
@@ -401,11 +553,11 @@ class AttributesSpec
           .withAttributes(Attributes.name("whole-graph"))
           .run()
 
-      // most specific
-      attributes.get[Name] should contain(Name("replaced"))
+      val mostSpecificName = attributes.get[Name]
+      mostSpecificName shouldBe Some(Name("replaced"))
 
-      // least specific
-      attributes.getFirst[Name] should contain(Name("whole-graph"))
+      val leastSpecificName = attributes.getFirst[Name]
+      leastSpecificName shouldBe Some(Name("whole-graph"))
     }
 
   }
@@ -450,11 +602,11 @@ class AttributesSpec
           .withAttributes(Attributes.name("whole-graph"))
           .run(materializer)
 
-      // most specific
-      attributes.get[Name] should contain(Name("replaced"))
+      val mostSpecificName = attributes.get[Name]
+      mostSpecificName shouldBe Some(Name("replaced"))
 
-      // least specific
-      attributes.getFirst[Name] should contain(Name("whole-graph"))
+      val leastSpecificName = attributes.getFirst[Name]
+      leastSpecificName shouldBe Some(Name("whole-graph"))
     }
 
     "make the attributes on Flow.fromGraph source behave the same as the stage itself" in {
@@ -472,11 +624,11 @@ class AttributesSpec
           .withAttributes(Attributes.name("whole-graph"))
           .run(materializer)
 
-      // most specific
-      attributes.get[Name] should contain(Name("replaced"))
+      val mostSpecificName = attributes.get[Name]
+      mostSpecificName should contain(Name("replaced"))
 
-      // least specific
-      attributes.getFirst[Name] should contain(Name("whole-graph"))
+      val leastSpecificName = attributes.getFirst[Name]
+      leastSpecificName should contain(Name("whole-graph"))
     }
 
     "make the attributes on Sink.fromGraph source behave the same as the stage itself" in {
@@ -493,10 +645,12 @@ class AttributesSpec
           .run(materializer)
 
       // most specific
-      attributes.get[Name] should contain(Name("replaced"))
+      val mostSpecificName = attributes.get[Name]
+      mostSpecificName should contain(Name("replaced"))
 
       // least specific
-      attributes.getFirst[Name] should contain(Name("whole-graph"))
+      val leastSpecificName = attributes.getFirst[Name]
+      leastSpecificName should contain(Name("whole-graph"))
     }
 
   }

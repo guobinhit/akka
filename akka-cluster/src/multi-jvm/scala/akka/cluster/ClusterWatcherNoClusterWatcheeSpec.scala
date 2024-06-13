@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
@@ -20,25 +20,22 @@ import akka.remote.RemoteWatcher.Heartbeat
 import akka.remote.RemoteWatcher.Stats
 import akka.remote.testconductor.RoleName
 import akka.remote.testkit.MultiNodeConfig
-import akka.remote.testkit.MultiNodeSpec
 import akka.testkit.ImplicitSender
 import akka.testkit.TestProbe
 
-class ClusterWatcherNoClusterWatcheeConfig(val useUnsafe: Boolean, artery: Boolean) extends MultiNodeConfig {
+class ClusterWatcherNoClusterWatcheeConfig(val useUnsafe: Boolean) extends MultiNodeConfig {
 
   val clustered = role("clustered")
   val remoting = role("remoting")
 
   commonConfig(debugConfig(on = false).withFallback(ConfigFactory.parseString(s"""
       akka.remote.use-unsafe-remote-features-outside-cluster = $useUnsafe
-      akka.remote.log-remote-lifecycle-events = off
-      akka.remote.artery.enabled = $artery
       akka.log-dead-letters = off
       akka.loggers =["akka.testkit.TestEventListener"]
       akka.actor.allow-java-serialization = on
      """)))
 
-  nodeConfig(remoting)(ConfigFactory.parseString(s"""
+  nodeConfig(remoting)(ConfigFactory.parseString("""
       akka.actor.provider = remote"""))
 
   nodeConfig(clustered)(ConfigFactory.parseString("""
@@ -47,31 +44,15 @@ class ClusterWatcherNoClusterWatcheeConfig(val useUnsafe: Boolean, artery: Boole
 
 }
 
-class ClusterWatcherNoClusterWatcheeUnsafeArterySpecMultiJvmNode1
-    extends ClusterWatcherNoClusterWatcheeArterySpec(useUnsafe = true)
-class ClusterWatcherNoClusterWatcheeUnsafeArterySpecMultiJvmNode2
-    extends ClusterWatcherNoClusterWatcheeArterySpec(useUnsafe = true)
+class ClusterWatcherNoClusterWatcheeUnsafeSpecMultiJvmNode1
+    extends ClusterWatcherNoClusterWatcheeSpec(new ClusterWatcherNoClusterWatcheeConfig(useUnsafe = true))
+class ClusterWatcherNoClusterWatcheeUnsafeSpecMultiJvmNode2
+    extends ClusterWatcherNoClusterWatcheeSpec(new ClusterWatcherNoClusterWatcheeConfig(useUnsafe = true))
 
-class ClusterWatcherNoClusterWatcheeSafeArterySpecMultiJvmNode1
-    extends ClusterWatcherNoClusterWatcheeArterySpec(useUnsafe = false)
-class ClusterWatcherNoClusterWatcheeSafeArterySpecMultiJvmNode2
-    extends ClusterWatcherNoClusterWatcheeArterySpec(useUnsafe = false)
-
-class ClusterWatcherNoClusterWatcheeUnsafeClassicSpecMultiJvmNode1
-    extends ClusterWatcherNoClusterWatcheeClassicSpec(useUnsafe = true)
-class ClusterWatcherNoClusterWatcheeUnsafeClassicSpecMultiJvmNode2
-    extends ClusterWatcherNoClusterWatcheeClassicSpec(useUnsafe = true)
-
-class ClusterWatcherNoClusterWatcheeSafeClassicSpecMultiJvmNode1
-    extends ClusterWatcherNoClusterWatcheeClassicSpec(useUnsafe = false)
-class ClusterWatcherNoClusterWatcheeSafeClassicSpecMultiJvmNode2
-    extends ClusterWatcherNoClusterWatcheeClassicSpec(useUnsafe = false)
-
-abstract class ClusterWatcherNoClusterWatcheeArterySpec(useUnsafe: Boolean)
-    extends ClusterWatcherNoClusterWatcheeSpec(new ClusterWatcherNoClusterWatcheeConfig(useUnsafe, artery = true))
-
-abstract class ClusterWatcherNoClusterWatcheeClassicSpec(useUnsafe: Boolean)
-    extends ClusterWatcherNoClusterWatcheeSpec(new ClusterWatcherNoClusterWatcheeConfig(useUnsafe, artery = true))
+class ClusterWatcherNoClusterWatcheeSafeSpecMultiJvmNode1
+    extends ClusterWatcherNoClusterWatcheeSpec(new ClusterWatcherNoClusterWatcheeConfig(useUnsafe = false))
+class ClusterWatcherNoClusterWatcheeSafeSpecMultiJvmNode2
+    extends ClusterWatcherNoClusterWatcheeSpec(new ClusterWatcherNoClusterWatcheeConfig(useUnsafe = false))
 
 private object ClusterWatcherNoClusterWatcheeSpec {
   final case class WatchIt(watchee: ActorRef)
@@ -90,8 +71,7 @@ private object ClusterWatcherNoClusterWatcheeSpec {
 }
 
 abstract class ClusterWatcherNoClusterWatcheeSpec(multiNodeConfig: ClusterWatcherNoClusterWatcheeConfig)
-    extends MultiNodeSpec(multiNodeConfig)
-    with MultiNodeClusterSpec
+    extends MultiNodeClusterSpec(multiNodeConfig)
     with ImplicitSender
     with ScalaFutures {
 

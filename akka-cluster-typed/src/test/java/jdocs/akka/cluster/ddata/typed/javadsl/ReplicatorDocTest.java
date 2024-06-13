@@ -1,8 +1,11 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.akka.cluster.ddata.typed.javadsl;
+
+import static jdocs.akka.cluster.ddata.typed.javadsl.ReplicatorDocSample.Counter;
+import static org.junit.Assert.assertEquals;
 
 import akka.actor.testkit.typed.javadsl.LogCapturing;
 import akka.actor.testkit.typed.javadsl.TestKitJunitResource;
@@ -15,22 +18,17 @@ import akka.cluster.ddata.typed.javadsl.DistributedData;
 import akka.cluster.ddata.typed.javadsl.Replicator;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.time.Duration;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.scalatestplus.junit.JUnitSuite;
-
-import java.time.Duration;
-
-import static jdocs.akka.cluster.ddata.typed.javadsl.ReplicatorDocSample.Counter;
-import static org.junit.Assert.assertEquals;
 
 public class ReplicatorDocTest extends JUnitSuite {
 
   static Config config =
       ConfigFactory.parseString(
           "akka.actor.provider = cluster \n"
-              + "akka.remote.classic.netty.tcp.port = 0 \n"
               + "akka.remote.artery.canonical.port = 0 \n"
               + "akka.remote.artery.canonical.hostname = 127.0.0.1 \n");
 

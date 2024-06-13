@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -53,8 +53,7 @@ object StreamConverters {
    *
    * This Source is intended for inter-operation with legacy APIs since it is inherently blocking.
    *
-   * You can configure the default dispatcher for this Source by changing the `akka.stream.materializer.blocking-io-dispatcher` or
-   * set it for a given Source by using [[akka.stream.ActorAttributes]].
+   * You can configure the internal buffer size by using [[akka.stream.ActorAttributes]].
    *
    * The created [[OutputStream]] will be closed when the [[Source]] is cancelled, and closing the [[OutputStream]]
    * will complete this [[Source]].
@@ -86,8 +85,7 @@ object StreamConverters {
    *
    * This Sink is intended for inter-operation with legacy APIs since it is inherently blocking.
    *
-   * You can configure the default dispatcher for this Source by changing the `akka.stream.materializer.blocking-io-dispatcher` or
-   * set it for a given Source by using [[akka.stream.ActorAttributes]].
+   * You can configure the internal buffer size by using [[akka.stream.ActorAttributes]].
    *
    * The [[InputStream]] will be closed when the stream flowing into this [[Sink]] completes, and
    * closing the [[InputStream]] will cancel this [[Sink]].
@@ -135,7 +133,7 @@ object StreamConverters {
     if (parallelism == 1) javaCollector[T, R](collectorFactory)
     else {
       Sink
-        .fromGraph(GraphDSL.create(Sink.head[R]) { implicit b => sink =>
+        .fromGraph(GraphDSL.createGraph(Sink.head[R]) { implicit b => sink =>
           import GraphDSL.Implicits._
           val factory = collectorFactory.asInstanceOf[() => Collector[T, Any, R]]
           val balance = b.add(Balance[T](parallelism))

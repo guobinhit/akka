@@ -1,24 +1,23 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.testconductor
 
 import scala.concurrent.duration._
 
-import com.typesafe.config.ConfigFactory
-import language.postfixOps
-
-import akka.actor.{ Actor, ActorIdentity, Deploy, Identify, Props }
+import akka.actor.Actor
+import akka.actor.ActorIdentity
+import akka.actor.Deploy
+import akka.actor.Identify
+import akka.actor.Props
 import akka.remote.RemotingMultiNodeSpec
+import akka.remote.testkit.Direction
 import akka.remote.testkit.MultiNodeConfig
-import akka.remote.transport.ThrottlerTransportAdapter.Direction
 import akka.testkit.LongRunningTest
 
 object TestConductorMultiJvmSpec extends MultiNodeConfig {
-  commonConfig(debugConfig(on = false).withFallback(ConfigFactory.parseString("""
-      akka.remote.artery.enabled = false 
-    """)).withFallback(RemotingMultiNodeSpec.commonConfig))
+  commonConfig(debugConfig(on = false).withFallback(RemotingMultiNodeSpec.commonConfig))
 
   val leader = role("leader")
   val follower = role("follower")
@@ -54,57 +53,39 @@ class TestConductorSpec extends RemotingMultiNodeSpec(TestConductorMultiJvmSpec)
       enterBarrier("name")
     }
 
-    "support throttling of network connections" taggedAs LongRunningTest in {
+    "support blackhole of network connections" taggedAs LongRunningTest in {
 
       runOn(follower) {
-        // start remote network connection so that it can be throttled
+        // start remote network connection so that it can be blackholed
         echo ! "start"
       }
 
       expectMsg("start")
 
       runOn(leader) {
-        testConductor.throttle(follower, leader, Direction.Send, rateMBit = 0.01).await
+        testConductor.blackhole(follower, leader, Direction.Both).await
       }
 
-      enterBarrier("throttled_send")
+      enterBarrier("blackholed")
 
       runOn(follower) {
         for (i <- 0 to 9) echo ! i
       }
 
-      within(0.5 seconds, 2 seconds) {
-        expectMsg(500 millis, 0)
-        receiveN(9) should ===(1 to 9)
-      }
+      expectNoMessage(1.second)
 
-      enterBarrier("throttled_send2")
+      enterBarrier("blackholed2")
 
       runOn(leader) {
-        testConductor.throttle(follower, leader, Direction.Send, -1).await
-        testConductor.throttle(follower, leader, Direction.Receive, rateMBit = 0.01).await
+        testConductor.passThrough(follower, leader, Direction.Both).await
       }
-
-      enterBarrier("throttled_recv")
+      enterBarrier("passThrough")
 
       runOn(follower) {
         for (i <- 10 to 19) echo ! i
       }
 
-      val (min, max) =
-        if (isNode(leader)) (0 seconds, 500 millis)
-        else (0.3 seconds, 3 seconds)
-
-      within(min, max) {
-        expectMsg(500 millis, 10)
-        receiveN(9) should ===(11 to 19)
-      }
-
-      enterBarrier("throttled_recv2")
-
-      runOn(leader) {
-        testConductor.throttle(follower, leader, Direction.Receive, -1).await
-      }
+      receiveN(10)
 
       enterBarrier("after")
     }

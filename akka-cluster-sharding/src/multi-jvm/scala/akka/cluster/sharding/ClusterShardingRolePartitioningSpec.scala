@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
@@ -8,7 +8,6 @@ import scala.concurrent.duration._
 
 import com.typesafe.config.{ Config, ConfigFactory }
 
-import akka.actor._
 import akka.cluster.sharding.ShardRegion.{ ClusterShardingStats, GetClusterShardingStats }
 import akka.testkit._
 
@@ -23,6 +22,7 @@ object E1 {
 
   val extractShardId: ShardRegion.ExtractShardId = {
     case id: String => id
+    case _          => throw new IllegalArgumentException()
   }
 }
 
@@ -34,6 +34,7 @@ object E2 {
 
   val extractShardId: ShardRegion.ExtractShardId = {
     case id: Int => id.toString
+    case _       => throw new IllegalArgumentException()
   }
 }
 

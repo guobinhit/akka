@@ -1,13 +1,14 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.scaladsl
 
 import java.util.concurrent.TimeoutException
 
+import scala.annotation.nowarn
 import scala.concurrent.Future
-import com.github.ghik.silencer.silent
+
 import akka.actor.typed.ActorRef
 import akka.actor.typed.ActorSystem
 import akka.actor.typed.RecipientRef
@@ -103,12 +104,12 @@ object AskPattern {
      *
      * @tparam Res The response protocol, what the other actor sends back
      */
-    @silent("never used")
+    @nowarn("msg=never used")
     def ask[Res](replyTo: ActorRef[Res] => Req)(implicit timeout: Timeout, scheduler: Scheduler): Future[Res] = {
       // We do not currently use the implicit sched, but want to require it
       // because it might be needed when we move to a 'native' typed runtime, see #24219
       ref match {
-        case a: InternalRecipientRef[_] => askClassic(a, timeout, replyTo)
+        case a: InternalRecipientRef[Req] => askClassic[Req, Res](a, timeout, replyTo)
         case a =>
           throw new IllegalStateException(
             "Only expect references to be RecipientRef, ActorRefAdapter or ActorSystemAdapter until " +

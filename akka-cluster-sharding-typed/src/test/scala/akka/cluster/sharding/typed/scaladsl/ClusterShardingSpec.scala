@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding.typed.scaladsl
@@ -33,10 +33,9 @@ import akka.util.ccompat._
 
 @ccompatUsedUntil213
 object ClusterShardingSpec {
-  val config = ConfigFactory.parseString(s"""
+  val config = ConfigFactory.parseString("""
       akka.actor.provider = cluster
 
-      akka.remote.classic.netty.tcp.port = 0
       akka.remote.artery.canonical.port = 0
       akka.remote.artery.canonical.hostname = 127.0.0.1
 
@@ -125,7 +124,7 @@ class ClusterShardingSpec
   val sharding2 = ClusterSharding(system2)
 
   override def afterAll(): Unit = {
-    ActorTestKit.shutdown(system2, 5.seconds)
+    ActorTestKit.shutdown(system2)
     super.afterAll()
   }
 
@@ -267,27 +266,27 @@ class ClusterShardingSpec
 
     "EntityRef - ask" in {
       val bobRef = sharding.entityRefFor(typeKeyWithEnvelopes, "bob")
-      val charlieRef = sharding.entityRefFor(typeKeyWithEnvelopes, "charlie")
+      val aliceRef = sharding.entityRefFor(typeKeyWithEnvelopes, "alice")
 
-      val reply1 = bobRef ? WhoAreYou // TODO document that WhoAreYou(_) would not work
-      val response = reply1.futureValue
+      val reply1 = bobRef.ask(WhoAreYou(_))
+      val response = reply1.futureValue.asInstanceOf[String]
       response should startWith("I'm bob")
       // typekey and entity id encoded in promise ref path
       response should include(s"${typeKeyWithEnvelopes.name}-bob")
 
-      val reply2 = charlieRef.ask(WhoAreYou)
-      reply2.futureValue should startWith("I'm charlie")
+      val reply2 = aliceRef.ask(WhoAreYou(_))
+      reply2.futureValue.asInstanceOf[String] should startWith("I'm alice")
 
       bobRef ! StopPlz()
     }
 
     "EntityRef - ActorContext.ask" in {
-      val aliceRef = sharding.entityRefFor(typeKeyWithEnvelopes, "alice")
+      val peterRef = sharding.entityRefFor(typeKeyWithEnvelopes, "peter")
 
       val p = TestProbe[TheReply]()
 
       spawn(Behaviors.setup[TheReply] { ctx =>
-        ctx.ask(aliceRef, WhoAreYou) {
+        ctx.ask(peterRef, WhoAreYou.apply) {
           case Success(name) => TheReply(name)
           case Failure(ex)   => TheReply(ex.getMessage)
         }
@@ -299,24 +298,20 @@ class ClusterShardingSpec
       })
 
       val response = p.receiveMessage()
-      response.s should startWith("I'm alice")
+      response.s should startWith("I'm peter")
       // typekey and entity id encoded in promise ref path
-      response.s should include(s"${typeKeyWithEnvelopes.name}-alice")
+      response.s should include(s"${typeKeyWithEnvelopes.name}-peter")
 
-      aliceRef ! StopPlz()
+      peterRef ! StopPlz()
 
-      // FIXME #26514: doesn't compile with Scala 2.13.0-M5
-      /*
       // make sure request with multiple parameters compile
       Behaviors.setup[TheReply] { ctx =>
-        ctx.ask(aliceRef)(WhoAreYou2(17, _)) {
+        ctx.ask[WhoAreYou2, String](peterRef, WhoAreYou2(17, _)) {
           case Success(name) => TheReply(name)
           case Failure(ex)   => TheReply(ex.getMessage)
         }
-
         Behaviors.empty
       }
-     */
     }
 
     "EntityRef - AskTimeoutException" in {
@@ -326,7 +321,7 @@ class ClusterShardingSpec
 
       val ref = sharding.entityRefFor(ignorantKey, "sloppy")
 
-      val reply = ref.ask(WhoAreYou)(Timeout(10.millis))
+      val reply = ref.ask(WhoAreYou(_))(Timeout(10.millis))
       val exc = reply.failed.futureValue
       exc.getClass should ===(classOf[AskTimeoutException])
       exc.getMessage should startWith("Ask timed out on")

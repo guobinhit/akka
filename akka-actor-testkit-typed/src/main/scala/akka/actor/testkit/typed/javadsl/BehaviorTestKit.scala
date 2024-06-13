@@ -1,27 +1,47 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.testkit.typed.javadsl
 
 import java.util.concurrent.ThreadLocalRandom
 
+import scala.annotation.nowarn
+
+import com.typesafe.config.Config
+
 import akka.actor.testkit.typed.{ CapturedLogEvent, Effect }
-import akka.actor.testkit.typed.internal.BehaviorTestKitImpl
+import akka.actor.testkit.typed.internal.{ ActorSystemStub, BehaviorTestKitImpl }
 import akka.actor.typed.{ ActorRef, Behavior, Signal }
 import akka.actor.typed.receptionist.Receptionist
 import akka.annotation.{ ApiMayChange, DoNotInherit }
+import akka.japi.function.{ Function => JFunction }
+import akka.pattern.StatusReply
 
 object BehaviorTestKit {
-  import akka.actor.testkit.typed.scaladsl.TestInbox.address
+
+  /**
+   * JAVA API
+   */
+  @ApiMayChange
+  def applicationTestConfig: Config = akka.actor.testkit.typed.scaladsl.BehaviorTestKit.ApplicationTestConfig
+
+  /**
+   * JAVA API
+   */
+  @ApiMayChange
+  def create[T](initialBehavior: Behavior[T], name: String, config: Config): BehaviorTestKit[T] = {
+    val system = new ActorSystemStub("StubbedActorContext", config)
+    val uid = ThreadLocalRandom.current().nextInt()
+    new BehaviorTestKitImpl(system, (system.path / name).withUid(uid), initialBehavior)
+  }
 
   /**
    * JAVA API
    */
   @ApiMayChange
   def create[T](initialBehavior: Behavior[T], name: String): BehaviorTestKit[T] = {
-    val uid = ThreadLocalRandom.current().nextInt()
-    new BehaviorTestKitImpl((address / name).withUid(uid), initialBehavior)
+    create(initialBehavior, name, ActorSystemStub.config.defaultReference)
   }
 
   /**
@@ -44,6 +64,49 @@ object BehaviorTestKit {
 @DoNotInherit
 @ApiMayChange
 abstract class BehaviorTestKit[T] {
+
+  /**
+   * Constructs a message using the provided 'messageFactory' to inject a single-use "reply to"
+   * [[akka.actor.typed.ActorRef]], and sends the constructed message to the behavior, recording any [[Effect]]s.
+   *
+   * The returned [[ReplyInbox]] allows the message sent to the "reply to" `ActorRef` to be asserted on.
+   */
+  def runAsk[Res](messageFactory: JFunction[ActorRef[Res], T]): ReplyInbox[Res]
+
+  /**
+   * The same as [[runAsk]], but with the response class specified.  This improves type inference in Java
+   * when asserting on the reply in the same statement as the `runAsk` as in:
+   *
+   * ```
+   * testkit.runAsk(Done.class, DoSomethingCommand::new).expectReply(Done.getInstance());
+   * ```
+   *
+   * If explicitly saving the [[ReplyInbox]] in a variable, the version without the class may be preferred.
+   */
+  @nowarn("msg=never used") // responseClass is a pretend param to guide inference
+  def runAsk[Res](responseClass: Class[Res], messageFactory: JFunction[ActorRef[Res], T]): ReplyInbox[Res] =
+    runAsk(messageFactory)
+
+  /**
+   * The same as [[runAsk]] but only for requests that result in a response of type [[akka.pattern.StatusReply]].
+   */
+  def runAskWithStatus[Res](messageFactory: JFunction[ActorRef[StatusReply[Res]], T]): StatusReplyInbox[Res]
+
+  /**
+   * The same as [[runAskWithStatus]], but with the response class specified.  This improves type inference in
+   * Java when asserting on the reply in the same statement as the `runAskWithStatus` as in:
+   *
+   * ```
+   * testkit.runAskWithStatus(Done.class, DoSomethingWithStatusCommand::new).expectValue(Done.getInstance());
+   * ```
+   *
+   * If explicitly saving the [[StatusReplyInbox]] in a variable, the version without the class may be preferred.
+   */
+  @nowarn("msg=never used") // responseClass is a pretend param to guide inference
+  def runAskWithStatus[Res](
+      responseClass: Class[Res],
+      messageFactory: JFunction[ActorRef[StatusReply[Res]], T]): StatusReplyInbox[Res] =
+    runAskWithStatus(messageFactory)
 
   /**
    * Requests the oldest [[Effect]] or [[akka.actor.testkit.typed.javadsl.Effects.noEffects]] if no effects

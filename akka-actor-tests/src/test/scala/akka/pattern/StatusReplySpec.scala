@@ -1,18 +1,19 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.pattern
+
+import scala.concurrent.{ Await, Future }
+import scala.concurrent.duration._
+
+import org.scalatest.concurrent.ScalaFutures
 
 import akka.Done
 import akka.testkit.AkkaSpec
 import akka.testkit.TestException
 import akka.testkit.TestProbe
 import akka.util.Timeout
-import org.scalatest.concurrent.ScalaFutures
-
-import scala.concurrent.Future
-import scala.concurrent.duration._
 
 class StatusReplySpec extends AkkaSpec with ScalaFutures {
 
@@ -32,6 +33,13 @@ class StatusReplySpec extends AkkaSpec with ScalaFutures {
         case _               => fail()
       }
     }
+    "not throw exception if null" in {
+      (null: StatusReply[_]) match {
+        case StatusReply.Success(_) => fail()
+        case StatusReply.Error(_)   => fail()
+        case _                      =>
+      }
+    }
     "pattern match error with text" in {
       StatusReply.Error("boho!") match {
         case StatusReply.Error(_) =>
@@ -43,6 +51,25 @@ class StatusReplySpec extends AkkaSpec with ScalaFutures {
       StatusReply.Error(TestException("boho!")) match {
         case StatusReply.Error(_) =>
         case _                    => fail()
+      }
+    }
+
+    "include exception type in toString for non text-error" in {
+      StatusReply.Error(TestException("boho!")).toString should include("TestException")
+    }
+
+    "transform scala.util.Try" in {
+      StatusReply.fromTry(scala.util.Success("woho")) should matchPattern {
+        case StatusReply.Success("woho") =>
+      }
+      StatusReply.fromTry(scala.util.Failure(TestException("boho"))) should matchPattern {
+        case StatusReply.Error(StatusReply.ErrorMessage("boho")) =>
+      }
+      StatusReply.fromTryKeepException(scala.util.Success("woho")) should matchPattern {
+        case StatusReply.Success("woho") =>
+      }
+      StatusReply.fromTryKeepException(scala.util.Failure(TestException("boho"))) should matchPattern {
+        case StatusReply.Error(TestException("boho")) =>
       }
     }
 
@@ -66,7 +93,7 @@ class StatusReplySpec extends AkkaSpec with ScalaFutures {
       val result = probe.ref.askWithStatus("request")
       probe.expectMsg("request")
       probe.lastSender ! StatusReply.Success("woho")
-      result.futureValue should ===("woho")
+      Await.result(result, timeout.duration) should ===("woho")
     }
 
     "unwrap Error with message" in {

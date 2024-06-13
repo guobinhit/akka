@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
@@ -116,7 +116,6 @@ abstract class MultiNodeClusterShardingConfig(
         }
         akka.cluster.sharding.fail-on-invalid-entity-state-transition = on
         akka.loglevel = $loglevel
-        akka.remote.log-remote-lifecycle-events = off
         """)
       .withFallback(SharedLeveldbJournal.configToEnableJavaSerializationForTest)
       .withFallback(MultiNodeClusterSpec.clusterConfig)

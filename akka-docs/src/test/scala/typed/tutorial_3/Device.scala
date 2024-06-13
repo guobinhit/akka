@@ -1,8 +1,15 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package typed.tutorial_3
+
+/*
+//#full-device
+package com.example
+
+//#full-device
+ */
 
 //#full-device
 import akka.actor.typed.ActorRef

@@ -1,21 +1,23 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.testkit
 
-import akka.actor.ActorLogging
-
 import scala.collection.immutable
 import scala.concurrent.Future
 import scala.util.Try
+
 import com.typesafe.config.{ Config, ConfigFactory }
+
+import akka.actor.ActorLogging
 import akka.annotation.InternalApi
 import akka.persistence._
 import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.journal.Tagged
 import akka.persistence.snapshot.SnapshotStore
 import akka.persistence.testkit.internal.{ InMemStorageExtension, SnapshotStorageEmulatorExtension }
+import akka.persistence.testkit.internal.CurrentTime
 import akka.util.unused
 
 /**
@@ -34,9 +36,10 @@ class PersistenceTestKitPlugin(@unused cfg: Config, cfgPath: String) extends Asy
 
   override def asyncWriteMessages(messages: immutable.Seq[AtomicWrite]): Future[immutable.Seq[Try[Unit]]] = {
     Future.fromTry(Try(messages.map(aw => {
+      val timestamp = CurrentTime.now()
       val data = aw.payload.map(pl =>
         pl.payload match {
-          case _ => pl.withTimestamp(System.currentTimeMillis())
+          case _ => pl.withTimestamp(timestamp)
         })
 
       val result: Try[Unit] = storage.tryAdd(data)
@@ -113,7 +116,7 @@ class PersistenceTestKitSnapshotPlugin extends SnapshotStore {
     Future.fromTry(Try(storage.tryDelete(metadata)))
 
   override def deleteAsync(persistenceId: String, criteria: SnapshotSelectionCriteria): Future[Unit] =
-    Future.successful(Try(storage.tryDelete(persistenceId, criteria)))
+    Future.fromTry(Try(storage.tryDelete(persistenceId, criteria)))
 
 }
 
@@ -128,6 +131,20 @@ object PersistenceTestKitSnapshotPlugin {
   val config: Config = ConfigFactory.parseMap(
     Map(
       "akka.persistence.snapshot-store.plugin" -> PluginId,
-      s"$PluginId.class" -> classOf[PersistenceTestKitSnapshotPlugin].getName).asJava)
+      s"$PluginId.class" -> classOf[PersistenceTestKitSnapshotPlugin].getName,
+      s"$PluginId.snapshot-is-optional" -> false, // fallback isn't used by the testkit
+      s"$PluginId.only-one-snapshot" -> false // fallback isn't used by the testkit
+    ).asJava)
 
+}
+
+object PersistenceTestKitDurableStateStorePlugin {
+
+  val PluginId = "akka.persistence.testkit.state"
+
+  import akka.util.ccompat.JavaConverters._
+
+  def getInstance() = this
+
+  val config: Config = ConfigFactory.parseMap(Map("akka.persistence.state.plugin" -> PluginId).asJava)
 }

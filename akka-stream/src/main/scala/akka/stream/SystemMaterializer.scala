@@ -1,13 +1,12 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream
 
+import scala.annotation.nowarn
 import scala.concurrent.Await
 import scala.concurrent.Promise
-
-import com.github.ghik.silencer.silent
 
 import akka.actor.ActorSystem
 import akka.actor.ClassicActorSystemProvider
@@ -46,13 +45,13 @@ final class SystemMaterializer(system: ExtendedActorSystem) extends Extension {
   /**
    * INTERNAL API
    */
-  @InternalApi @silent("deprecated")
+  @InternalApi @nowarn("msg=deprecated")
   private[akka] val materializerSettings = ActorMaterializerSettings(system)
 
   private implicit val materializerTimeout: Timeout =
     system.settings.config.getDuration("akka.stream.materializer.creation-timeout").asScala
 
-  @InternalApi @silent("deprecated")
+  @InternalApi
   private val materializerGuardian = system.systemActorOf(
     MaterializerGuardian
       .props(systemMaterializerPromise, materializerSettings)
@@ -67,7 +66,17 @@ final class SystemMaterializer(system: ExtendedActorSystem) extends Extension {
   @InternalApi
   private[akka] def createAdditionalSystemMaterializer(): Materializer = {
     val started =
-      (materializerGuardian ? MaterializerGuardian.StartMaterializer).mapTo[MaterializerGuardian.MaterializerStarted]
+      (materializerGuardian ? MaterializerGuardian.StartMaterializer()).mapTo[MaterializerGuardian.MaterializerStarted]
+    Await.result(started, materializerTimeout.duration).materializer
+  }
+
+  /** INTERNAL API */
+  @InternalApi
+  private[akka] def createAdditionalSystemMaterializer(defaultAttributes: Attributes): Materializer = {
+    val started =
+      (materializerGuardian ? MaterializerGuardian.StartMaterializer(Some(defaultAttributes)))
+        .mapTo[MaterializerGuardian.MaterializerStarted]
+
     Await.result(started, materializerTimeout.duration).materializer
   }
 
@@ -75,7 +84,6 @@ final class SystemMaterializer(system: ExtendedActorSystem) extends Extension {
    * INTERNAL API
    */
   @InternalApi
-  @silent("deprecated")
   private[akka] def createAdditionalLegacySystemMaterializer(
       namePrefix: String,
       settings: ActorMaterializerSettings): Materializer = {
@@ -86,8 +94,14 @@ final class SystemMaterializer(system: ExtendedActorSystem) extends Extension {
   }
 
   val materializer: Materializer = {
-    // block on async creation to make it effectively final
-    Await.result(systemMaterializerPromise.future, materializerTimeout.duration)
+    val systemMaterializerFuture = systemMaterializerPromise.future
+    systemMaterializerFuture.value match {
+      case Some(tryMaterializer) =>
+        tryMaterializer.get
+      case None =>
+        // block on async creation to make it effectively final
+        Await.result(systemMaterializerFuture, materializerTimeout.duration)
+    }
   }
 
 }

@@ -1,15 +1,15 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.testkit.internal
 
 import java.util.concurrent.atomic.AtomicReference
 
+import scala.collection.immutable
+
 import akka.annotation.InternalApi
 import akka.persistence.testkit.ProcessingPolicy
-
-import scala.collection.immutable
 
 /**
  * INTERNAL API
@@ -156,6 +156,8 @@ sealed trait InMemStorage[K, R] extends InternalReprSupport[R] {
   def clearAllPreservingSeqNumbers(): Unit = lock.synchronized {
     eventsMap.keys.foreach(removePreservingSeqNumber)
   }
+
+  def keys(): immutable.Seq[K] = eventsMap.keys.toList
 
   private def getLastSeqNumber(elems: immutable.Seq[R]): Long =
     elems.lastOption.map(reprToSeqNum).getOrElse(0L)

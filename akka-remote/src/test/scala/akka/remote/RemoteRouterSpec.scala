@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote
@@ -23,13 +23,9 @@ object RemoteRouterSpec {
   }
 }
 
-class RemoteRouterSpec extends AkkaSpec(s"""
+class RemoteRouterSpec extends AkkaSpec("""
     akka.actor.provider = remote
     akka.remote.use-unsafe-remote-features-outside-cluster = on
-    akka.remote.classic.netty.tcp {
-      hostname = localhost
-      port = 0
-    }
     akka.remote.artery.canonical {
       hostname = "localhost"
       port = 0
@@ -54,9 +50,7 @@ class RemoteRouterSpec extends AkkaSpec(s"""
   val port = system.asInstanceOf[ExtendedActorSystem].provider.getDefaultAddress.port.get
   val sysName = system.name
   val masterSystemName = "Master" + sysName
-  val protocol =
-    if (RARP(system).provider.remoteSettings.Artery.Enabled) "akka"
-    else "akka.tcp"
+  val protocol = "akka"
   val conf = ConfigFactory.parseString(s"""
     akka {
       actor.deployment {

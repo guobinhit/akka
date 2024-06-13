@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.event
@@ -159,9 +159,11 @@ class LoggingReceiveSpec extends AnyWordSpec with BeforeAndAfterAll {
           }
         })
         actor ! "buh"
-        expectMsg(
-          Logging
-            .Info(actor.path.toString, actor.underlyingActor.getClass, "received handled message buh from " + self))
+        fishForSpecificMessage() {
+          case Logging.Info(src, _, msg)
+              if src == actor.path.toString && msg == "received handled message buh from " + self =>
+            ()
+        }
         expectMsg("x")
       }
     }

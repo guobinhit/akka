@@ -1,15 +1,20 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding.typed
 
-import akka.actor.typed.scaladsl.LoggerOps
+import com.typesafe.config.ConfigFactory
+import org.scalatest.concurrent.Eventually
+import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.time.Span
+
 import akka.Done
 import akka.actor.testkit.typed.scaladsl.TestProbe
 import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.scaladsl.LoggerOps
 import akka.cluster.MultiNodeClusterSpec
 import akka.cluster.sharding.typed.ReplicatedShardingSpec.TestRES.GetState
 import akka.cluster.sharding.typed.ReplicatedShardingSpec.TestRES.State
@@ -20,16 +25,12 @@ import akka.persistence.journal.PersistencePluginProxy
 import akka.persistence.testkit.query.scaladsl.PersistenceTestKitReadJournal
 import akka.persistence.typed.ReplicaId
 import akka.persistence.typed.ReplicationId
-import akka.persistence.typed.scaladsl.ReplicatedEventSourcing
 import akka.persistence.typed.scaladsl.Effect
 import akka.persistence.typed.scaladsl.EventSourcedBehavior
+import akka.persistence.typed.scaladsl.ReplicatedEventSourcing
 import akka.remote.testkit.MultiNodeConfig
 import akka.remote.testkit.MultiNodeSpec
 import akka.serialization.jackson.CborSerializable
-import com.typesafe.config.ConfigFactory
-import org.scalatest.concurrent.Eventually
-import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.time.Span
 
 object ReplicatedShardingSpec extends MultiNodeConfig {
   val first = role("first")
@@ -118,8 +119,10 @@ abstract class ReplicatedShardingSpec
     with Eventually {
   import ReplicatedShardingSpec._
 
-  implicit val patience: PatienceConfig =
-    PatienceConfig(testKitSettings.DefaultTimeout.duration * 2, Span(500, org.scalatest.time.Millis))
+  implicit val patience: PatienceConfig = {
+    import akka.testkit.TestDuration
+    PatienceConfig(testKitSettings.DefaultTimeout.duration.dilated * 2, Span(500, org.scalatest.time.Millis))
+  }
 
   "Replicated sharding" should {
     "form cluster" in {

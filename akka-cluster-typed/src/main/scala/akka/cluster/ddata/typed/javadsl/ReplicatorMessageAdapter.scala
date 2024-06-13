@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.ddata.typed.javadsl
@@ -7,10 +7,9 @@ package akka.cluster.ddata.typed.javadsl
 import java.time.Duration
 import java.util.function.{ Function => JFunction }
 
+import scala.annotation.nowarn
 import scala.util.Failure
 import scala.util.Success
-
-import com.github.ghik.silencer.silent
 
 import akka.actor.typed.ActorRef
 import akka.actor.typed.javadsl.ActorContext
@@ -68,9 +67,7 @@ class ReplicatorMessageAdapter[A, B <: ReplicatedData](
   def subscribe(key: Key[B], responseAdapter: akka.japi.function.Function[Replicator.SubscribeResponse[B], A]): Unit = {
     // unsubscribe in case it's called more than once per key
     unsubscribe(key)
-    changedMessageAdapters.get(key).foreach { subscriber =>
-      replicator ! Replicator.Unsubscribe(key, subscriber)
-    }
+
     val replyTo: ActorRef[Replicator.SubscribeResponse[B]] =
       context.messageAdapter(classOf[Replicator.SubscribeResponse[B]], responseAdapter)
     changedMessageAdapters = changedMessageAdapters.updated(key, replyTo)
@@ -115,7 +112,7 @@ class ReplicatorMessageAdapter[A, B <: ReplicatedData](
    * `ActorRef[GetResponse]` that the the replicator will send the response message back through.
    * Use that `ActorRef[GetResponse]` as the `replyTo` parameter in the `Get` message.
    */
-  @silent
+  @nowarn
   def askGet(
       createRequest: JFunction[ActorRef[Replicator.GetResponse[B]], Replicator.Get[B]],
       responseAdapter: JFunction[Replicator.GetResponse[B], A]): Unit = {

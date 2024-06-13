@@ -1,18 +1,22 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
 import scala.annotation.unchecked.uncheckedVariance
 
+import akka.annotation.DoNotInherit
 import akka.stream._
 
 /**
  * A “stream of streams” sub-flow of data elements, e.g. produced by `groupBy`.
  * SubFlows cannot contribute to the super-flow’s materialized value since they
  * are materialized later, during the runtime of the flow graph processing.
+ *
+ * Not for user extension
  */
+@DoNotInherit
 trait SubFlow[+Out, +Mat, +F[+_], C] extends FlowOps[Out, Mat] {
 
   override type Repr[+T] = SubFlow[T, Mat @uncheckedVariance, F @uncheckedVariance, C @uncheckedVariance]

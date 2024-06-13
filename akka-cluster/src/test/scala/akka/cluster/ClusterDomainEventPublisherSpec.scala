@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
@@ -16,7 +16,6 @@ import akka.cluster.ClusterEvent._
 import akka.cluster.ClusterSettings.DefaultDataCenter
 import akka.cluster.InternalClusterAction._
 import akka.cluster.MemberStatus._
-import akka.remote.RARP
 import akka.testkit.AkkaSpec
 import akka.testkit.ImplicitSender
 import akka.testkit.TestProbe
@@ -24,7 +23,6 @@ import akka.testkit.TestProbe
 object ClusterDomainEventPublisherSpec {
   val config = """
     akka.actor.provider = "cluster"
-    akka.remote.classic.netty.tcp.port = 0
     akka.remote.artery.canonical.port = 0
     """
 }
@@ -34,9 +32,7 @@ class ClusterDomainEventPublisherSpec
     with BeforeAndAfterEach
     with ImplicitSender {
 
-  val protocol =
-    if (RARP(system).provider.remoteSettings.Artery.Enabled) "akka"
-    else "akka.tcp"
+  val protocol = "akka"
 
   var publisher: ActorRef = _
 

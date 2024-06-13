@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.akka.typed;
@@ -11,7 +11,6 @@ import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
-
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -78,7 +77,6 @@ public class Aggregator<Reply, Aggregate> extends AbstractBehavior<Aggregator.Co
   }
 
   @Override
-  @SuppressWarnings("unchecked")
   public Receive<Command> createReceive() {
     return newReceiveBuilder()
         .onMessage(WrappedReply.class, this::onReply)

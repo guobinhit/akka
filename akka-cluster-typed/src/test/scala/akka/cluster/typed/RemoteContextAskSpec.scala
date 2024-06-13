@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.typed
@@ -24,12 +24,10 @@ import akka.serialization.jackson.CborSerializable
 import akka.util.Timeout
 
 object RemoteContextAskSpec {
-  def config = ConfigFactory.parseString(s"""
+  def config = ConfigFactory.parseString("""
     akka {
       loglevel = debug
       actor.provider = cluster
-      remote.classic.netty.tcp.port = 0
-      remote.classic.netty.tcp.host = 127.0.0.1
       remote.artery {
         canonical {
           hostname = 127.0.0.1
@@ -85,7 +83,7 @@ class RemoteContextAskSpec
       spawn(Behaviors.setup[AnyRef] { ctx =>
         implicit val timeout: Timeout = 3.seconds
 
-        ctx.ask(remoteRef, Ping) {
+        ctx.ask(remoteRef, Ping.apply) {
           case Success(pong) => pong
           case Failure(ex)   => ex
         }

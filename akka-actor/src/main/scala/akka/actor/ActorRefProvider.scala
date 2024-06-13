@@ -1,14 +1,16 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor
 
+import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.atomic.AtomicLong
 
 import scala.annotation.implicitNotFound
 import scala.concurrent.{ ExecutionContextExecutor, Future, Promise }
 import scala.util.control.NonFatal
+
 import akka.ConfigurationException
 import akka.annotation.DoNotInherit
 import akka.annotation.InternalApi
@@ -167,12 +169,17 @@ import akka.util.OptionVal
   @InternalApi
   private[akka] def addressString: String
 
+  def systemUid: Long
+
 }
 
 /**
  * Interface implemented by ActorSystem and ActorContext, the only two places
  * from which you can get fresh actors.
+ *
+ * Not for user extension
  */
+@DoNotInherit
 @implicitNotFound(
   "implicit ActorRefFactory required: if outside of an Actor you need an implicit ActorSystem, inside of an actor this should be the implicit ActorContext")
 trait ActorRefFactory {
@@ -276,11 +283,13 @@ trait ActorRefFactory {
 /**
  * Internal Akka use only, used in implementation of system.stop(child).
  */
+@InternalApi
 private[akka] final case class StopChild(child: ActorRef)
 
 /**
  * INTERNAL API
  */
+@InternalApi
 private[akka] object SystemGuardian {
 
   /**
@@ -320,7 +329,7 @@ private[akka] object LocalActorRefProvider {
   private class SystemGuardian(override val supervisorStrategy: SupervisorStrategy, val guardian: ActorRef)
       extends Actor
       with RequiresMessageQueue[UnboundedMessageQueueSemantics] {
-    import SystemGuardian._
+    import akka.actor.SystemGuardian._
 
     var terminationHooks = Set.empty[ActorRef]
 
@@ -391,7 +400,7 @@ private[akka] class LocalActorRefProvider private[akka] (
   override val rootPath: ActorPath = RootActorPath(Address("akka", _systemName))
 
   private[akka] val log: MarkerLoggingAdapter =
-    Logging.withMarker(eventStream, getClass)
+    Logging.withMarker(eventStream, classOf[LocalActorRefProvider])
 
   /*
    * This dedicated logger is used whenever a deserialization failure occurs
@@ -527,7 +536,7 @@ private[akka] class LocalActorRefProvider private[akka] (
   override lazy val rootGuardian: LocalActorRef =
     new LocalActorRef(
       system,
-      Props(classOf[LocalActorRefProvider.Guardian], rootGuardianStrategy),
+      Props(new LocalActorRefProvider.Guardian(rootGuardianStrategy)),
       internalDispatcher,
       defaultMailbox,
       theOneWhoWalksTheBubblesOfSpaceTime,
@@ -559,9 +568,12 @@ private[akka] class LocalActorRefProvider private[akka] (
       }
     val ref = new LocalActorRef(
       system,
-      system.guardianProps.getOrElse(Props(classOf[LocalActorRefProvider.Guardian], guardianStrategy)),
+      system.guardianProps.getOrElse(Props(new LocalActorRefProvider.Guardian(guardianStrategy))),
       dispatcher,
-      defaultMailbox,
+      system.guardianProps match {
+        case Some(props) => system.mailboxes.lookup(props.mailbox)
+        case None        => defaultMailbox
+      },
       rootGuardian,
       rootPath / "user")
     cell.initChild(ref)
@@ -574,7 +586,7 @@ private[akka] class LocalActorRefProvider private[akka] (
     cell.reserveChild("system")
     val ref = new LocalActorRef(
       system,
-      Props(classOf[LocalActorRefProvider.SystemGuardian], systemGuardianStrategy, guardian),
+      Props(new LocalActorRefProvider.SystemGuardian(systemGuardianStrategy, guardian)),
       internalDispatcher,
       defaultMailbox,
       rootGuardian,
@@ -584,7 +596,7 @@ private[akka] class LocalActorRefProvider private[akka] (
     ref
   }
 
-  lazy val tempContainer = new VirtualPathContainer(system.provider, tempNode, rootGuardian, log)
+  lazy val tempContainer: VirtualPathContainer = new VirtualPathContainer(system.provider, tempNode, rootGuardian, log)
 
   def registerTempActor(actorRef: InternalActorRef, path: ActorPath): Unit = {
     assert(path.parent eq tempNode, "cannot registerTempActor() with anything not obtained from tempPath()")
@@ -752,7 +764,7 @@ private[akka] class LocalActorRefProvider private[akka] (
     Serialization.Information(getDefaultAddress, system)
     serializationInformationCache match {
       case OptionVal.Some(info) => info
-      case OptionVal.None =>
+      case _ =>
         if (system eq null)
           throw new IllegalStateException("Too early access of serializationInformation")
         else {
@@ -769,10 +781,13 @@ private[akka] class LocalActorRefProvider private[akka] (
   override private[akka] def addressString: String = {
     _addressString match {
       case OptionVal.Some(addr) => addr
-      case OptionVal.None =>
+      case _ =>
         val addr = getDefaultAddress.toString
         _addressString = OptionVal.Some(addr)
         addr
     }
   }
+
+  override val systemUid: Long =
+    ThreadLocalRandom.current.nextLong()
 }

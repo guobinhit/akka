@@ -1,34 +1,47 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
 
 import java.util.concurrent.TimeUnit
 
-import scala.concurrent.{ Future, Promise }
+import scala.concurrent.Future
+import scala.concurrent.Promise
 import scala.concurrent.duration._
 import scala.util.control.NonFatal
 
+import akka.AkkaException
 import akka.Done
-import akka.actor.{ EmptyLocalActorRef, _ }
+import akka.OnlyCauseStackTrace
+import akka.actor._
+import akka.actor.EmptyLocalActorRef
 import akka.event.Logging
-import akka.pattern.PromiseActorRef
-import akka.remote.{ MessageSerializer, OversizedPayloadException, RemoteActorRefProvider, UniqueAddress }
-import akka.remote.artery.Decoder.{
-  AdvertiseActorRefsCompressionTable,
-  AdvertiseClassManifestsCompressionTable,
-  InboundCompressionAccess,
-  InboundCompressionAccessImpl
-}
+import akka.remote.MessageSerializer
+import akka.remote.RemoteActorRefProvider
+import akka.remote.UniqueAddress
+import akka.remote.artery.Decoder.AdvertiseActorRefsCompressionTable
+import akka.remote.artery.Decoder.AdvertiseClassManifestsCompressionTable
+import akka.remote.artery.Decoder.InboundCompressionAccess
+import akka.remote.artery.Decoder.InboundCompressionAccessImpl
 import akka.remote.artery.OutboundHandshake.HandshakeReq
 import akka.remote.artery.SystemMessageDelivery.SystemMessageEnvelope
 import akka.remote.artery.compress._
 import akka.remote.artery.compress.CompressionProtocol._
-import akka.serialization.{ Serialization, SerializationExtension, Serializers }
+import akka.remote.serialization.AbstractActorRefResolveCache
+import akka.serialization.Serialization
+import akka.serialization.SerializationExtension
+import akka.serialization.Serializers
 import akka.stream._
 import akka.stream.stage._
-import akka.util.{ unused, OptionVal, Unsafe }
+import akka.util.OptionVal
+import akka.util.unused
+
+/**
+ * INTERNAL API
+ */
+@SerialVersionUID(1L)
+private[remote] class OversizedPayloadException(msg: String) extends AkkaException(msg) with OnlyCauseStackTrace
 
 /**
  * INTERNAL API
@@ -55,6 +68,7 @@ private[remote] class Encoder(
     extends GraphStageWithMaterializedValue[
       FlowShape[OutboundEnvelope, EnvelopeBuffer],
       Encoder.OutboundCompressionAccess] {
+
   import Encoder._
 
   val in: Inlet[OutboundEnvelope] = Inlet("Artery.Encoder.in")
@@ -77,7 +91,7 @@ private[remote] class Encoder(
       private var _serialization: OptionVal[Serialization] = OptionVal.None
       private def serialization: Serialization = _serialization match {
         case OptionVal.Some(s) => s
-        case OptionVal.None =>
+        case _ =>
           val s = SerializationExtension(system)
           _serialization = OptionVal.Some(s)
           s
@@ -89,7 +103,7 @@ private[remote] class Encoder(
         headerBuilder.setOutboundActorRefCompression(table)
       }
 
-      private val changeClassManifsetCompressionCb = getAsyncCallback[CompressionTable[String]] { table =>
+      private val changeClassManifestCompressionCb = getAsyncCallback[CompressionTable[String]] { table =>
         headerBuilder.setOutboundClassManifestCompression(table)
       }
 
@@ -125,12 +139,12 @@ private[remote] class Encoder(
           // internally compression is applied by the builder:
           outboundEnvelope.recipient match {
             case OptionVal.Some(r) => headerBuilder.setRecipientActorRef(r)
-            case OptionVal.None    => headerBuilder.setNoRecipient()
+            case _                 => headerBuilder.setNoRecipient()
           }
 
           outboundEnvelope.sender match {
-            case OptionVal.None    => headerBuilder.setNoSender()
             case OptionVal.Some(s) => headerBuilder.setSenderActorRef(s)
+            case _                 => headerBuilder.setNoSender()
           }
 
           val startTime: Long = if (instruments.timeSerialization) System.nanoTime else 0
@@ -180,7 +194,7 @@ private[remote] class Encoder(
                       reasonText,
                       msgSender,
                       outboundEnvelope.recipient.getOrElse(ActorRef.noSender))
-                  case OptionVal.None =>
+                  case _ =>
                     Dropped(
                       outboundEnvelope.message,
                       reasonText,
@@ -212,7 +226,7 @@ private[remote] class Encoder(
        * External call from ChangeOutboundCompression materialized value
        */
       override def changeClassManifestCompression(table: CompressionTable[String]): Future[Done] =
-        changeClassManifsetCompressionCb.invokeWithFeedback(table)
+        changeClassManifestCompressionCb.invokeWithFeedback(table)
 
       /**
        * External call from ChangeOutboundCompression materialized value
@@ -335,21 +349,12 @@ private[remote] object Decoder {
 private[remote] final class ActorRefResolveCacheWithAddress(
     provider: RemoteActorRefProvider,
     localAddress: UniqueAddress)
-    extends LruBoundedCache[String, InternalActorRef](capacity = 1024, evictAgeThreshold = 600) {
+    extends AbstractActorRefResolveCache[InternalActorRef] {
 
   override protected def compute(k: String): InternalActorRef =
     provider.resolveActorRefWithLocalAddress(k, localAddress.address)
 
-  override protected def hash(k: String): Int = Unsafe.fastHash(k)
-
-  override protected def isCacheable(v: InternalActorRef): Boolean =
-    v match {
-      case _: EmptyLocalActorRef => false
-      case _: PromiseActorRef    =>
-        // each of these are only for one request-response interaction so don't cache
-        false
-      case _ => true
-    }
+  override protected def isKeyCacheable(k: String): Boolean = true
 }
 
 /**
@@ -437,7 +442,7 @@ private[remote] class Decoder(
             case OptionVal.Some(ref) =>
               OptionVal(ref.asInstanceOf[InternalActorRef])
             case OptionVal.None if headerBuilder.senderActorRefPath.isDefined =>
-              OptionVal(actorRefResolver.getOrCompute(headerBuilder.senderActorRefPath.get))
+              OptionVal(actorRefResolver.resolve(headerBuilder.senderActorRefPath.get))
             case _ =>
               OptionVal.None
           } catch {
@@ -480,20 +485,13 @@ private[remote] class Decoder(
               association match {
                 case OptionVal.Some(assoc) =>
                   val remoteAddress = assoc.remoteAddress
-                  sender match {
-                    case OptionVal.Some(snd) =>
-                      compressions.hitActorRef(originUid, remoteAddress, snd, 1)
-                    case OptionVal.None =>
-                  }
+                  if (sender.isDefined)
+                    compressions.hitActorRef(originUid, remoteAddress, sender.get, 1)
 
-                  recipient match {
-                    case OptionVal.Some(rcp) =>
-                      compressions.hitActorRef(originUid, remoteAddress, rcp, 1)
-                    case OptionVal.None =>
-                  }
+                  if (recipient.isDefined)
+                    compressions.hitActorRef(originUid, remoteAddress, recipient.get, 1)
 
                   compressions.hitClassManifest(originUid, remoteAddress, classManifest, 1)
-
                 case _ =>
                   // we don't want to record hits for compression while handshake is still in progress.
                   log.debug(
@@ -516,7 +514,6 @@ private[remote] class Decoder(
                 lane = 0)
 
             if (recipient.isEmpty && !headerBuilder.isNoRecipient) {
-
               // The remote deployed actor might not be created yet when resolving the
               // recipient for the first message that is sent to it, best effort retry.
               // However, if the retried resolve isn't successful the ref is banned and
@@ -534,7 +531,7 @@ private[remote] class Decoder(
                         "Message for banned (terminated, unresolved) remote deployed recipient [{}].",
                         recipientActorRefPath)
                     push(out, decoded.withRecipient(ref))
-                  case OptionVal.None =>
+                  case _ =>
                     log.warning(
                       "Dropping message for banned (terminated, unresolved) remote deployed recipient [{}].",
                       recipientActorRefPath)
@@ -554,7 +551,7 @@ private[remote] class Decoder(
           }
         } catch {
           case NonFatal(e) =>
-            log.warning("Dropping message due to: {}", e)
+            log.warning(e, "Dropping message due to unexpected error")
             pull(in)
         }
 
@@ -599,7 +596,9 @@ private[remote] class Decoder(
 
           case RetryResolveRemoteDeployedRecipient(attemptsLeft, recipientPath, inboundEnvelope) =>
             resolveRecipient(recipientPath) match {
-              case OptionVal.None =>
+              case OptionVal.Some(recipient) =>
+                push(out, inboundEnvelope.withRecipient(recipient))
+              case _ =>
                 if (attemptsLeft > 0)
                   scheduleOnce(
                     RetryResolveRemoteDeployedRecipient(attemptsLeft - 1, recipientPath, inboundEnvelope),
@@ -618,9 +617,9 @@ private[remote] class Decoder(
                   val recipient = actorRefResolver.getOrCompute(recipientPath)
                   push(out, inboundEnvelope.withRecipient(recipient))
                 }
-              case OptionVal.Some(recipient) =>
-                push(out, inboundEnvelope.withRecipient(recipient))
             }
+
+          case unknown => throw new IllegalArgumentException(s"Unknown timer key: $unknown")
         }
       }
 
@@ -653,7 +652,7 @@ private[remote] class Deserializer(
       private var _serialization: OptionVal[Serialization] = OptionVal.None
       private def serialization: Serialization = _serialization match {
         case OptionVal.Some(s) => s
-        case OptionVal.None =>
+        case _ =>
           val s = SerializationExtension(system)
           _serialization = OptionVal.Some(s)
           s
@@ -687,14 +686,14 @@ private[remote] class Deserializer(
           case NonFatal(e) =>
             val from = envelope.association match {
               case OptionVal.Some(a) => a.remoteAddress
-              case OptionVal.None    => "unknown"
+              case _                 => "unknown"
             }
-            log.warning(
-              "Failed to deserialize message from [{}] with serializer id [{}] and manifest [{}]. {}",
+            log.error(
+              e,
+              "Failed to deserialize message from [{}] with serializer id [{}] and manifest [{}].",
               from,
               envelope.serializer,
-              envelope.classManifest,
-              e)
+              envelope.classManifest)
             pull(in)
         } finally {
           val buf = envelope.envelopeBuffer
@@ -756,6 +755,72 @@ private[remote] class DuplicateHandshakeReq(
         val envelope = grab(in)
         if (envelope.association.isEmpty && envelope.serializer == serializerId && envelope.classManifest == manifest) {
           // only need to duplicate HandshakeReq before handshake is completed
+          try {
+            currentIterator = Vector.tabulate(numberOfLanes)(i => envelope.copyForLane(i)).iterator
+            push(out, currentIterator.next())
+          } finally {
+            val buf = envelope.envelopeBuffer
+            if (buf != null) {
+              envelope.releaseEnvelopeBuffer()
+              bufferPool.release(buf)
+            }
+          }
+        } else
+          push(out, envelope)
+      }
+
+      override def onPull(): Unit = {
+        if (currentIterator.isEmpty)
+          pull(in)
+        else {
+          push(out, currentIterator.next())
+          if (currentIterator.isEmpty) currentIterator = Iterator.empty // GC friendly
+        }
+      }
+
+      setHandlers(in, out, this)
+    }
+}
+
+/**
+ * INTERNAL API: The Flush message must be passed in each inbound lane to
+ * ensure that all application messages are handled first.
+ */
+private[remote] class DuplicateFlush(numberOfLanes: Int, system: ExtendedActorSystem, bufferPool: EnvelopeBufferPool)
+    extends GraphStage[FlowShape[InboundEnvelope, InboundEnvelope]] {
+
+  val in: Inlet[InboundEnvelope] = Inlet("Artery.DuplicateFlush.in")
+  val out: Outlet[InboundEnvelope] = Outlet("Artery.DuplicateFlush.out")
+  val shape: FlowShape[InboundEnvelope, InboundEnvelope] = FlowShape(in, out)
+
+  override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
+    new GraphStageLogic(shape) with InHandler with OutHandler {
+
+      // lazy init of SerializationExtension to avoid loading serializers before ActorRefProvider has been initialized
+      var _serializerId: Int = -1
+      var _manifest = ""
+      def serializerId: Int = {
+        lazyInitOfSerializer()
+        _serializerId
+      }
+      def manifest: String = {
+        lazyInitOfSerializer()
+        _manifest
+      }
+      def lazyInitOfSerializer(): Unit = {
+        if (_serializerId == -1) {
+          val serialization = SerializationExtension(system)
+          val ser = serialization.serializerFor(Flush.getClass)
+          _manifest = Serializers.manifestFor(ser, Flush)
+          _serializerId = ser.identifier
+        }
+      }
+
+      var currentIterator: Iterator[InboundEnvelope] = Iterator.empty
+
+      override def onPush(): Unit = {
+        val envelope = grab(in)
+        if (envelope.serializer == serializerId && envelope.classManifest == manifest) {
           try {
             currentIterator = Vector.tabulate(numberOfLanes)(i => envelope.copyForLane(i)).iterator
             push(out, currentIterator.next())

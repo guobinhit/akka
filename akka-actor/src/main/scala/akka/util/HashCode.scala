@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.util
@@ -40,6 +40,8 @@ object HashCode {
       else if (!isArray(value)) result = hash(result, value.hashCode())
       else for (id <- 0 until JArray.getLength(value)) result = hash(result, JArray.get(value, id)) // is an array
       result
+    case unexpected =>
+      throw new IllegalArgumentException(s"Unexpected hash parameter: $unexpected") // will not happen, for exhaustiveness check
   }
   def hash(seed: Int, value: Boolean): Int = firstTerm(seed) + (if (value) 1 else 0)
   def hash(seed: Int, value: Char): Int = firstTerm(seed) + value.asInstanceOf[Int]

@@ -1,8 +1,15 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package typed.tutorial_3
+
+/*
+//#device-read-test
+package com.example
+
+//#device-read-test
+ */
 
 //#device-read-test
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
@@ -47,8 +54,7 @@ class DeviceSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
       response2.value should ===(Some(55.0))
     }
     //#device-write-read-test
-
+    //#device-read-test
   }
-  //#device-read-test
 }
 //#device-read-test

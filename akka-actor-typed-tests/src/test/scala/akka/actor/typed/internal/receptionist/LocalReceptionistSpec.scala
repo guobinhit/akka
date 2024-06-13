@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.internal.receptionist
@@ -187,10 +187,6 @@ class LocalReceptionistSpec extends ScalaTestWithActorTestKit with AnyWordSpecLi
       val listing: Listing = probe.receiveMessage()
       listing.isForKey(ServiceKeyA) should ===(true)
       listing.serviceInstances(ServiceKeyA) should be(Set())
-    }
-
-    "not conflict with the ClusterClient receptionist default name" in {
-      system.systemActorOf(Behaviors.ignore, "receptionist")
     }
   }
 }

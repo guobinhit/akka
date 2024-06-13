@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.stream.javadsl.cookbook;
@@ -14,13 +14,12 @@ import akka.stream.javadsl.Source;
 import akka.testkit.DebugFilter;
 import akka.testkit.javadsl.TestKit;
 import com.typesafe.config.ConfigFactory;
+import java.util.Arrays;
 import jdocs.stream.SilenceSystemOut;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import scala.runtime.AbstractFunction0;
-
-import java.util.Arrays;
 
 public class RecipeLoggingElements extends RecipeTest {
   static ActorSystem system;

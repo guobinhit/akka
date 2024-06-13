@@ -1,20 +1,20 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.snapshot
 
-import scala.concurrent.Promise
 import java.net.InetSocketAddress
-
-import akka.stream.FlowShape
-import akka.stream.Materializer
-import akka.stream.scaladsl.{ Flow, GraphDSL, Keep, Merge, Partition, Sink, Source, Tcp }
-import akka.stream.testkit.StreamSpec
-import akka.stream.testkit.scaladsl.TestSink
 import javax.net.ssl.SSLContext
 
-class MaterializerStateSpec extends StreamSpec {
+import scala.concurrent.Promise
+
+import akka.stream.{ FlowShape, Materializer }
+import akka.stream.scaladsl.{ Flow, GraphDSL, Keep, Merge, Partition, Sink, Source, Tcp }
+import akka.stream.testkit.scaladsl.TestSink
+import akka.testkit.AkkaSpec
+
+class MaterializerStateSpec extends AkkaSpec() {
 
   "The MaterializerSnapshotting" must {
 
@@ -51,7 +51,7 @@ class MaterializerStateSpec extends StreamSpec {
 
     "snapshot a running stream that includes a TLSActor" in {
       Source.never
-        .via(Tcp().outgoingConnectionWithTls(InetSocketAddress.createUnresolved("akka.io", 443), () => {
+        .via(Tcp(system).outgoingConnectionWithTls(InetSocketAddress.createUnresolved("akka.io", 443), () => {
           val engine = SSLContext.getDefault.createSSLEngine("akka.io", 443)
           engine.setUseClientMode(true)
           engine
@@ -66,7 +66,7 @@ class MaterializerStateSpec extends StreamSpec {
     "snapshot a stream that has a stopped stage" in {
       implicit val mat = Materializer(system)
       try {
-        val probe = TestSink.probe[String](system)
+        val probe = TestSink[String]()(system)
         val out = Source
           .single("one")
           .concat(Source.maybe[String]) // make sure we leave it running

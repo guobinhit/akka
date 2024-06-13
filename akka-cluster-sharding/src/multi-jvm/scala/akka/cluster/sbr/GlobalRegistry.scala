@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sbr
@@ -31,10 +31,10 @@ object GlobalRegistry {
       case id: Int => (id.toString, id)
     }
 
-    val extractShardId: ShardRegion.ExtractShardId = msg =>
-      msg match {
-        case id: Int => (id % 10).toString
-      }
+    val extractShardId: ShardRegion.ExtractShardId = {
+      case id: Int => (id % 10).toString
+      case _       => throw new IllegalArgumentException()
+    }
   }
 
   class SingletonActor(registry: ActorRef) extends Actor with ActorLogging {

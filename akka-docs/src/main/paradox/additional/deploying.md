@@ -5,17 +5,19 @@ project.description: How to deploy Akka Cluster to Kubernetes and Docker.
 
 ## Deploying to Kubernetes
 
-See the guide and example project for [Deploying Akka Cluster to Kubernetes](https://doc.akka.io/docs/akka-management/current/kubernetes-deployment/index.html).
+You can deploy to Kubernetes according to the guide and example project for @extref:[Deploying Akka Cluster to Kubernetes](akka-management:kubernetes-deployment/index.html).
 
 ### Cluster bootstrap
 
-To take advantage of running inside Kubernetes while forming a cluster, 
-[Akka Cluster Bootstrap](https://doc.akka.io/docs/akka-management/current/bootstrap/) helps forming or joining a cluster using Akka Discovery to discover peer nodes. 
+To take advantage of running inside Kubernetes while forming a cluster,
+@extref:[Akka Cluster Bootstrap](akka-management:bootstrap/) helps forming or joining a cluster using Akka Discovery to discover peer nodes. 
 with the Kubernetes API or Kubernetes via DNS.  
 
-You can look at the
-@extref[Cluster with Kubernetes example project](samples:akka-sample-cluster-kubernetes-java)
-to see what this looks like in practice.
+### Rolling updates
+
+Enable the @extref:[Kubernetes Rolling Updates](akka-management:rolling-updates.html#kubernetes-rolling-updates)
+and @extref:[app-version from Deployment](akka-management:rolling-updates.html#app-version-from-deployment)
+features from Akka Management for smooth rolling updates.
  
 ### Resource limits
 
@@ -27,11 +29,6 @@ You can use both Akka remoting and Akka Cluster inside Docker containers. Note
 that you will need to take special care with the network configuration when using Docker,
 described here: @ref:[Akka behind NAT or in a Docker container](../remoting-artery.md#remote-configuration-nat-artery)
 
-You can look at the
-@java[@extref[Cluster with docker-compse example project](samples:akka-sample-cluster-docker-compose-java)]
-@scala[@extref[Cluster with docker-compose example project](samples:akka-sample-cluster-docker-compose-scala)]
-to see what this looks like in practice.
-
 For the JVM to run well in a Docker container, there are some general (not Akka specific) parameters that might need tuning:
 
 ### Resource constraints
@@ -40,11 +37,11 @@ Docker allows [constraining each containers' resource usage](https://docs.docker
 
 #### Memory
 
-You may want to look into using [`-XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap`](https://dzone.com/articles/running-a-jvm-in-a-container-without-getting-kille) options for your JVM later than 8u131, which makes it understand c-group memory limits. On JVM 10 and later, the `-XX:+UnlockExperimentalVMOptions` option is no longer needed.
+You may want to look into using `-XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap` options for your JVM later than 8u131, which makes it understand c-group memory limits. On JVM 10 and later, the `-XX:+UnlockExperimentalVMOptions` option is no longer needed.
 
 #### CPU
 
-For multi-threaded applications such as the JVM, the CFS scheduler limits are an ill fit, because they will restrict
+For multithreaded applications such as the JVM, the CFS scheduler limits are an ill fit, because they will restrict
 the allowed CPU usage even when more CPU cycles are available from the host system. This means your application may be
 starved of CPU time, but your system appears idle.
 

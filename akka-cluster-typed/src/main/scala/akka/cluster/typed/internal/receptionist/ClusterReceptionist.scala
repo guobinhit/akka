@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.typed.internal.receptionist
@@ -7,6 +7,7 @@ package akka.cluster.typed.internal.receptionist
 import scala.concurrent.duration._
 
 import akka.actor.Address
+import akka.actor.ExtendedActorSystem
 import akka.actor.typed.{ ActorRef, Behavior }
 import akka.actor.typed.internal.receptionist.{ AbstractServiceKey, ReceptionistBehaviorProvider, ReceptionistMessages }
 import akka.actor.typed.receptionist.Receptionist.Command
@@ -26,7 +27,6 @@ import akka.cluster.ClusterEvent.ReachableMember
 import akka.cluster.ClusterEvent.UnreachableMember
 import akka.cluster.ddata.{ ORMultiMap, ORMultiMapKey, Replicator }
 import akka.cluster.ddata.SelfUniqueAddress
-import akka.remote.AddressUidExtension
 import akka.util.TypedMultiMap
 
 // just to provide a log class
@@ -38,7 +38,7 @@ private[typed] final class ClusterReceptionist
 @InternalApi
 private[typed] object ClusterReceptionist extends ReceptionistBehaviorProvider {
 
-  type SubscriptionsKV[K <: AbstractServiceKey] = ActorRef[ReceptionistMessages.Listing[K#Protocol]]
+  import ClusterReceptionistProtocol.SubscriptionsKV
   type SubscriptionRegistry = TypedMultiMap[AbstractServiceKey, SubscriptionsKV]
   type DDataKey = ORMultiMapKey[ServiceKey[_], Entry]
 
@@ -167,7 +167,7 @@ private[typed] object ClusterReceptionist extends ReceptionistBehaviorProvider {
       addTombstone(serviceInstance, key, tombstoneDeadline).copy(servicesPerActor = newServicesForActor)
     }
 
-    def removeSubscriber(subscriber: ActorRef[ReceptionistMessages.Listing[Any]]): ClusterReceptionist.State =
+    def removeSubscriber[T](subscriber: ActorRef[ReceptionistMessages.Listing[T]]): ClusterReceptionist.State =
       copy(subscriptions = subscriptions.valueRemoved(subscriber))
 
   }
@@ -176,7 +176,7 @@ private[typed] object ClusterReceptionist extends ReceptionistBehaviorProvider {
   final class Setup(ctx: ActorContext[Command]) {
     val classicSystem = ctx.system.toClassic
     val settings = ClusterReceptionistSettings(ctx.system)
-    val selfSystemUid = AddressUidExtension(classicSystem).longAddressUid
+    val selfSystemUid = classicSystem.asInstanceOf[ExtendedActorSystem].uid
     lazy val keepTombstonesFor = cluster.settings.PruneGossipTombstonesAfter match {
       case f: FiniteDuration => f
       case _                 => throw new IllegalStateException("Cannot actually happen")
@@ -208,6 +208,7 @@ private[typed] object ClusterReceptionist extends ReceptionistBehaviorProvider {
               ChangeFromReplicator(
                 changed.key.asInstanceOf[DDataKey],
                 changed.dataValue.asInstanceOf[ORMultiMap[ServiceKey[_], Entry]])
+            case _ => throw new IllegalArgumentException() // compiler exhaustiveness check pleaser
           }
 
         initialRegistry.allDdataKeys.foreach(key =>
@@ -403,6 +404,9 @@ private[typed] object ClusterReceptionist extends ReceptionistBehaviorProvider {
             Behaviors.same
           }
 
+        case _ =>
+          throw new IllegalArgumentException() // to please exhaustiveness check, compiler does not know about internal/public command
+
       }
 
       def onInternalCommand(cmd: InternalCommand): Behavior[Command] = cmd match {
@@ -587,7 +591,7 @@ private[typed] object ClusterReceptionist extends ReceptionistBehaviorProvider {
           // support two heterogeneous types of messages without union types
           case cmd: InternalCommand => onInternalCommand(cmd)
           case cmd: Command         => onCommand(cmd)
-          case _                    => Behaviors.unhandled
+          case null                 => Behaviors.unhandled
         }
       }
     }

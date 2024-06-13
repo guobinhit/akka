@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka
@@ -12,55 +12,54 @@ import com.typesafe.tools.mima.plugin.MimaPlugin.autoImport._
 
 object MiMa extends AutoPlugin {
 
-  private val latestPatchOf25 = 32
-  private val latestPatchOf26 = 10
+  //  akka-pki artifact was added in Akka 2.6.6
+  private val firstPatchOf26 = 6
+  private val latestPatchOf26 = 21
+  private val firstPatchOf27 = 0
+  private val latestPatchOf27 = 0
+  private val firstPatchOf28 = 0
+  private val latestPatchOf28 = 5
+  private val firstPatchOf29 = 0
+  private val latestPatchOf29 = 3
 
   override def requires = MimaPlugin
   override def trigger = allRequirements
 
+  val checkMimaFilterDirectories =
+    taskKey[Unit]("Check that the mima directories are correct compared to latest version")
+
   override val projectSettings = Seq(
     mimaReportSignatureProblems := true,
-    mimaPreviousArtifacts := akkaPreviousArtifacts(name.value, organization.value, scalaBinaryVersion.value))
+    mimaPreviousArtifacts := akkaPreviousArtifacts(name.value, organization.value, scalaBinaryVersion.value),
+    checkMimaFilterDirectories := checkFilterDirectories(baseDirectory.value))
+
+  def checkFilterDirectories(moduleRoot: File): Unit = {
+    val nextVersionFilterDir = moduleRoot / "src" / "main" / "mima-filters" / s"2.9.${latestPatchOf29 + 1}.backwards.excludes"
+    if (nextVersionFilterDir.exists()) {
+      throw new IllegalArgumentException(s"Incorrect mima filter directory exists: '$nextVersionFilterDir' " +
+      s"should be with number from current release '${moduleRoot / "src" / "main" / "mima-filters" / s"2.9.$latestPatchOf29.backwards.excludes"}")
+    }
+  }
 
   def akkaPreviousArtifacts(
       projectName: String,
       organization: String,
       scalaBinaryVersion: String): Set[sbt.ModuleID] = {
-
-    val versions: Seq[String] = {
-      val firstPatchOf25 =
-        if (scalaBinaryVersion.startsWith("2.13")) 25
-        else if (projectName.contains("discovery")) 19
-        else if (projectName.contains("coordination")) 22
-        else 0
-
-      val akka25Previous =
-        if (!(projectName.contains("typed") || projectName.contains("jackson"))) {
-          // 2.5.18 is the only release built with Scala 2.12.7, which due to
-          // https://github.com/scala/bug/issues/11207 produced many more
-          // static methods than expected. These are hard to filter out, so
-          // we exclude it here and rely on the checks for 2.5.17 and 2.5.19.
-          // Additionally, 2.5.30 had some problems related to
-          // https://github.com/akka/akka/issues/28807
-          expandVersions(2, 5, ((firstPatchOf25 to latestPatchOf25).toSet - 18 - 30).toList)
-        } else {
-          Nil
-        }
-      val akka26Previous = expandVersions(2, 6, 0 to latestPatchOf26)
-
-      akka25Previous ++ akka26Previous
-    }
-
-    val akka25PromotedArtifacts = Set("akka-distributed-data")
+    val akka28Previous = expandVersions(2, 8, firstPatchOf28 to latestPatchOf28) :+ "2.7.0"
+    val akka29Previous = expandVersions(2, 9, firstPatchOf29 to latestPatchOf29)
+    val versions: Seq[String] =
+      if (scalaBinaryVersion.startsWith("3")) {
+        // was experimental before 2.7.0
+        akka28Previous ++ akka29Previous
+      } else {
+        val akka26Previous = expandVersions(2, 6, firstPatchOf26 to latestPatchOf26)
+        val akka27Previous = expandVersions(2, 7, firstPatchOf27 to latestPatchOf27)
+        akka26Previous ++ akka27Previous ++ akka28Previous ++ akka29Previous
+      }
 
     // check against all binary compatible artifacts
     versions.map { v =>
-      val adjustedProjectName =
-        if (akka25PromotedArtifacts(projectName) && v.startsWith("2.4"))
-          projectName + "-experimental"
-        else
-          projectName
-      organization %% adjustedProjectName % v
+      organization %% projectName % v
     }.toSet
   }
 

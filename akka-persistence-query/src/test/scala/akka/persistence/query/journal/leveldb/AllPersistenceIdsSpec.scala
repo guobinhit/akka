@@ -1,9 +1,10 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.query.journal.leveldb
 
+import scala.annotation.nowarn
 import scala.concurrent.duration._
 
 import akka.persistence.query.PersistenceQuery
@@ -27,6 +28,7 @@ object AllPersistenceIdsSpec {
 
 class AllPersistenceIdsSpec extends AkkaSpec(AllPersistenceIdsSpec.config) with Cleanup with ImplicitSender {
 
+  @nowarn("msg=deprecated")
   val queries = PersistenceQuery(system).readJournalFor[LeveldbReadJournal](LeveldbReadJournal.Identifier)
 
   "Leveldb query AllPersistenceIds" must {
@@ -44,7 +46,7 @@ class AllPersistenceIdsSpec extends AkkaSpec(AllPersistenceIdsSpec.config) with 
       expectMsg("c1-done")
 
       val src = queries.currentPersistenceIds()
-      val probe = src.runWith(TestSink.probe[String])
+      val probe = src.runWith(TestSink[String]())
       probe.within(10.seconds) {
         probe.request(5).expectNextUnordered("a", "b", "c").expectComplete()
       }
@@ -56,7 +58,7 @@ class AllPersistenceIdsSpec extends AkkaSpec(AllPersistenceIdsSpec.config) with 
       expectMsg("d1-done")
 
       val src = queries.persistenceIds()
-      val probe = src.runWith(TestSink.probe[String])
+      val probe = src.runWith(TestSink[String]())
       probe.within(10.seconds) {
         probe.request(5).expectNextUnorderedN(List("a", "b", "c", "d"))
 

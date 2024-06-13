@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor
@@ -31,7 +31,8 @@ class TellOnlyBenchmark {
   def setup(): Unit = {
     system = ActorSystem(
       "TellOnlyBenchmark",
-      ConfigFactory.parseString(s"""| akka {
+      ConfigFactory.parseString(s"""
+          | akka {
           |   log-dead-letters = off
           |   actor {
           |     default-dispatcher {
@@ -143,7 +144,7 @@ object TellOnlyBenchmark {
       mbox.enqueue(receiver.self, invocation)
       mbox.messageQueue match {
         case mb: DroppingMessageQueue if mb.dropping => // do nothing
-        case _                                       => registerForExecution(mbox, true, false)
+        case _                                       => registerForExecution(mbox, hasMessageHint = true, hasSystemMessageHint = false)
       }
     }
   }

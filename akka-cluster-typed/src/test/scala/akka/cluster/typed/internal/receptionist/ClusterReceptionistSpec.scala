@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.typed.internal.receptionist
@@ -8,9 +8,12 @@ import java.util.concurrent.ThreadLocalRandom
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
+
 import com.typesafe.config.ConfigFactory
+import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+
 import akka.actor.RootActorPath
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
@@ -28,19 +31,15 @@ import akka.cluster.typed.Join
 import akka.cluster.typed.JoinSeedNodes
 import akka.cluster.typed.Leave
 import akka.serialization.jackson.CborSerializable
+import akka.testkit.GHExcludeAeronTest
 import akka.testkit.LongRunningTest
-import org.scalatest.concurrent.ScalaFutures
 
 object ClusterReceptionistSpec {
-  val config = ConfigFactory.parseString(s"""
+  val config = ConfigFactory.parseString("""
       akka.loglevel = DEBUG # issue #24960
       akka.actor.provider = cluster
-      akka.remote.classic.netty.tcp.port = 0
-      akka.remote.classic.netty.tcp.host = 127.0.0.1
       akka.remote.artery.canonical.port = 0
       akka.remote.artery.canonical.hostname = 127.0.0.1
-
-      akka.remote.retry-gate-closed-for = 1 s
 
       akka.cluster.typed.receptionist {
         pruning-interval = 1 s
@@ -56,19 +55,17 @@ object ClusterReceptionistSpec {
     """)
 
   case object Pong extends CborSerializable
-  trait PingProtocol
+  sealed trait PingProtocol
   case class Ping(respondTo: ActorRef[Pong.type]) extends PingProtocol with CborSerializable
   case object Perish extends PingProtocol with CborSerializable
 
-  val pingPongBehavior = Behaviors.receive[PingProtocol] { (_, msg) =>
-    msg match {
-      case Ping(respondTo) =>
-        respondTo ! Pong
-        Behaviors.same
+  val pingPongBehavior = Behaviors.receiveMessage[PingProtocol] {
+    case Ping(respondTo) =>
+      respondTo ! Pong
+      Behaviors.same
 
-      case Perish =>
-        Behaviors.stopped
-    }
+    case Perish =>
+      Behaviors.stopped
   }
 
   val PingKey = ServiceKey[PingProtocol]("pingy")
@@ -82,7 +79,7 @@ class ClusterReceptionistSpec extends AnyWordSpec with Matchers with LogCapturin
 
   "The cluster receptionist" must {
 
-    "eventually replicate registrations to the other side" taggedAs (LongRunningTest) in {
+    "eventually replicate registrations to the other side".taggedAs(LongRunningTest, GHExcludeAeronTest) in {
       val testKit1 = ActorTestKit("ClusterReceptionistSpec-test-1", ClusterReceptionistSpec.config)
       val system1 = testKit1.system
       val testKit2 = ActorTestKit(system1.name, system1.settings.config)
@@ -104,7 +101,10 @@ class ClusterReceptionistSpec extends AnyWordSpec with Matchers with LogCapturin
         testKit1.system.receptionist ! Register(PingKey, service, regProbe1.ref)
         regProbe1.expectMessage(Registered(PingKey, service))
 
-        val PingKey.Listing(remoteServiceRefs) = regProbe2.expectMessageType[Listing]
+        val remoteServiceRefs = regProbe2.expectMessageType[Listing] match {
+          case PingKey.Listing(r) => r
+          case unexpected         => throw new RuntimeException(s"Unexpected: $unexpected")
+        }
         val theRef = remoteServiceRefs.head
         theRef ! Ping(regProbe2.ref)
         regProbe2.expectMessage(Pong)
@@ -117,7 +117,7 @@ class ClusterReceptionistSpec extends AnyWordSpec with Matchers with LogCapturin
       }
     }
 
-    "handle registrations before joining" taggedAs (LongRunningTest) in {
+    "handle registrations before joining".taggedAs(LongRunningTest, GHExcludeAeronTest) in {
       val testKit1 = ActorTestKit("ClusterReceptionistSpec-test-2", ClusterReceptionistSpec.config)
       val system1 = testKit1.system
       val testKit2 = ActorTestKit(system1.name, system1.settings.config)
@@ -136,7 +136,10 @@ class ClusterReceptionistSpec extends AnyWordSpec with Matchers with LogCapturin
         val clusterNode2 = Cluster(system2)
         clusterNode2.manager ! Join(clusterNode1.selfMember.address)
 
-        val PingKey.Listing(remoteServiceRefs) = regProbe2.expectMessageType[Listing](10.seconds)
+        val remoteServiceRefs = regProbe2.expectMessageType[Listing](10.seconds) match {
+          case PingKey.Listing(r) => r
+          case unexpected         => throw new RuntimeException(s"Unexpected: $unexpected")
+        }
         remoteServiceRefs.head.path.address should ===(Cluster(system1).selfMember.address)
       } finally {
         testKit1.shutdownTestKit()
@@ -144,11 +147,11 @@ class ClusterReceptionistSpec extends AnyWordSpec with Matchers with LogCapturin
       }
     }
 
-    "remove registrations when node dies" taggedAs (LongRunningTest) in {
+    "remove registrations when node dies".taggedAs(LongRunningTest, GHExcludeAeronTest) in {
       testNodeRemoval(down = true)
     }
 
-    "remove registrations when node leaves" taggedAs (LongRunningTest) in {
+    "remove registrations when node leaves".taggedAs(LongRunningTest, GHExcludeAeronTest) in {
       testNodeRemoval(down = false)
     }
 
@@ -211,7 +214,7 @@ class ClusterReceptionistSpec extends AnyWordSpec with Matchers with LogCapturin
       }
     }
 
-    "not remove registrations when self is shutdown" taggedAs (LongRunningTest) in {
+    "not remove registrations when self is shutdown".taggedAs(LongRunningTest, GHExcludeAeronTest) in {
       val testKit1 = ActorTestKit("ClusterReceptionistSpec-test-4", ClusterReceptionistSpec.config)
       val system1 = testKit1.system
       val testKit2 = ActorTestKit(system1.name, system1.settings.config)
@@ -260,7 +263,7 @@ class ClusterReceptionistSpec extends AnyWordSpec with Matchers with LogCapturin
 
     }
 
-    "work with services registered before node joins cluster" taggedAs (LongRunningTest) in {
+    "work with services registered before node joins cluster".taggedAs(LongRunningTest, GHExcludeAeronTest) in {
       val testKit1 = ActorTestKit("ClusterReceptionistSpec-test-5", ClusterReceptionistSpec.config)
       val system1 = testKit1.system
       val testKit2 = ActorTestKit(system1.name, system1.settings.config)
@@ -318,7 +321,7 @@ class ClusterReceptionistSpec extends AnyWordSpec with Matchers with LogCapturin
       }
     }
 
-    "handle a new incarnation of the same node well" taggedAs (LongRunningTest) in {
+    "handle a new incarnation of the same node well".taggedAs(LongRunningTest, GHExcludeAeronTest) in {
       val testKit1 = ActorTestKit("ClusterReceptionistSpec-test-6", ClusterReceptionistSpec.config)
       val system1 = testKit1.system
       val testKit2 = ActorTestKit(system1.name, system1.settings.config)
@@ -356,7 +359,6 @@ class ClusterReceptionistSpec extends AnyWordSpec with Matchers with LogCapturin
         val testKit3 = ActorTestKit(
           system1.name,
           ConfigFactory.parseString(s"""
-            akka.remote.classic.netty.tcp.port = ${clusterNode2.selfMember.address.port.get}
             akka.remote.artery.canonical.port = ${clusterNode2.selfMember.address.port.get}
             # retry joining when existing member removed
             akka.cluster.retry-unsuccessful-join-after = 1s
@@ -392,11 +394,14 @@ class ClusterReceptionistSpec extends AnyWordSpec with Matchers with LogCapturin
 
           // we should get either empty message and then updated with the new incarnation actor
           // or just updated with the new service directly
-          val msg = regProbe1.fishForMessage(20.seconds) {
+          val msg = regProbe1.fishForMessagePF(20.seconds) {
             case PingKey.Listing(entries) if entries.size == 1 => FishingOutcome.Complete
             case _: Listing                                    => FishingOutcome.ContinueAndIgnore
           }
-          val PingKey.Listing(entries) = msg.last
+          val entries = msg.last match {
+            case PingKey.Listing(e) => e
+            case unexpected         => throw new RuntimeException(s"Unexpected: $unexpected")
+          }
           entries should have size 1
           val ref = entries.head
           val service3RemotePath = RootActorPath(clusterNode3.selfMember.address) / "user" / "instance"
@@ -416,7 +421,9 @@ class ClusterReceptionistSpec extends AnyWordSpec with Matchers with LogCapturin
     }
 
     // reproducer of issue #26284
-    "handle a new incarnation of the same node that is no longer part of same cluster" taggedAs (LongRunningTest) in {
+    "handle a new incarnation of the same node that is no longer part of same cluster".taggedAs(
+      LongRunningTest,
+      GHExcludeAeronTest) in {
       val testKit1 = ActorTestKit(
         "ClusterReceptionistSpec-test-7",
         ConfigFactory.parseString("""
@@ -467,7 +474,6 @@ class ClusterReceptionistSpec extends AnyWordSpec with Matchers with LogCapturin
         val testKit3 = ActorTestKit(
           system1.name,
           ConfigFactory.parseString(s"""
-            akka.remote.classic.netty.tcp.port = ${clusterNode2.selfMember.address.port.get}
             akka.remote.artery.canonical.port = ${clusterNode2.selfMember.address.port.get}
           """).withFallback(config))
 
@@ -520,7 +526,7 @@ class ClusterReceptionistSpec extends AnyWordSpec with Matchers with LogCapturin
       }
     }
 
-    "not lose removals on concurrent updates to same key" taggedAs (LongRunningTest) in {
+    "not lose removals on concurrent updates to same key".taggedAs(LongRunningTest, GHExcludeAeronTest) in {
       val config = ConfigFactory.parseString("""
           # disable delta propagation so we can have repeatable concurrent writes
           # without delta reaching between nodes already
@@ -557,7 +563,7 @@ class ClusterReceptionistSpec extends AnyWordSpec with Matchers with LogCapturin
         regProbe1.awaitAssert(regProbe1.expectMessage(Listing(TheKey, Set(actor1))), 5.seconds)
 
         system2.receptionist ! Subscribe(TheKey, regProbe2.ref)
-        regProbe2.fishForMessage(10.seconds) {
+        regProbe2.fishForMessagePF(10.seconds) {
           case TheKey.Listing(actors) if actors.nonEmpty =>
             FishingOutcomes.complete
           case _ => FishingOutcomes.continue
@@ -572,13 +578,13 @@ class ClusterReceptionistSpec extends AnyWordSpec with Matchers with LogCapturin
         system2.log.info("actor2 registered")
 
         // we should now, eventually, see the removal on both nodes
-        regProbe1.fishForMessage(10.seconds) {
+        regProbe1.fishForMessagePF(10.seconds) {
           case TheKey.Listing(actors) if actors.size == 1 =>
             FishingOutcomes.complete
           case _ =>
             FishingOutcomes.continue
         }
-        regProbe2.fishForMessage(10.seconds) {
+        regProbe2.fishForMessagePF(10.seconds) {
           case TheKey.Listing(actors) if actors.size == 1 =>
             FishingOutcomes.complete
           case _ =>
@@ -591,7 +597,7 @@ class ClusterReceptionistSpec extends AnyWordSpec with Matchers with LogCapturin
       }
     }
 
-    "not conflict with the ClusterClient receptionist default name" taggedAs (LongRunningTest) in {
+    "not conflict with the ClusterClient receptionist default name".taggedAs(LongRunningTest, GHExcludeAeronTest) in {
       val testKit = ActorTestKit(s"ClusterReceptionistSpec-test-9", ClusterReceptionistSpec.config)
       try {
         testKit.system.systemActorOf(Behaviors.ignore, "receptionist")
@@ -600,7 +606,7 @@ class ClusterReceptionistSpec extends AnyWordSpec with Matchers with LogCapturin
       }
     }
 
-    "handle unregistration and re-registration of services" taggedAs (LongRunningTest) in {
+    "handle unregistration and re-registration of services".taggedAs(LongRunningTest, GHExcludeAeronTest) in {
       val testKit1 = ActorTestKit("ClusterReceptionistSpec-test-10", ClusterReceptionistSpec.config)
       val system1 = testKit1.system
       val testKit2 = ActorTestKit(system1.name, system1.settings.config)
@@ -658,7 +664,7 @@ class ClusterReceptionistSpec extends AnyWordSpec with Matchers with LogCapturin
 
     }
 
-    "handle unregistration per key not per actor" taggedAs (LongRunningTest) in {
+    "handle unregistration per key not per actor".taggedAs(LongRunningTest, GHExcludeAeronTest) in {
       val testKit1 = ActorTestKit("ClusterReceptionistSpec-test-11", ClusterReceptionistSpec.config)
       val system1 = testKit1.system
       val testKit2 = ActorTestKit(system1.name, system1.settings.config)
@@ -710,7 +716,7 @@ class ClusterReceptionistSpec extends AnyWordSpec with Matchers with LogCapturin
 
     }
 
-    "handle concurrent unregistration and registration on different nodes" taggedAs (LongRunningTest) in {
+    "handle concurrent unregistration and registration on different nodes".taggedAs(LongRunningTest, GHExcludeAeronTest) in {
       // this covers the fact that with ddata a removal can be lost
       val testKit1 = ActorTestKit("ClusterReceptionistSpec-test-12", ClusterReceptionistSpec.config)
       val system1 = testKit1.system
@@ -747,14 +753,14 @@ class ClusterReceptionistSpec extends AnyWordSpec with Matchers with LogCapturin
         regProbe1.expectMessage(Deregistered(PingKey, service1))
         regProbe2.expectMessage(Registered(PingKey, service2))
 
-        regProbe2.fishForMessage(3.seconds) {
+        regProbe2.fishForMessagePF(3.seconds) {
           case PingKey.Listing(actors) if actors == Set(service2) => FishingOutcomes.complete
           case PingKey.Listing(actors) if actors.size == 2        =>
             // we may see both actors before we see the removal
             FishingOutcomes.continueAndIgnore
         }
 
-        regProbe1.fishForMessage(3.seconds) {
+        regProbe1.fishForMessagePF(3.seconds) {
           case PingKey.Listing(actors) if actors.size == 1 => FishingOutcomes.complete
           case PingKey.Listing(actors) if actors.isEmpty   => FishingOutcomes.continueAndIgnore
         }
@@ -769,7 +775,7 @@ class ClusterReceptionistSpec extends AnyWordSpec with Matchers with LogCapturin
     }
     // Fixme concurrent registration and unregistration
 
-    "notify subscribers when registering and joining simultaneously" taggedAs (LongRunningTest) in {
+    "notify subscribers when registering and joining simultaneously".taggedAs(LongRunningTest, GHExcludeAeronTest) in {
       // failing test reproducer for issue #28792
       // It's possible that the registry entry from the ddata update arrives before MemberJoined.
       val config = ConfigFactory.parseString("""
@@ -818,7 +824,7 @@ class ClusterReceptionistSpec extends AnyWordSpec with Matchers with LogCapturin
 
         // eventually, all should be included in the Listing
         (0 until numberOfNodes).foreach { i =>
-          probes(i).fishForMessage(10.seconds, s"$i") {
+          probes(i).fishForMessagePF(10.seconds, s"$i") {
             case PingKey.Listing(actors) if actors.size == numberOfNodes => FishingOutcomes.complete
             case PingKey.Listing(_)                                      => FishingOutcomes.continue
           }
@@ -832,7 +838,7 @@ class ClusterReceptionistSpec extends AnyWordSpec with Matchers with LogCapturin
       }
     }
 
-    "never use durable store" taggedAs (LongRunningTest) in {
+    "never use durable store".taggedAs(LongRunningTest, GHExcludeAeronTest) in {
       val testKit = ActorTestKit("ClusterReceptionistSpec-test-14", ClusterReceptionistSpec.config)
       val system = testKit.system
       try {

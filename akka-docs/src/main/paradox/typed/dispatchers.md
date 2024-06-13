@@ -8,9 +8,20 @@ You are viewing the documentation for the new actor APIs, to view the Akka Class
 ## Dependency
 
 Dispatchers are part of core Akka, which means that they are part of the `akka-actor` dependency. This
-page describes how to use dispatchers with `akka-actor-typed`, which has dependency:
+page describes how to use dispatchers with `akka-actor-typed`.
+
+The Akka dependencies are available from Akka's library repository. To access them there, you need to configure the URL for this repository.
+
+@@repository [sbt,Maven,Gradle] {
+id="akka-repository"
+name="Akka library repository"
+url="https://repo.akka.io/maven"
+}
+
+Additionally, add the dependency as below.
 
 @@dependency[sbt,Maven,Gradle] {
+  bomGroup=com.typesafe.akka bomArtifact=akka-bom_$scala.binary.version$ bomVersionSymbols=AkkaVersion
   symbol1=AkkaVersion
   value1="$akka.version$"
   group="com.typesafe.akka"
@@ -221,8 +232,8 @@ leads to thread starvation.
 
 @@@ note
 
-If you own a Lightbend subscription you can use the commercial [Thread Starvation Detector](https://doc.akka.io/docs/akka-enhancements/current/starvation-detector.html)
-which will issue warning log statements if it detects any of your dispatchers suffering from starvation and other.
+[Thread Starvation Detector](https://doc.akka.io/docs/akka-diagnostics/current/starvation-detector.html)
+will issue warning log statements if it detects any of your dispatchers suffering from starvation and other.
 It is a helpful first step to identify the problem is occurring in a production system,
 and then you can apply the proposed solutions as explained below.
 

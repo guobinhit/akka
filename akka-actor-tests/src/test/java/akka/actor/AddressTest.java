@@ -1,18 +1,14 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor;
-/*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
- */
-
-import org.junit.Test;
-import org.scalatestplus.junit.JUnitSuite;
-
-import java.util.Optional;
 
 import static org.junit.Assert.assertEquals;
+
+import java.util.Optional;
+import org.junit.Test;
+import org.scalatestplus.junit.JUnitSuite;
 
 public class AddressTest extends JUnitSuite {
 

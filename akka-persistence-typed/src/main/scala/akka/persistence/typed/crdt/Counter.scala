@@ -1,11 +1,9 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.crdt
-import akka.annotation.ApiMayChange
 
-@ApiMayChange
 object Counter {
   val empty: Counter = Counter(0)
 
@@ -23,7 +21,6 @@ object Counter {
   }
 }
 
-@ApiMayChange
 final case class Counter(value: BigInt) extends OpCrdt[Counter.Updated] {
 
   override type T = Counter

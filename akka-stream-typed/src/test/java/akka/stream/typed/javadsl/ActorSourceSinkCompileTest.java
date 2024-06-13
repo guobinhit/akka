@@ -1,16 +1,14 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.typed.javadsl;
 
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.ActorSystem;
-import akka.japi.JavaPartialFunction;
 import akka.stream.OverflowStrategy;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
-
 import java.util.Optional;
 
 public class ActorSourceSinkCompileTest {
@@ -34,7 +32,7 @@ public class ActorSourceSinkCompileTest {
   {
     final ActorRef<String> ref = null;
 
-    Source.<String>queue(10, OverflowStrategy.dropBuffer())
+    Source.<String>queue(10)
         .map(s -> s + "!")
         .to(ActorSink.actorRef(ref, "DONE", ex -> "FAILED: " + ex.getMessage()));
   }
@@ -42,7 +40,7 @@ public class ActorSourceSinkCompileTest {
   {
     final ActorRef<Protocol> ref = null;
 
-    Source.<String>queue(10, OverflowStrategy.dropBuffer())
+    Source.<String>queue(10)
         .to(
             ActorSink.actorRefWithBackpressure(
                 ref,

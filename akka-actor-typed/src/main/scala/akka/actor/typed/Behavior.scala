@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed
@@ -13,9 +13,11 @@ import akka.actor.typed.internal.BehaviorImpl
 import akka.actor.typed.internal.BehaviorImpl.DeferredBehavior
 import akka.actor.typed.internal.BehaviorImpl.StoppedBehavior
 import akka.actor.typed.internal.BehaviorTags
+import akka.actor.typed.internal.CachedProps
 import akka.actor.typed.internal.InterceptorImpl
 import akka.annotation.DoNotInherit
 import akka.annotation.InternalApi
+import akka.util.OptionVal
 
 /**
  * The behavior of an actor defines how it reacts to the messages that it
@@ -39,6 +41,12 @@ import akka.annotation.InternalApi
  */
 @DoNotInherit
 abstract class Behavior[T](private[akka] val _tag: Int) { behavior =>
+
+  /**
+   * INTERNAL API
+   */
+  @InternalApi
+  @volatile private[akka] var _internalClassicPropsCache: OptionVal[CachedProps] = OptionVal.None
 
   /**
    * Narrow the type of this Behavior, which is always a safe operation. This

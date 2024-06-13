@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -10,17 +10,17 @@ import java.util.concurrent.ConcurrentHashMap
 import scala.annotation.tailrec
 import scala.util.control.NonFatal
 
-import akka.actor.ActorSystem
-import akka.actor.WrappedMessage
 import akka.actor.ActorRef
+import akka.actor.ActorSystem
 import akka.actor.ExtendedActorSystem
+import akka.actor.WrappedMessage
 import akka.annotation.InternalApi
 import akka.annotation.InternalStableApi
 import akka.event.Logging
 import akka.event.LoggingAdapter
 import akka.remote.RemoteActorRefProvider
-import akka.util.ccompat._
 import akka.util.OptionVal
+import akka.util.ccompat._
 import akka.util.unused
 
 /**
@@ -99,7 +99,7 @@ abstract class RemoteInstrument {
     .settings
   private val logFrameSizeExceeding = settings.LogFrameSizeExceeding.get
 
-  private val log = Logging(system, this.getClass)
+  private val log = Logging(system, classOf[LoggingRemoteInstrument])
 
   private val maxPayloadBytes: ConcurrentHashMap[Class[_], Integer] = new ConcurrentHashMap
 

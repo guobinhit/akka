@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.testkit.metrics
@@ -18,7 +18,6 @@ trait MetricKeyDSL {
   object MetricKey {
     def fromString(root: String) = MetricKey(sanitizeMetricKeyPart(root))
 
-    // todo not sure what else needs replacing, while keeping key as readable as can be
     private def sanitizeMetricKeyPart(keyPart: String) =
       keyPart
         .replaceAll("""\.\.\.""", "\u2026") // ... => …

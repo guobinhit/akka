@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.dispatch
@@ -16,6 +16,7 @@ import com.typesafe.config.{ Config, ConfigFactory }
 
 import akka.ConfigurationException
 import akka.actor.{ Actor, ActorRef, ActorSystem, DeadLetter, Deploy, DynamicAccess, Props }
+import akka.annotation.InternalStableApi
 import akka.dispatch.sysmsg.{
   EarliestFirstSystemMessageList,
   LatestFirstSystemMessageList,
@@ -41,10 +42,7 @@ private[akka] class Mailboxes(
   import Mailboxes._
 
   val deadLetterMailbox: Mailbox = new Mailbox(new MessageQueue {
-    def enqueue(receiver: ActorRef, envelope: Envelope): Unit = envelope.message match {
-      case _: DeadLetter => // actor subscribing to DeadLetter, drop it
-      case msg           => deadLetters.tell(DeadLetter(msg, envelope.sender, receiver), envelope.sender)
-    }
+    def enqueue(receiver: ActorRef, envelope: Envelope): Unit = onDeadLetterMailboxEnqueue(receiver, envelope)
     def dequeue() = null
     def hasMessages = false
     def numberOfMessages = 0
@@ -55,6 +53,12 @@ private[akka] class Mailboxes(
       deadLetters ! DeadLetter(handle, receiver, receiver)
     def systemDrain(newContents: LatestFirstSystemMessageList): EarliestFirstSystemMessageList = SystemMessageList.ENil
     def hasSystemMessages = false
+  }
+
+  @InternalStableApi
+  private[akka] def onDeadLetterMailboxEnqueue(receiver: ActorRef, envelope: Envelope): Unit = envelope.message match {
+    case _: DeadLetter => // actor subscribing to DeadLetter, drop it
+    case msg           => deadLetters.tell(DeadLetter(msg, envelope.sender, receiver), envelope.sender)
   }
 
   private val mailboxTypeConfigurators = new ConcurrentHashMap[String, MailboxType]
@@ -108,10 +112,11 @@ private[akka] class Mailboxes(
           case x =>
             throw new IllegalArgumentException(s"no wildcard type allowed in RequireMessageQueue argument (was [$x])")
         }
+      case unexpected =>
+        throw new IllegalArgumentException(s"Unexpected actor class marker: $unexpected") // will not happen, for exhaustiveness check
     }
 
   // don’t care if this happens twice
-  private var mailboxSizeWarningIssued = false
   private var mailboxNonZeroPushTimeoutWarningIssued = false
 
   def getMailboxRequirement(config: Config) = config.getString("mailbox-requirement") match {
@@ -131,6 +136,8 @@ private[akka] class Mailboxes(
               throw new IllegalArgumentException(
                 s"no wildcard type allowed in ProducesMessageQueue argument (was [$x])")
           }
+        case unexpected =>
+          throw new IllegalArgumentException(s"Unexpected message queue type marker: $unexpected") // will not happen, for exhaustiveness check
       }
   }
 
@@ -150,16 +157,6 @@ private[akka] class Mailboxes(
     val hasMailboxType =
       dispatcherConfig.hasPath("mailbox-type") &&
       dispatcherConfig.getString("mailbox-type") != Deploy.NoMailboxGiven
-
-    // TODO remove in 2.3
-    if (!hasMailboxType && !mailboxSizeWarningIssued && dispatcherConfig.hasPath("mailbox-size")) {
-      eventStream.publish(
-        Warning(
-          "mailboxes",
-          getClass,
-          s"ignoring setting 'mailbox-size' for dispatcher [$id], you need to specify 'mailbox-type=bounded'"))
-      mailboxSizeWarningIssued = true
-    }
 
     def verifyRequirements(mailboxType: MailboxType): MailboxType = {
       lazy val mqType: Class[_] = getProducedMessageQueueType(mailboxType)

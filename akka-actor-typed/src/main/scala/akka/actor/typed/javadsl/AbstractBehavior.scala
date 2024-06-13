@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.javadsl
@@ -41,11 +41,11 @@ abstract class AbstractBehavior[T](context: ActorContext[T]) extends ExtensibleB
 
   private var _receive: OptionVal[Receive[T]] = OptionVal.None
   private def receive: Receive[T] = _receive match {
-    case OptionVal.None =>
+    case OptionVal.Some(r) => r
+    case _ =>
       val receive = createReceive
       _receive = OptionVal.Some(receive)
       receive
-    case OptionVal.Some(r) => r
   }
 
   protected def getContext: ActorContext[T] = context

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.testkit.scaladsl
@@ -56,7 +56,7 @@ private[testkit] trait RejectSupport[U] {
 
 }
 
-private[testkit] trait PolicyOpsTestKit[P] extends {
+private[testkit] trait PolicyOpsTestKit[P] {
   this: HasStorage[P, _] =>
 
   private[testkit] val Policies: DefaultPolicies[P]

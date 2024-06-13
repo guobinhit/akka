@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.akka.typed.extensions;
@@ -10,7 +10,6 @@ import akka.actor.typed.Extension;
 import akka.actor.typed.ExtensionId;
 import akka.actor.typed.javadsl.Behaviors;
 import docs.akka.typed.extensions.DatabasePool;
-
 import java.util.concurrent.CompletionStage;
 
 interface ExtensionDocTest {

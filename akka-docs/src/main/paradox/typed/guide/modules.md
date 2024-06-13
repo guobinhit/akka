@@ -1,8 +1,8 @@
 # Overview of Akka libraries and modules
 
-Before delving into some best practices for writing actors, it will be helpful to preview the most commonly used Akka libraries. This will help you start thinking about the functionality you want to use in your system. All core Akka functionality is available as Open Source Software (OSS). Lightbend sponsors Akka development but can also help you with [commercial offerings ](https://www.lightbend.com/lightbend-subscription) such as training, consulting, support, and [Enterprise capabilities](https://www.lightbend.com/why-lightbend#enterprise-capabilities) &#8212; a comprehensive set of tools for managing Akka systems.
+Before delving into some best practices for writing actors, it will be helpful to preview the most commonly used Akka libraries. This will help you start thinking about the functionality you want to use in your system. All core Akka functionality is source available. Lightbend sponsors Akka development but can also help you with [commercial offerings ](https://www.lightbend.com/lightbend-subscription) such as training, consulting, support, and [Enterprise capabilities](https://www.lightbend.com/why-lightbend#enterprise-capabilities) &#8212; a comprehensive set of tools for managing Akka systems.
 
-The following capabilities are included with Akka OSS and are introduced later on this page:
+The following capabilities are included with Akka and are introduced later on this page:
 
 * @ref:[Actor library](#actor-library)
 * @ref:[Remoting](#remoting)
@@ -10,28 +10,30 @@ The following capabilities are included with Akka OSS and are introduced later o
 * @ref:[Cluster Sharding](#cluster-sharding)
 * @ref:[Cluster Singleton](#cluster-singleton)
 * @ref:[Persistence](#persistence)
+* @ref:[Projections](#projections)
 * @ref:[Distributed Data](#distributed-data)
 * @ref:[Streams](#streams)
+* @ref:[Alpakka](#alpakka)
 * @ref:[HTTP](#http)
-
-With a [Lightbend Platform Subscription](https://www.lightbend.com/lightbend-subscription), you can use [Akka Enhancements](https://doc.akka.io/docs/akka-enhancements/current/) that includes:
-
-[Akka Resilience Enhancements](https://doc.akka.io/docs/akka-enhancements/current/akka-resilience-enhancements.html):
-
-* [Configuration Checker](https://doc.akka.io/docs/akka-enhancements/current/config-checker.html) &#8212; Checks for potential configuration issues and logs suggestions.
-* [Diagnostics Recorder](https://doc.akka.io/docs/akka-enhancements/current/diagnostics-recorder.html) &#8212; Captures configuration and system information in a format that makes it easy to troubleshoot issues during development and production.
-* [Thread Starvation Detector](https://doc.akka.io/docs/akka-enhancements/current/starvation-detector.html) &#8212; Monitors an Akka system dispatcher and logs warnings if it becomes unresponsive.
-* [Fast Failover](https://doc.akka.io/docs/akka-enhancements/current/fast-failover.html) &#8212; Fast failover for Cluster Sharding.
-
-[Akka Persistence Enhancements](https://doc.akka.io/docs/akka-enhancements/current/akka-persistence-enhancements.html):
-
-* [GDPR for Akka Persistence](https://doc.akka.io/docs/akka-enhancements/current/gdpr/index.html) &#8212; Data shredding can be used to forget information in events.
+* @ref:[gRPC](#grpc)
+* [Other Akka modules](https://doc.akka.io/docs/akka/current/common/other-modules.html)
 
 This page does not list all available modules, but overviews the main functionality and gives you an idea of the level of sophistication you can reach when you start building systems on top of Akka.
 
 ### Actor library
 
+The Akka dependencies are available from Akka's library repository. To access them there, you need to configure the URL for this repository.
+
+@@repository [sbt,Maven,Gradle] {
+id="akka-repository"
+name="Akka library repository"
+url="https://repo.akka.io/maven"
+}
+
+Additionally, add the dependency as below.
+
 @@dependency[sbt,Maven,Gradle] {
+  bomGroup=com.typesafe.akka bomArtifact=akka-bom_$scala.binary.version$ bomVersionSymbols=AkkaVersion
   symbol1=AkkaVersion
   value1="$akka.version$"
   group=com.typesafe.akka
@@ -58,7 +60,18 @@ Challenges that actors solve include the following:
 
 ### Remoting
 
+The Akka dependencies are available from Akka's library repository. To access them there, you need to configure the URL for this repository.
+
+@@repository [sbt,Maven,Gradle] {
+id="akka-repository"
+name="Akka library repository"
+url="https://repo.akka.io/maven"
+}
+
+Additionally, add the dependency as below.
+
 @@dependency[sbt,Maven,Gradle] {
+  bomGroup=com.typesafe.akka bomArtifact=akka-bom_$scala.binary.version$ bomVersionSymbols=AkkaVersion
   symbol1=AkkaVersion
   value1="$akka.version$"
   group=com.typesafe.akka
@@ -83,7 +96,18 @@ Challenges Remoting solves include the following:
 
 ### Cluster
 
+The Akka dependencies are available from Akka's library repository. To access them there, you need to configure the URL for this repository.
+
+@@repository [sbt,Maven,Gradle] {
+id="akka-repository"
+name="Akka library repository"
+url="https://repo.akka.io/maven"
+}
+
+Additionally, add the dependency as below.
+
 @@dependency[sbt,Maven,Gradle] {
+  bomGroup=com.typesafe.akka bomArtifact=akka-bom_$scala.binary.version$ bomVersionSymbols=AkkaVersion
   symbol1=AkkaVersion
   value1="$akka.version$"
   group=com.typesafe.akka
@@ -108,7 +132,18 @@ Challenges the Cluster module solves include the following:
 
 ### Cluster Sharding
 
+The Akka dependencies are available from Akka's library repository. To access them there, you need to configure the URL for this repository.
+
+@@repository [sbt,Maven,Gradle] {
+id="akka-repository"
+name="Akka library repository"
+url="https://repo.akka.io/maven"
+}
+
+Additionally, add the dependency as below.
+
 @@dependency[sbt,Maven,Gradle] {
+  bomGroup=com.typesafe.akka bomArtifact=akka-bom_$scala.binary.version$ bomVersionSymbols=AkkaVersion
   symbol1=AkkaVersion
   value1="$akka.version$"
   group=com.typesafe.akka
@@ -129,7 +164,18 @@ Challenges that Sharding solves include the following:
 
 ### Cluster Singleton
 
+The Akka dependencies are available from Akka's library repository. To access them there, you need to configure the URL for this repository.
+
+@@repository [sbt,Maven,Gradle] {
+id="akka-repository"
+name="Akka library repository"
+url="https://repo.akka.io/maven"
+}
+
+Additionally, add the dependency as below.
+
 @@dependency[sbt,Maven,Gradle] {
+  bomGroup=com.typesafe.akka bomArtifact=akka-bom_$scala.binary.version$ bomVersionSymbols=AkkaVersion
   symbol1=AkkaVersion
   value1="$akka.version$"
   group=com.typesafe.akka
@@ -152,7 +198,18 @@ The Singleton module can be used to solve these challenges:
 
 ### Persistence
 
+The Akka dependencies are available from Akka's library repository. To access them there, you need to configure the URL for this repository.
+
+@@repository [sbt,Maven,Gradle] {
+id="akka-repository"
+name="Akka library repository"
+url="https://repo.akka.io/maven"
+}
+
+Additionally, add the dependency as below.
+
 @@dependency[sbt,Maven,Gradle] {
+  bomGroup=com.typesafe.akka bomArtifact=akka-bom_$scala.binary.version$ bomVersionSymbols=AkkaVersion
   symbol1=AkkaVersion
   value1="$akka.version$"
   group=com.typesafe.akka
@@ -174,9 +231,50 @@ Persistence tackles the following challenges:
 * How to introspect domain events that have led an entity to its current state.
 * How to leverage [Event Sourcing](https://martinfowler.com/eaaDev/EventSourcing.html) in your application to support long-running processes while the project continues to evolve.
 
-### Distributed Data
+### Projections
+
+The Akka dependencies are available from Akka's library repository. To access them there, you need to configure the URL for this repository.
+
+@@repository [sbt,Maven,Gradle] {
+id="akka-repository"
+name="Akka library repository"
+url="https://repo.akka.io/maven"
+}
+
+Additionally, add the dependency as below.
 
 @@dependency[sbt,Maven,Gradle] {
+  bomGroup=com.typesafe.akka bomArtifact=akka-bom_$scala.binary.version$ bomVersionSymbols=AkkaVersion
+  symbol1=AkkaVersion
+  value1="$akka.version$"
+  group=com.typesafe.akka
+  artifact=akka-projection-core_$scala.binary.version$
+  version=AkkaVersion
+}
+
+Projections provides a simple API for consuming a stream of events for projection into a variety of downstream options.  The core dependency provides only the API and other provider dependencies are required for different source and sink implementations.
+
+Challenges Projections solve include the following:
+
+* Constructing alternate or aggregate views over an event stream.
+* Propagating an event stream onto another downstream medium such as a Kafka topic.  
+* A simple way of building read-side projections in the context of [Event Sourcing](https://martinfowler.com/eaaDev/EventSourcing.html) and [CQRS system](https://docs.microsoft.com/en-us/previous-versions/msp-n-p/jj591573%28v=pandp.10%29)
+
+
+### Distributed Data
+
+The Akka dependencies are available from Akka's library repository. To access them there, you need to configure the URL for this repository.
+
+@@repository [sbt,Maven,Gradle] {
+id="akka-repository"
+name="Akka library repository"
+url="https://repo.akka.io/maven"
+}
+
+Additionally, add the dependency as below.
+
+@@dependency[sbt,Maven,Gradle] {
+  bomGroup=com.typesafe.akka bomArtifact=akka-bom_$scala.binary.version$ bomVersionSymbols=AkkaVersion
   symbol1=AkkaVersion
   value1="$akka.version$"
   group=com.typesafe.akka
@@ -197,7 +295,18 @@ Distributed Data is intended to solve the following challenges:
 
 ### Streams
 
+The Akka dependencies are available from Akka's library repository. To access them there, you need to configure the URL for this repository.
+
+@@repository [sbt,Maven,Gradle] {
+id="akka-repository"
+name="Akka library repository"
+url="https://repo.akka.io/maven"
+}
+
+Additionally, add the dependency as below.
+
 @@dependency[sbt,Maven,Gradle] {
+  bomGroup=com.typesafe.akka bomArtifact=akka-bom_$scala.binary.version$ bomVersionSymbols=AkkaVersion
   symbol1=AkkaVersion
   value1="$akka.version$"
   group=com.typesafe.akka
@@ -221,6 +330,19 @@ Streams solve the following challenges:
 * How to connect asynchronous services in a flexible way to each other with high performance.
 * How to provide or consume Reactive Streams compliant interfaces to interface with a third party library.
 
+### Alpakka
+
+[Alpakka](https://doc.akka.io/docs/alpakka/current/) is a separate module from Akka.
+
+Alpakka is collection of modules built upon the Streams API to provide Reactive Stream connector
+implementations for a variety of technologies common in the cloud and infrastructure landscape.  
+See the [Alpakka overview page](https://doc.akka.io/docs/alpakka/current/overview.html) for more details on the API and the implementation modules available.
+
+Alpakka helps solve the following challenges:
+
+* Connecting various infrastructure or persistence components to Stream based flows.
+* Connecting to legacy systems in a manner that adheres to a Reactive Streams API.
+
 ### HTTP
 
 [Akka HTTP](https://doc.akka.io/docs/akka-http/current/) is a separate module from Akka.
@@ -233,6 +355,22 @@ Some of the challenges that HTTP tackles:
 * How to expose services of a system or cluster to the external world via an HTTP API in a performant way.
 * How to stream large datasets in and out of a system using HTTP.
 * How to stream live events in and out of a system using HTTP.
+
+### gRPC
+
+[Akka gRPC](https://doc.akka.io/docs/akka-grpc/current/index.html) is a separate module from Akka.
+
+This library provides an implementation of gRPC that integrates nicely with the @ref:[HTTP](#http) and @ref:[Streams](#streams) modules.  It is capable of generating both client and server-side artifacts from protobuf service definitions, which can then be exposed using Akka HTTP, and handled using Streams.
+
+Some of the challenges that Akka gRPC tackles:
+
+* Exposing services with all the benefits of gRPC & protobuf:  
+  * Schema-first contract
+  * Schema evolution support
+  * Efficient binary protocol
+  * First-class streaming support
+  * Wide interoperability
+  * Use of HTTP/2 connection multiplexing
 
 ### Example of module use
 

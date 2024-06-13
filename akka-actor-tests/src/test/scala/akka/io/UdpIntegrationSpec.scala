@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.io
@@ -64,7 +64,9 @@ class UdpIntegrationSpec extends AkkaSpec("""
     }
 
     "be able to send several packet back and forth with binding" in {
-      val Seq(serverAddress, clientAddress) = temporaryServerAddresses(2, udp = true)
+      val addresses = temporaryServerAddresses(2, udp = true)
+      val serverAddress = addresses(0)
+      val clientAddress = addresses(1)
       val server = bindUdp(serverAddress, testActor)
       val client = bindUdp(clientAddress, testActor)
       val data = ByteString("Fly little packet!")

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -53,7 +53,7 @@ class SendQueueBenchmark {
     val N = 100000
     val burstSize = 1000
 
-    val source = Source.queue[Int](1024, OverflowStrategy.dropBuffer)
+    val source = Source.queue[Int](1024)
 
     val (queue, killSwitch) = source
       .viaMat(KillSwitches.single)(Keep.both)

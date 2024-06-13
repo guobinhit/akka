@@ -1,13 +1,12 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream
 
+import scala.annotation.{ implicitNotFound, nowarn }
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.FiniteDuration
-
-import com.github.ghik.silencer.silent
 
 import akka.actor.ActorRef
 import akka.actor.ActorSystem
@@ -15,6 +14,7 @@ import akka.actor.Cancellable
 import akka.actor.ClassicActorContextProvider
 import akka.actor.ClassicActorSystemProvider
 import akka.actor.Props
+import akka.stream.impl.PhasedFusingActorMaterializer
 import akka.annotation.DoNotInherit
 import akka.annotation.InternalApi
 import akka.event.LoggingAdapter
@@ -25,7 +25,8 @@ import akka.event.LoggingAdapter
  *
  * Not for user extension
  */
-@silent("deprecated") // Name(symbol) is deprecated but older Scala versions don't have a string signature, since "2.5.8"
+@implicitNotFound("A Materializer is required.  You may want to have the ActorSystem in implicit scope")
+@nowarn("msg=deprecated") // Name(symbol) is deprecated but older Scala versions don't have a string signature, since "2.5.8"
 @DoNotInherit
 abstract class Materializer {
 
@@ -203,7 +204,7 @@ object Materializer {
    *
    * You can pass either a classic actor context or a typed actor context.
    */
-  @silent("deprecated")
+  @nowarn("msg=deprecated")
   def apply(contextProvider: ClassicActorContextProvider): Materializer =
     ActorMaterializer(None, None)(contextProvider.classicActorContext)
 
@@ -214,6 +215,28 @@ object Materializer {
    * You can pass either a classic actor context or a typed actor context.
    */
   def createMaterializer(contextProvider: ClassicActorContextProvider): Materializer = apply(contextProvider)
+
+  /**
+   * Scala API: Create a materializer whose lifecycle will be tied to the one of the passed actor context.
+   * When the actor stops the materializer will stop and all streams created with it will be failed with an [[AbruptTerminationExeption]]
+   *
+   * You can pass either a classic actor context or a typed actor context.
+   */
+  def apply(contextProvider: ClassicActorContextProvider, defaultAttributes: Attributes): Materializer = {
+    val context = contextProvider.classicActorContext
+    val settings = SystemMaterializer(context.system).materializerSettings
+
+    PhasedFusingActorMaterializer(context, "flow", settings, settings.toAttributes and defaultAttributes)
+  }
+
+  /**
+   * Java API: Create a materializer whose lifecycle will be tied to the one of the passed actor context.
+   * When the actor stops the materializer will stop and all streams created with it will be failed with an [[AbruptTerminationExeption]]
+   *
+   * You can pass either a classic actor context or a typed actor context.
+   */
+  def createMaterializer(contextProvider: ClassicActorContextProvider, defaultAttributes: Attributes): Materializer =
+    apply(contextProvider, defaultAttributes)
 
   /**
    * Scala API: Create a new materializer that will stay alive as long as the system does or until it is explicitly stopped.
@@ -227,7 +250,7 @@ object Materializer {
     SystemMaterializer(systemProvider.classicSystem).createAdditionalSystemMaterializer()
 
   /**
-   * Scala API: Create a new materializer that will stay alive as long as the system does or until it is explicitly stopped.
+   * Java API: Create a new materializer that will stay alive as long as the system does or until it is explicitly stopped.
    *
    * *Note* prefer using the default [[SystemMaterializer]] by passing the `ActorSystem` to the various `run`
    * methods on the streams. Only create new system level materializers if you have specific
@@ -237,6 +260,21 @@ object Materializer {
   def createMaterializer(systemProvider: ClassicActorSystemProvider): Materializer =
     apply(systemProvider)
 
+  /**
+   * Scala API: Create a new materializer that will stay alive as long as the system does or until it is explicitly stopped.
+   *
+   * It is generally advised to limit the number of system level materializers created.
+   */
+  def apply(systemProvider: ClassicActorSystemProvider, defaultAttributes: Attributes): Materializer =
+    SystemMaterializer(systemProvider.classicSystem).createAdditionalSystemMaterializer(defaultAttributes)
+
+  /**
+   * Java API: Create a new materializer that will stay alive as long as the system does or until it is explicitly stopped.
+   *
+   * It is generally advised to limit the number of system level materializers created.
+   */
+  def createMaterializer(systemProvider: ClassicActorSystemProvider, defaultAttributes: Attributes): Materializer =
+    apply(systemProvider, defaultAttributes)
 }
 
 /**

@@ -17,6 +17,7 @@
 .*.swp
 .DS_Store
 .bloop/
+.bsp/
 .cache
 .classpath
 .codefellow
@@ -39,6 +40,7 @@
 .tags_sorted_by_file
 .target
 .worksheet
+.gradle
 TAGS
 _akka_cluster/
 _dump
@@ -49,7 +51,6 @@ akka-docs-dev/rst_preprocessed/
 akka-docs/_build/
 akka-docs/exts/
 akka-docs/rst_preprocessed/
-akka-osgi/src/main/resources/*.conf
 akka.sublime-project
 akka.sublime-workspace
 akka.tmproj
@@ -89,8 +90,19 @@ test-output
 factorials.txt
 factorial2.txt
 
+all-projects.txt
+multi-node-projects.txt
+/multi-node-test.hosts
+
 # Default sigar library extract location.
 native/
 
 /dumps/
 /core
+
+.tmp
+
+/fortify-scans/
+
+# attachments created by scripts/prepare-downloads.sh
+akka-docs/src/main/paradox/attachments

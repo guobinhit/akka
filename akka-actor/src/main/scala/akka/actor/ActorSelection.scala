@@ -1,12 +1,14 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor
 
+import akka.annotation.InternalApi
+
 import java.util.concurrent.CompletionStage
 import java.util.regex.Pattern
-
+import scala.annotation.nowarn
 import scala.annotation.tailrec
 import scala.collection.immutable
 import scala.compat.java8.FutureConverters
@@ -15,9 +17,6 @@ import scala.concurrent.Promise
 import scala.concurrent.duration._
 import scala.language.implicitConversions
 import scala.util.Success
-
-import com.github.ghik.silencer.silent
-
 import akka.dispatch.ExecutionContexts
 import akka.pattern.ask
 import akka.routing.MurmurHash
@@ -87,33 +86,6 @@ abstract class ActorSelection extends Serializable {
    * [[ActorRef]].
    */
   def resolveOne(timeout: FiniteDuration): Future[ActorRef] = resolveOne()(timeout)
-
-  /**
-   * Java API for [[#resolveOne]]
-   *
-   * Resolve the [[ActorRef]] matching this selection.
-   * The result is returned as a CompletionStage that is completed with the [[ActorRef]]
-   * if such an actor exists. It is completed with failure [[ActorNotFound]] if
-   * no such actor exists or the identification didn't complete within the
-   * supplied `timeout`.
-   *
-   */
-  @deprecated("Use the overloaded method resolveOne which accepts java.time.Duration instead.", since = "2.5.20")
-  def resolveOneCS(timeout: FiniteDuration): CompletionStage[ActorRef] =
-    FutureConverters.toJava[ActorRef](resolveOne(timeout))
-
-  /**
-   * Java API for [[#resolveOne]]
-   *
-   * Resolve the [[ActorRef]] matching this selection.
-   * The result is returned as a CompletionStage that is completed with the [[ActorRef]]
-   * if such an actor exists. It is completed with failure [[ActorNotFound]] if
-   * no such actor exists or the identification didn't complete within the
-   * supplied `timeout`.
-   *
-   */
-  @deprecated("Use the overloaded method resolveOne which accepts java.time.Duration instead.", since = "2.5.20")
-  def resolveOneCS(timeout: java.time.Duration): CompletionStage[ActorRef] = resolveOne(timeout)
 
   /**
    * Java API for [[#resolveOne]]
@@ -328,13 +300,14 @@ private[akka] final case class ActorSelectionMessage(
 /**
  * INTERNAL API
  */
-@silent("@SerialVersionUID has no effect on traits")
+@nowarn("msg=@SerialVersionUID has no effect on traits")
 @SerialVersionUID(1L)
 private[akka] sealed trait SelectionPathElement
 
 /**
  * INTERNAL API
  */
+@InternalApi
 @SerialVersionUID(2L)
 private[akka] final case class SelectChildName(name: String) extends SelectionPathElement {
   override def toString: String = name
@@ -343,6 +316,7 @@ private[akka] final case class SelectChildName(name: String) extends SelectionPa
 /**
  * INTERNAL API
  */
+@InternalApi
 @SerialVersionUID(2L)
 private[akka] final case class SelectChildPattern(patternStr: String) extends SelectionPathElement {
   val pattern: Pattern = Helpers.makePattern(patternStr)
@@ -352,6 +326,7 @@ private[akka] final case class SelectChildPattern(patternStr: String) extends Se
 /**
  * INTERNAL API
  */
+@InternalApi
 @SerialVersionUID(2L)
 private[akka] case object SelectParent extends SelectionPathElement {
   override def toString: String = ".."

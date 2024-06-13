@@ -5,14 +5,24 @@ project.description: Multi node testing of distributed systems built with Akka.
 
 ## Module info
 
+The Akka dependencies are available from Akka's library repository. To access them there, you need to configure the URL for this repository.
+
+@@repository [sbt,Maven,Gradle] {
+id="akka-repository"
+name="Akka library repository"
+url="https://repo.akka.io/maven"
+}
+
 To use Multi Node Testing, you must add the following dependency in your project:
 
 @@dependency[sbt,Maven,Gradle] {
+  bomGroup=com.typesafe.akka bomArtifact=akka-bom_$scala.binary.version$ bomVersionSymbols=AkkaVersion
   symbol1=AkkaVersion
   value1="$akka.version$"
   group=com.typesafe.akka
   artifact=akka-multi-node-testkit_$scala.binary.version$
   version=AkkaVersion
+  scope=test
 }
 
 @@project-info{ projectId="akka-multi-node-testkit" }
@@ -23,13 +33,13 @@ When we talk about multi node testing in Akka we mean the process of running coo
 systems in different JVMs. The multi node testing kit consist of three main parts.
 
  * @ref:[The Test Conductor](#the-test-conductor). that coordinates and controls the nodes under test.
- * @ref:[The Multi Node Spec](#the-multi-node-spec). that is a convenience wrapper for starting the `TestConductor` and letting all
+ * @ref:[The Multi Node Spec](#the-multi-node-spec). that is a convenience wrapper for starting the @apidoc[TestConductor$] and letting all
 nodes connect to it.
  * @ref:[The SbtMultiJvm Plugin](#the-sbtmultijvm-plugin). that starts tests in multiple JVMs possibly on multiple machines.
 
 ## The Test Conductor
 
-The basis for the multi node testing is the `TestConductor`. It is an Akka Extension that plugs in to the
+The basis for the multi node testing is the @apidoc[TestConductor$]. It is an Akka Extension that plugs in to the
 network stack and it is used to coordinate the nodes participating in the test and provides several features
 including:
 
@@ -44,14 +54,14 @@ This is a schematic overview of the test conductor.
 
 The test conductor server is responsible for coordinating barriers and sending commands to the test conductor
 clients that act upon them, e.g. throttling network traffic to/from another client. More information on the
-possible operations is available in the `akka.remote.testconductor.Conductor` API documentation.
+possible operations is available in the @apidoc[akka.remote.testconductor.Conductor](Conductor) API documentation.
 
 ## The Multi Node Spec
 
-The Multi Node Spec consists of two parts. The `MultiNodeConfig` that is responsible for common
+The Multi Node Spec consists of two parts. The @apidoc[MultiNodeConfig] that is responsible for common
 configuration and enumerating and naming the nodes under test. The `MultiNodeSpec` that contains a number
 of convenience functions for making the test nodes interact with each other. More information on the possible
-operations is available in the `akka.remote.testkit.MultiNodeSpec` API documentation.
+operations is available in the @apidoc[akka.remote.testkit.MultiNodeSpec](MultiNodeSpec) API documentation.
 
 The setup of the `MultiNodeSpec` is configured through java system properties that you set on all JVMs that's going to run a
 node under test. These can be set on the JVM command line with `-Dproperty=value`.
@@ -167,7 +177,7 @@ complete the test names.
 
 ## A Multi Node Testing Example
 
-First we need some scaffolding to hook up the `MultiNodeSpec` with your favorite test framework. Lets define a trait
+First we need some scaffolding to hook up the @apidoc[MultiNodeSpec] with your favorite test framework. Lets define a trait
 `STMultiNodeSpec` that uses ScalaTest to start and stop `MultiNodeSpec`.
 
 @@snip [STMultiNodeSpec.scala](/akka-remote-tests/src/test/scala/akka/remote/testkit/STMultiNodeSpec.scala) { #example }
@@ -189,7 +199,7 @@ surprising ways.
 
  * Don't issue a shutdown of the first node. The first node is the controller and if it shuts down your test will break.
  * To be able to use `blackhole`, `passThrough`, and `throttle` you must activate the failure injector and
-throttler transport adapters by specifying `testTransport(on = true)` in your MultiNodeConfig.
+throttler transport adapters by specifying @scala[@scaladoc[testTransport(on = true)](akka.remote.testkit.MultiNodeConfig#testTransport(on:Boolean):Unit)]@java[@javadoc[testTransport(true)](akka.remote.testkit.MultiNodeConfig#testTransport(boolean))] in your `MultiNodeConfig`.
  * Throttling, shutdown and other failure injections can only be done from the first node, which again is the controller.
  * Don't ask for the address of a node using `node(address)` after the node has been shut down. Grab the address before
 shutting down the node.

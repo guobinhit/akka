@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote
@@ -67,7 +67,7 @@ private[akka] class RemoteSystemDaemon(
 
   import akka.actor.SystemGuardian._
 
-  private val terminating = new Switch(false)
+  private val terminating = new Switch(startAsOn = false)
 
   AddressTerminatedTopic(system).subscribe(this)
 
@@ -175,7 +175,7 @@ private[akka] class RemoteSystemDaemon(
               log.error(
                 LogMarker.Security,
                 ex,
-                "Received command to create remote Actor, but class [{}] is not white-listed! " +
+                "Received command to create remote Actor, but class [{}] is not allow-listed! " +
                 "Target path: [{}]",
                 props.actorClass(),
                 path)

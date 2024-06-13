@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sbr
@@ -11,9 +11,8 @@ import com.typesafe.config.ConfigFactory
 import akka.cluster.Cluster
 import akka.cluster.MemberStatus
 import akka.cluster.MultiNodeClusterSpec
+import akka.remote.testkit.Direction
 import akka.remote.testkit.MultiNodeConfig
-import akka.remote.testkit.MultiNodeSpec
-import akka.remote.transport.ThrottlerTransportAdapter
 
 object DownAllUnstable5NodeSpec extends MultiNodeConfig {
   val node1 = role("node1")
@@ -35,10 +34,6 @@ object DownAllUnstable5NodeSpec extends MultiNodeConfig {
         run-coordinated-shutdown-when-down = off
       }
 
-      # quicker reconnect
-      remote.retry-gate-closed-for = 1s
-      remote.netty.tcp.connection-timeout = 3 s
-
       actor.provider = cluster
 
       test.filter-leeway = 10s
@@ -54,7 +49,7 @@ class DownAllUnstable5NodeSpecMultiJvmNode3 extends DownAllUnstable5NodeSpec
 class DownAllUnstable5NodeSpecMultiJvmNode4 extends DownAllUnstable5NodeSpec
 class DownAllUnstable5NodeSpecMultiJvmNode5 extends DownAllUnstable5NodeSpec
 
-class DownAllUnstable5NodeSpec extends MultiNodeSpec(DownAllUnstable5NodeSpec) with MultiNodeClusterSpec {
+class DownAllUnstable5NodeSpec extends MultiNodeClusterSpec(DownAllUnstable5NodeSpec) {
   import DownAllUnstable5NodeSpec._
 
   "A 5-node cluster with down-all-when-unstable" should {
@@ -84,7 +79,7 @@ class DownAllUnstable5NodeSpec extends MultiNodeSpec(DownAllUnstable5NodeSpec) w
 
       runOn(node1) {
         for (x <- List(node1, node2, node3); y <- List(node4, node5)) {
-          testConductor.blackhole(x, y, ThrottlerTransportAdapter.Direction.Both).await
+          testConductor.blackhole(x, y, Direction.Both).await
         }
       }
       enterBarrier("blackholed-clean-partition")
@@ -109,14 +104,14 @@ class DownAllUnstable5NodeSpec extends MultiNodeSpec(DownAllUnstable5NodeSpec) w
       }
 
       runOn(node1) {
-        testConductor.blackhole(node2, node3, ThrottlerTransportAdapter.Direction.Both).await
+        testConductor.blackhole(node2, node3, Direction.Both).await
       }
       enterBarrier("blackhole-2")
       // then it takes about 5 seconds for failure detector to observe that
       Thread.sleep(7000)
 
       runOn(node1) {
-        testConductor.passThrough(node2, node3, ThrottlerTransportAdapter.Direction.Both).await
+        testConductor.passThrough(node2, node3, Direction.Both).await
       }
       enterBarrier("passThrough-2")
 

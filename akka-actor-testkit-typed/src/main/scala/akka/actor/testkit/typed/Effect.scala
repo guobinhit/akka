@@ -1,13 +1,16 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.testkit.typed
 
+import java.util.concurrent.TimeoutException
+
 import scala.compat.java8.FunctionConverters._
 import scala.concurrent.duration.FiniteDuration
+import scala.util.{ Failure, Success, Try }
 
-import akka.actor.typed.{ ActorRef, Behavior, Props }
+import akka.actor.typed.{ ActorRef, Behavior, Props, RecipientRef }
 import akka.annotation.{ DoNotInherit, InternalApi }
 import akka.util.JavaDurationConverters._
 import akka.util.unused
@@ -25,6 +28,59 @@ import akka.util.unused
 abstract class Effect private[akka] ()
 
 object Effect {
+
+  /**
+   * The behavior initiated an ask via its context.  A response or timeout may be sent via this
+   * effect to the asking behavior: this effect enforces that at most one response or timeout is
+   * sent.  Alternatively, one may, after obtaining the effect, test the response adaptation function
+   * (without sending a message to the asking behavior) arbitrarily many times via the 'adaptResponse`
+   * and `adaptTimeout` methods.
+   *
+   * The 'replyToRef' is exposed so that the target inbox can expect the actual message sent to
+   * initiate the ask.
+   *
+   * Note that this requires the ask to be initiated via the [[ActorContext]].  The [[Future]] returning
+   * ask is not testable in the [[BehaviorTestKit]].
+   */
+  final case class AskInitiated[Req, Res, T](
+      target: RecipientRef[Req],
+      responseTimeout: FiniteDuration,
+      responseClass: Class[Res])(val askMessage: Req, forwardResponse: Try[Res] => Unit, mapResponse: Try[Res] => T)
+      extends Effect {
+    def respondWith(response: Res): Unit = sendResponse(Success(response))
+
+    def timeout(): Unit = sendResponse(timeoutTry(timeoutMsg))
+
+    def adaptResponse(response: Res): T = mapResponse(Success(response))
+    def adaptTimeout(msg: String): T = mapResponse(timeoutTry(msg))
+    def adaptTimeout: T = adaptTimeout(timeoutMsg)
+
+    /**
+     * Java API
+     */
+    def getResponseTimeout: java.time.Duration = responseTimeout.asJava
+
+    private var sentResponse: Boolean = false
+
+    private def timeoutTry(msg: String): Try[Res] = Failure(new TimeoutException(msg))
+
+    private def timeoutMsg: String =
+      s"Ask timed out on [$target] after [${responseTimeout.toMillis} ms]. " +
+      s"Message of type [${askMessage.getClass.getName}]." +
+      " A typical reason for `AskTimeoutException` is that the recipient actor didn't send a reply."
+
+    private def sendResponse(t: Try[Res]): Unit = synchronized {
+      if (sentResponse) {
+        throw new IllegalStateException("Can only complete the ask once")
+      }
+
+      sentResponse = true
+
+      if (forwardResponse != null) {
+        forwardResponse(t)
+      } else throw new IllegalStateException("Can only complete and ask from a BehaviorTestKit-emitted effect")
+    }
+  }
 
   /**
    * The behavior spawned a named child with the given behavior (and optionally specific props)
@@ -202,6 +258,39 @@ object Effect {
   final case class Scheduled[U](delay: FiniteDuration, target: ActorRef[U], message: U) extends Effect {
     def duration(): java.time.Duration = delay.asJava
   }
+
+  final case class TimerScheduled[U](
+      key: Any,
+      msg: U,
+      delay: FiniteDuration,
+      mode: TimerScheduled.TimerMode,
+      overriding: Boolean)(val send: () => Unit)
+      extends Effect {
+    def duration(): java.time.Duration = delay.asJava
+  }
+
+  object TimerScheduled {
+    import akka.util.JavaDurationConverters._
+
+    sealed trait TimerMode
+    case object FixedRateMode extends TimerMode
+    case class FixedRateModeWithInitialDelay(initialDelay: FiniteDuration) extends TimerMode
+    case object FixedDelayMode extends TimerMode
+    case class FixedDelayModeWithInitialDelay(initialDelay: FiniteDuration) extends TimerMode
+    case object SingleMode extends TimerMode
+
+    /*Java API*/
+    def fixedRateMode = FixedRateMode
+    def fixedRateMode(initialDelay: java.time.Duration) = FixedRateModeWithInitialDelay(initialDelay.asScala)
+    def fixedDelayMode = FixedDelayMode
+    def fixedDelayMode(initialDelay: java.time.Duration) = FixedDelayModeWithInitialDelay(initialDelay.asScala)
+    def singleMode = SingleMode
+  }
+
+  /*Java API*/
+  def timerScheduled = TimerScheduled
+
+  final case class TimerCancelled(key: Any) extends Effect
 
   /**
    * Used to represent an empty list of effects - in other words, the behavior didn't do anything observable

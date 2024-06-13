@@ -1,20 +1,19 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
 
 import java.lang.management.ManagementFactory
+import javax.management.InstanceNotFoundException
+import javax.management.ObjectName
 
 import scala.concurrent.duration._
 
 import com.typesafe.config.ConfigFactory
-import javax.management.InstanceNotFoundException
-import javax.management.ObjectName
 import language.postfixOps
 
 import akka.remote.testkit.MultiNodeConfig
-import akka.remote.testkit.MultiNodeSpec
 import akka.testkit._
 
 object MBeanMultiJvmSpec extends MultiNodeConfig {
@@ -36,7 +35,7 @@ class MBeanMultiJvmNode2 extends MBeanSpec
 class MBeanMultiJvmNode3 extends MBeanSpec
 class MBeanMultiJvmNode4 extends MBeanSpec
 
-abstract class MBeanSpec extends MultiNodeSpec(MBeanMultiJvmSpec) with MultiNodeClusterSpec {
+abstract class MBeanSpec extends MultiNodeClusterSpec(MBeanMultiJvmSpec) {
 
   import MBeanMultiJvmSpec._
 

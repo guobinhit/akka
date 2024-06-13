@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sbr
@@ -49,12 +49,15 @@ import akka.coordination.lease.scaladsl.Lease
   case object ReverseDownIndirectlyConnected extends Decision {
     override def isIndirectlyConnected = true
   }
+  case object DownSelfQuarantinedByRemote extends Decision {
+    override def isIndirectlyConnected: Boolean = false
+  }
 }
 
 /**
  * INTERNAL API
  */
-@InternalApi private[akka] abstract class DowningStrategy(val selfDc: DataCenter) {
+@InternalApi private[akka] abstract class DowningStrategy(val selfDc: DataCenter, selfUniqueAddress: UniqueAddress) {
   import DowningStrategy._
 
   // may contain Joining and WeaklyUp
@@ -254,9 +257,10 @@ import akka.coordination.lease.scaladsl.Lease
 
   def nodesToDown(decision: Decision = decide()): Set[UniqueAddress] = {
     val downable = members
-      .union(joining)
       .filterNot(m => m.status == MemberStatus.Down || m.status == MemberStatus.Exiting)
+      .union(joining)
       .map(_.uniqueAddress)
+
     decision match {
       case DownUnreachable | AcquireLeaseAndDownUnreachable(_)                 => downable.intersect(unreachable)
       case DownReachable                                                       => downable.diff(unreachable)
@@ -269,30 +273,37 @@ import akka.coordination.lease.scaladsl.Lease
         // failure detection observations between the indirectly connected nodes.
         // Also include nodes that corresponds to the decision without the unreachability observations from
         // the indirectly connected nodes
-        downable.intersect(indirectlyConnected.union(additionalNodesToDownWhenIndirectlyConnected))
+        downable.intersect(indirectlyConnected.union(additionalNodesToDownWhenIndirectlyConnected(downable)))
       case ReverseDownIndirectlyConnected =>
         // indirectly connected + all reachable
         downable.intersect(indirectlyConnected).union(downable.diff(unreachable))
+      case DownSelfQuarantinedByRemote =>
+        if (downable.contains(selfUniqueAddress)) Set(selfUniqueAddress)
+        else Set.empty
     }
   }
 
-  private def additionalNodesToDownWhenIndirectlyConnected: Set[UniqueAddress] = {
+  private def additionalNodesToDownWhenIndirectlyConnected(downable: Set[UniqueAddress]): Set[UniqueAddress] = {
     if (unreachableButNotIndirectlyConnected.isEmpty)
       Set.empty
     else {
       val originalUnreachable = _unreachable
       val originalReachability = _reachability
+
       try {
         val intersectionOfObserversAndSubjects = indirectlyConnectedFromIntersectionOfObserversAndSubjects
         val haveSeenCurrentGossip = indirectlyConnectedFromSeenCurrentGossip
         // remove records between the indirectly connected
-        _reachability = reachability.filterRecords(
-          r =>
-            !((intersectionOfObserversAndSubjects(r.observer) && intersectionOfObserversAndSubjects(r.subject)) ||
-            (haveSeenCurrentGossip(r.observer) && haveSeenCurrentGossip(r.subject))))
+        _reachability = reachability.filterRecords { r =>
+          // we only retain records for addresses that are still downable
+          downable.contains(r.observer) && downable.contains(r.subject) &&
+          // remove records between the indirectly connected
+          !(intersectionOfObserversAndSubjects(r.observer) && intersectionOfObserversAndSubjects(r.subject) ||
+          haveSeenCurrentGossip(r.observer) && haveSeenCurrentGossip(r.subject))
+        }
         _unreachable = reachability.allUnreachableOrTerminated
-        val additionalDecision = decide()
 
+        val additionalDecision = decide()
         if (additionalDecision.isIndirectlyConnected)
           throw new IllegalStateException(
             s"SBR double $additionalDecision decision, downing all instead. " +
@@ -300,6 +311,7 @@ import akka.coordination.lease.scaladsl.Lease
             s"still indirectlyConnected: [$indirectlyConnected], seenBy: [$seenBy]")
 
         nodesToDown(additionalDecision)
+
       } finally {
         _unreachable = originalUnreachable
         _reachability = originalReachability
@@ -312,15 +324,10 @@ import akka.coordination.lease.scaladsl.Lease
     unreachableMembers.forall(m => m.status == MemberStatus.Down || m.status == MemberStatus.Exiting)
   }
 
-  def reverseDecision(decision: Decision): Decision = {
+  def reverseDecision(decision: AcquireLeaseDecision): Decision = {
     decision match {
-      case DownUnreachable                           => DownReachable
       case AcquireLeaseAndDownUnreachable(_)         => DownReachable
-      case DownReachable                             => DownUnreachable
-      case DownAll                                   => DownAll
-      case DownIndirectlyConnected                   => ReverseDownIndirectlyConnected
       case AcquireLeaseAndDownIndirectlyConnected(_) => ReverseDownIndirectlyConnected
-      case ReverseDownIndirectlyConnected            => DownIndirectlyConnected
     }
   }
 
@@ -353,8 +360,9 @@ import akka.coordination.lease.scaladsl.Lease
 @InternalApi private[sbr] final class StaticQuorum(
     selfDc: DataCenter,
     val quorumSize: Int,
-    override val role: Option[String])
-    extends DowningStrategy(selfDc) {
+    override val role: Option[String],
+    selfUniqueAddress: UniqueAddress)
+    extends DowningStrategy(selfDc, selfUniqueAddress) {
   import DowningStrategy._
 
   override def decide(): Decision = {
@@ -386,8 +394,11 @@ import akka.coordination.lease.scaladsl.Lease
  *
  * It is only counting members within the own data center.
  */
-@InternalApi private[sbr] final class KeepMajority(selfDc: DataCenter, override val role: Option[String])
-    extends DowningStrategy(selfDc) {
+@InternalApi private[sbr] final class KeepMajority(
+    selfDc: DataCenter,
+    override val role: Option[String],
+    selfUniqueAddress: UniqueAddress)
+    extends DowningStrategy(selfDc, selfUniqueAddress) {
   import DowningStrategy._
 
   override def decide(): Decision = {
@@ -475,8 +486,9 @@ import akka.coordination.lease.scaladsl.Lease
 @InternalApi private[sbr] final class KeepOldest(
     selfDc: DataCenter,
     val downIfAlone: Boolean,
-    override val role: Option[String])
-    extends DowningStrategy(selfDc) {
+    override val role: Option[String],
+    selfUniqueAddress: UniqueAddress)
+    extends DowningStrategy(selfDc, selfUniqueAddress) {
   import DowningStrategy._
 
   // sort by age, oldest first
@@ -552,7 +564,8 @@ import akka.coordination.lease.scaladsl.Lease
  *
  * Down all nodes unconditionally.
  */
-@InternalApi private[sbr] final class DownAllNodes(selfDc: DataCenter) extends DowningStrategy(selfDc) {
+@InternalApi private[sbr] final class DownAllNodes(selfDc: DataCenter, selfUniqueAddress: UniqueAddress)
+    extends DowningStrategy(selfDc, selfUniqueAddress) {
   import DowningStrategy._
 
   override def decide(): Decision =
@@ -577,8 +590,10 @@ import akka.coordination.lease.scaladsl.Lease
     selfDc: DataCenter,
     override val role: Option[String],
     _lease: Lease,
-    acquireLeaseDelayForMinority: FiniteDuration)
-    extends DowningStrategy(selfDc) {
+    acquireLeaseDelayForMinority: FiniteDuration,
+    val releaseAfter: FiniteDuration,
+    selfUniqueAddress: UniqueAddress)
+    extends DowningStrategy(selfDc, selfUniqueAddress) {
   import DowningStrategy._
 
   override val lease: Option[Lease] = Some(_lease)

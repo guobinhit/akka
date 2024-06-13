@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdoc.akka.serialization.jackson;
 
 // #marker-interface
-/** Marker interface for messages, events and snapshots that are serialized with Jackson. */
-public interface MySerializable {}
 
-class MyMessage implements MySerializable {
+import akka.serialization.jackson.JsonSerializable;
+
+class MyMessage implements JsonSerializable {
   public final String name;
   public final int nr;
 

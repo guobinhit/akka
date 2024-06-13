@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -19,7 +19,6 @@ import akka.stream.OverflowStrategies.EmitEarly
 import akka.stream.testkit.StreamSpec
 import akka.stream.testkit.TestPublisher
 import akka.stream.testkit.TestSubscriber
-import akka.stream.testkit.scaladsl.StreamTestKit._
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestDuration
 import akka.testkit.TimingTest
@@ -36,7 +35,7 @@ class FlowDelaySpec extends StreamSpec {
       Source(1 to 10)
         .initialDelay(1.second)
         .delay(1.second)
-        .runWith(TestSink.probe[Int])
+        .runWith(TestSink[Int]())
         .request(10)
         .expectNoMessage(1800.millis)
         .expectNext(300.millis, 1)
@@ -47,7 +46,7 @@ class FlowDelaySpec extends StreamSpec {
     "deliver element after time passed from actual receiving element" in {
       Source(1 to 3)
         .delay(300.millis)
-        .runWith(TestSink.probe[Int])
+        .runWith(TestSink[Int]())
         .request(2)
         .expectNoMessage(200.millis) //delay
         .expectNext(200.millis, 1) //delayed element
@@ -58,7 +57,7 @@ class FlowDelaySpec extends StreamSpec {
         .expectComplete()
     }
 
-    "deliver elements with delay for slow stream" in assertAllStagesStopped {
+    "deliver elements with delay for slow stream" in {
       val c = TestSubscriber.manualProbe[Int]()
       val p = TestPublisher.manualProbe[Int]()
 
@@ -76,7 +75,7 @@ class FlowDelaySpec extends StreamSpec {
       c.expectComplete()
     }
 
-    "deliver delayed elements that arrive within the same timeout as preceding group of elements" taggedAs TimingTest in assertAllStagesStopped {
+    "deliver delayed elements that arrive within the same timeout as preceding group of elements" taggedAs TimingTest in {
       val c = TestSubscriber.manualProbe[Int]()
       val p = TestPublisher.manualProbe[Int]()
 
@@ -96,7 +95,7 @@ class FlowDelaySpec extends StreamSpec {
       c.expectComplete()
     }
 
-    "drop tail for internal buffer if it's full in DropTail mode" in assertAllStagesStopped {
+    "drop tail for internal buffer if it's full in DropTail mode" in {
       Await.result(
         Source(1 to 20)
           .delay(1.seconds, DelayOverflowStrategy.dropTail)
@@ -106,7 +105,7 @@ class FlowDelaySpec extends StreamSpec {
         1200.millis) should ===((1 to 15).toList :+ 20)
     }
 
-    "drop head for internal buffer if it's full in DropHead mode" in assertAllStagesStopped {
+    "drop head for internal buffer if it's full in DropHead mode" in {
       Await.result(
         Source(1 to 20)
           .delay(1.seconds, DelayOverflowStrategy.dropHead)
@@ -116,7 +115,7 @@ class FlowDelaySpec extends StreamSpec {
         1200.millis) should ===(5 to 20)
     }
 
-    "clear all for internal buffer if it's full in DropBuffer mode" in assertAllStagesStopped {
+    "clear all for internal buffer if it's full in DropBuffer mode" in {
       Await.result(
         Source(1 to 20)
           .delay(1.seconds, DelayOverflowStrategy.dropBuffer)
@@ -126,11 +125,11 @@ class FlowDelaySpec extends StreamSpec {
         1200.millis) should ===(17 to 20)
     }
 
-    "pass elements with delay through normally in backpressured mode" in assertAllStagesStopped {
+    "pass elements with delay through normally in backpressured mode" in {
       Source(1 to 3)
         .delay(300.millis, DelayOverflowStrategy.backpressure)
         .withAttributes(inputBuffer(1, 1))
-        .runWith(TestSink.probe[Int])
+        .runWith(TestSink[Int]())
         .request(5)
         .expectNoMessage(200.millis)
         .expectNext(200.millis, 1)
@@ -140,17 +139,17 @@ class FlowDelaySpec extends StreamSpec {
         .expectNext(200.millis, 3)
     }
 
-    "fail on overflow in Fail mode" in assertAllStagesStopped {
+    "fail on overflow in Fail mode" in {
       Source(1 to 20)
         .delay(300.millis, DelayOverflowStrategy.fail)
         .withAttributes(inputBuffer(16, 16))
-        .runWith(TestSink.probe[Int])
+        .runWith(TestSink[Int]())
         .request(100)
         .expectError(new BufferOverflowException("Buffer overflow for delay operator (max capacity was: 16)!"))
 
     }
 
-    "emit early when buffer is full and in EmitEarly mode" in assertAllStagesStopped {
+    "emit early when buffer is full and in EmitEarly mode" in {
       val c = TestSubscriber.manualProbe[Int]()
       val p = TestPublisher.manualProbe[Int]()
 
@@ -214,14 +213,14 @@ class FlowDelaySpec extends StreamSpec {
         .delay(100.millis, DelayOverflowStrategy.backpressure)
         .withAttributes(Attributes.inputBuffer(2, 2))
         .throttle(1, 200.millis, 1, ThrottleMode.Shaping)
-        .runWith(TestSink.probe)
+        .runWith(TestSink())
 
       probe.request(10).expectNextN(1 to 6).expectComplete()
     }
 
     "not drop messages on overflow when EmitEarly" in {
       val probe =
-        Source(1 to 2).delay(1.second, EmitEarly).withAttributes(Attributes.inputBuffer(1, 1)).runWith(TestSink.probe)
+        Source(1 to 2).delay(1.second, EmitEarly).withAttributes(Attributes.inputBuffer(1, 1)).runWith(TestSink())
 
       probe.request(10).expectNextN(1 to 2).expectComplete()
     }
@@ -272,7 +271,7 @@ class FlowDelaySpec extends StreamSpec {
     }
 
     "work with empty source" in {
-      Source.empty[Int].delay(Duration.Zero).runWith(TestSink.probe).request(1).expectComplete()
+      Source.empty[Int].delay(Duration.Zero).runWith(TestSink()).request(1).expectComplete()
     }
 
     "work with fixed delay" in {
@@ -285,7 +284,7 @@ class FlowDelaySpec extends StreamSpec {
         .map(_ => System.nanoTime())
         .delay(fixedDelay)
         .map(start => System.nanoTime() - start)
-        .runWith(TestSink.probe)
+        .runWith(TestSink())
 
       elems.foreach(_ => {
         val next = probe.request(1).expectNext(fixedDelay + fixedDelay.dilated)
@@ -300,7 +299,7 @@ class FlowDelaySpec extends StreamSpec {
 
       val elems = Vector(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)
 
-      Source(elems).delay(Duration.Zero).runWith(TestSink.probe).request(elems.size).expectNextN(elems).expectComplete()
+      Source(elems).delay(Duration.Zero).runWith(TestSink()).request(elems.size).expectNextN(elems).expectComplete()
     }
 
     "work with linear increasing delay" taggedAs TimingTest in {
@@ -318,7 +317,7 @@ class FlowDelaySpec extends StreamSpec {
           () => DelayStrategy.linearIncreasingDelay(step, incWhile, initial, max),
           OverflowStrategy.backpressure)
         .map(start => System.nanoTime() - start._2)
-        .runWith(TestSink.probe)
+        .runWith(TestSink())
 
       elems.foreach(e =>
         if (incWhile((e, 1L))) {

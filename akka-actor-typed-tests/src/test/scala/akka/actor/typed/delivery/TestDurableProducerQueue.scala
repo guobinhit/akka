@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.delivery
@@ -55,7 +55,7 @@ class TestDurableProducerQueue[A](
 
   private def active(state: State[A]): Behavior[Command[A]] = {
     stateHolder.set(state)
-    Behaviors.receiveMessage {
+    Behaviors.receiveMessagePartial {
       case cmd: LoadState[A] @unchecked =>
         maybeFail(cmd)
         if (delay == Duration.Zero) cmd.replyTo ! state else context.scheduleOnce(delay, cmd.replyTo, state)

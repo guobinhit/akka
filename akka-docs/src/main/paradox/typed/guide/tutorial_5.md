@@ -45,7 +45,7 @@ Java
 
 ## Implementing the query
 
-One approach for implementing the query involves adding code to the group device actor. However, in practice this can be very cumbersome and error prone. Remember that when we start a query, we need to take a snapshot of the devices present and start a timer so that we can enforce the deadline. In the meantime, _another query_ can arrive. For the second query we need to keep track of the exact same information but in isolation from the previous query. This would require us to maintain separate mappings between queries and device actors.
+One approach for implementing the query involves adding code to the device group actor. However, in practice this can be very cumbersome and error-prone. Remember that when we start a query, we need to take a snapshot of the devices present and start a timer so that we can enforce the deadline. In the meantime, _another query_ can arrive. For the second query we need to keep track of the exact same information but in isolation from the previous query. This would require us to maintain separate mappings between queries and device actors.
 
 Instead, we will implement a simpler, and superior approach. We will create an actor that represents a _single query_ and that performs the tasks needed to complete the query on behalf of the group actor. So far we have created actors that belonged to classical domain objects, but now, we will create an
 actor that represents a process or a task rather than an entity. We benefit by keeping our group device actor simple and being able to better test query capability in isolation.
@@ -61,7 +61,7 @@ First, we need to design the lifecycle of our query actor. This consists of iden
 
 #### Scheduling the query timeout
 Since we need a way to indicate how long we are willing to wait for responses, it is time to introduce a new Akka feature that we have
-not used yet, the built-in scheduler facility. Using `Behaviors.withTimers` and `startSingleTimer` to schedule a message that will be sent after a given delay.
+not used yet, the built-in scheduler facility. Using @apidoc[Behaviors.withTimers](typed.*.Behaviors$) {scala="#withTimers[T](factory:akka.actor.typed.scaladsl.TimerScheduler[T]=%3eakka.actor.typed.Behavior[T]):akka.actor.typed.Behavior[T]" java="#withTimers(akka.japi.function.Function)"} and @apidoc[startSingleTimer](typed.*.TimerScheduler) {scala="#startSingleTimer(key:Any,msg:T,delay:scala.concurrent.duration.FiniteDuration):Unit" java="#startSingleTimer(java.lang.Object,T,java.time.Duration)"} to schedule a message that will be sent after a given delay.
 
 
 We need to create a message that represents the query timeout. We create a simple message `CollectionTimeout` without any parameters for this purpose.
@@ -79,7 +79,7 @@ Scala
 Java
 :   @@snip [DeviceGroupQuery.java](/akka-docs/src/test/java/jdocs/typed/tutorial_5/DeviceGroupQuery.java) { #query-outline }
 
-Note that we have to convert the `RespondTemperature` replies from the device actor to the message protocol that the `DeviceGroupQuery` actor understands, i.e. `DeviceGroupQueryMessage`. For this we use a `messageAdapter` that wraps the `RespondTemperature` in a `WrappedRespondTemperature`, which @scala[extends]@java[implements] `DeviceGroupQueryMessage`.
+Note that we have to convert the `RespondTemperature` replies from the device actor to the message protocol that the `DeviceGroupQuery` actor understands, i.e. `DeviceGroupQuery.Command`. For this we use a `messageAdapter` that wraps the `RespondTemperature` in a `WrappedRespondTemperature`, which @scala[extends]@java[implements] `DeviceGroupQuery.Command`.
 
 #### Tracking actor state
 
@@ -87,7 +87,7 @@ The query actor, apart from the pending timer, has one stateful aspect, tracking
 
 For our use case:
 
-1. We keep track state with:
+1. We keep track of the state with:
     * a `Map` of already received replies
     * a `Set` of actors that we still wait on
 2. We have three events to act on:
@@ -148,7 +148,7 @@ Java
 Now let's verify the correctness of the query actor implementation. There are various scenarios we need to test individually to make
 sure everything works as expected. To be able to do this, we need to simulate the device actors somehow to exercise
 various normal or failure scenarios. Thankfully we took the list of collaborators (actually a `Map`) as a parameter
-to the query actor, so we can pass in `TestProbe` references. In our first test, we try out the case when
+to the query actor, so we can pass in @apidoc[typed.*.TestProbe] references. In our first test, we try out the case when
 there are two devices and both report a temperature:
 
 Scala
@@ -175,7 +175,7 @@ Java
 :   @@snip [DeviceGroupQueryTest.java](/akka-docs/src/test/java/jdocs/typed/tutorial_5/DeviceGroupQueryTest.java) { #query-test-stopped }
 
 If you remember, there is another case related to device actors stopping. It is possible that we get a normal reply
-from a device actor, but then receive a `Terminated` for the same actor later. In this case, we would like to keep
+from a device actor, but then receive a @apidoc[typed.Terminated] for the same actor later. In this case, we would like to keep
 the first reply and not mark the device as `DeviceNotAvailable`. We should test this, too:
 
 Scala
@@ -236,5 +236,4 @@ To get from this guide to a complete application you would likely need to provid
 
  * @extref[Microservices with Akka tutorial](platform-guide:microservices-tutorial/) illustrates how to implement an Event Sourced CQRS application with Akka Persistence and Akka Projections 
  * [Akka HTTP](https://doc.akka.io/docs/akka-http/current/introduction.html) is a HTTP server and client library, making it possible to publish and consume HTTP endpoints
- * [Play Framework](https://www.playframework.com) is a full fledged web framework that is built on top of Akka HTTP, it integrates well with Akka and can be used to create a complete modern web UI
- * [Lagom](https://www.lagomframework.com) is an opinionated microservice framework built on top of Akka, encoding many best practices around Akka and Play
+ * [Akka gRPC](https://doc.akka.io/docs/akka-grpc/current/) supports fully typed, streaming gRPC servers and clients.

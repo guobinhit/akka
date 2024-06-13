@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.journal
@@ -75,8 +75,7 @@ private[persistence] trait AsyncWriteProxy extends AsyncWriteJournal with Stash 
       case Some(s) =>
         val replayCompletionPromise = Promise[Unit]()
         val mediator = context.actorOf(
-          Props(classOf[ReplayMediator], replayCallback, replayCompletionPromise, timeout.duration)
-            .withDeploy(Deploy.local))
+          Props(new ReplayMediator(replayCallback, replayCompletionPromise, timeout.duration)).withDeploy(Deploy.local))
         s.tell(ReplayMessages(persistenceId, fromSequenceNr, toSequenceNr, max), mediator)
         replayCompletionPromise.future
       case None => storeNotInitialized
@@ -87,6 +86,7 @@ private[persistence] trait AsyncWriteProxy extends AsyncWriteJournal with Stash 
       case Some(s) =>
         (s ? ReplayMessages(persistenceId, fromSequenceNr = 0L, toSequenceNr = 0L, max = 0L)).map {
           case ReplaySuccess(highest) => highest
+          case _                      => throw new RuntimeException() // compiler exhaustiveness check pleaser
         }
       case None => storeNotInitialized
     }

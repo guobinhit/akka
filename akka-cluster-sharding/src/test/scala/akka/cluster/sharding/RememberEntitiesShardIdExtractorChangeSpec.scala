@@ -1,10 +1,15 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
 
 import java.util.UUID
+
+import scala.concurrent.Await
+import scala.concurrent.duration._
+
+import com.typesafe.config.ConfigFactory
 
 import akka.actor.ActorRef
 import akka.actor.ActorSystem
@@ -15,10 +20,6 @@ import akka.persistence.PersistentActor
 import akka.testkit.AkkaSpec
 import akka.testkit.ImplicitSender
 import akka.testkit.TestProbe
-import com.typesafe.config.ConfigFactory
-
-import scala.concurrent.Await
-import scala.concurrent.duration._
 
 /**
  * Covers that remembered entities is correctly migrated when used and the shard id extractor
@@ -29,7 +30,6 @@ object RememberEntitiesShardIdExtractorChangeSpec {
        akka.loglevel = INFO
        akka.actor.provider = "cluster"
        akka.remote.artery.canonical.port = 0 
-       akka.remote.classic.netty.tcp.port = 0
        akka.cluster.sharding {
         remember-entities = on
         remember-entities-store = "eventsourced"
@@ -62,16 +62,19 @@ object RememberEntitiesShardIdExtractorChangeSpec {
 
   val extractEntityId: ShardRegion.ExtractEntityId = {
     case msg @ Message(id) => (id.toString, msg)
+    case _                 => throw new IllegalArgumentException()
   }
 
   val firstExtractShardId: ShardRegion.ExtractShardId = {
     case Message(id)                 => (id % 10).toString
     case ShardRegion.StartEntity(id) => (id.toInt % 10).toString
+    case _                           => throw new IllegalArgumentException()
   }
 
   val secondExtractShardId: ShardRegion.ExtractShardId = {
     case Message(id)                 => (id % 10 + 1L).toString
     case ShardRegion.StartEntity(id) => (id.toInt % 10 + 1L).toString
+    case _                           => throw new IllegalArgumentException()
   }
 
   val TypeName = "ShardIdExtractorChange"

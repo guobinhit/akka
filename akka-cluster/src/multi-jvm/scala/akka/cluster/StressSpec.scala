@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
@@ -35,11 +35,11 @@ import akka.remote.DefaultFailureDetectorRegistry
 import akka.remote.PhiAccrualFailureDetector
 import akka.remote.RARP
 import akka.remote.artery.ArterySettings.AeronUpd
+import akka.remote.testkit.Direction
 import akka.remote.testkit.MultiNodeConfig
 import akka.remote.testkit.MultiNodeSpec
-import akka.remote.transport.ThrottlerTransportAdapter
-import akka.testkit.TestEvent._
 import akka.testkit._
+import akka.testkit.TestEvent._
 import akka.util.Helpers.ConfigOps
 import akka.util.Helpers.Requiring
 
@@ -62,7 +62,7 @@ private[cluster] object StressMultiJvmSpec extends MultiNodeConfig {
 
   val totalNumberOfNodes =
     System.getProperty("MultiJvm.akka.cluster.Stress.nrOfNodes") match {
-      case null  => 13
+      case null  => 10
       case value => value.toInt.requiring(_ >= 10, "nrOfNodes should be >= 10")
     }
 
@@ -77,13 +77,13 @@ private[cluster] object StressMultiJvmSpec extends MultiNodeConfig {
       nr-of-nodes-factor = 1
       # not scaled
       nr-of-seed-nodes = 3
-      nr-of-nodes-joining-to-seed-initially = 2
-      nr-of-nodes-joining-one-by-one-small = 2
-      nr-of-nodes-joining-one-by-one-large = 2
-      nr-of-nodes-joining-to-one = 2
+      nr-of-nodes-joining-to-seed-initially = 1
+      nr-of-nodes-joining-one-by-one-small = 1
+      nr-of-nodes-joining-one-by-one-large = 1
+      nr-of-nodes-joining-to-one = 1
       nr-of-nodes-leaving-one-by-one-small = 1
       nr-of-nodes-leaving-one-by-one-large = 1
-      nr-of-nodes-leaving = 2
+      nr-of-nodes-leaving = 1
       nr-of-nodes-shutdown-one-by-one-small = 1
       nr-of-nodes-shutdown-one-by-one-large = 1
       nr-of-nodes-partition = 2
@@ -110,7 +110,6 @@ private[cluster] object StressMultiJvmSpec extends MultiNodeConfig {
     }
     akka.loggers = ["akka.testkit.TestEventListener"]
     akka.loglevel = INFO
-    akka.remote.log-remote-lifecycle-events = off
     akka.actor.default-dispatcher.fork-join-executor {
       parallelism-min = 8
       parallelism-max = 8
@@ -175,7 +174,7 @@ private[cluster] object StressMultiJvmSpec extends MultiNodeConfig {
   }
 
   implicit class FormattedDouble(val d: Double) extends AnyVal {
-    def form: String = d.formatted("%.2f")
+    def form: String = "%.2f".format(d)
   }
 
   final case class ClusterResult(address: Address, duration: Duration, clusterStats: GossipStats)
@@ -432,15 +431,8 @@ class StressMultiJvmNode7 extends StressSpec
 class StressMultiJvmNode8 extends StressSpec
 class StressMultiJvmNode9 extends StressSpec
 class StressMultiJvmNode10 extends StressSpec
-class StressMultiJvmNode11 extends StressSpec
-class StressMultiJvmNode12 extends StressSpec
-class StressMultiJvmNode13 extends StressSpec
 
-abstract class StressSpec
-    extends MultiNodeSpec(StressMultiJvmSpec)
-    with MultiNodeClusterSpec
-    with BeforeAndAfterEach
-    with ImplicitSender {
+abstract class StressSpec extends MultiNodeClusterSpec(StressMultiJvmSpec) with BeforeAndAfterEach with ImplicitSender {
 
   import StressMultiJvmSpec._
 
@@ -454,9 +446,11 @@ abstract class StressSpec
 
   override def beforeEach(): Unit = { step += 1 }
 
-  override def expectedTestDuration = settings.expectedTestDuration
+  override def expectedTestDuration: FiniteDuration = settings.expectedTestDuration
 
   override def shutdownTimeout: FiniteDuration = 30.seconds.dilated
+
+  override def verifySystemShutdown: Boolean = true
 
   override def muteLog(sys: ActorSystem = system): Unit = {
     super.muteLog(sys)
@@ -475,8 +469,6 @@ abstract class StressSpec
         println("Abrupt exit of JVM without closing media driver. This should not happen and may cause test failure.")
     }
   })
-
-  def isArteryEnabled: Boolean = RARP(system).provider.remoteSettings.Artery.Enabled
 
   def isAeronUdpTransport: Boolean = RARP(system).provider.remoteSettings.Artery.Transport == AeronUpd
 
@@ -549,14 +541,15 @@ abstract class StressSpec
     }
     enterBarrier("result-aggregator-created-" + step)
     runOn(roles.take(nbrUsedRoles): _*) {
-      val resultAggregator = clusterResultAggregator
+      val resultAggregator = identifyClusterResultAggregator()
       phiObserver ! ReportTo(resultAggregator)
       statsObserver ! Reset
       statsObserver ! ReportTo(resultAggregator)
     }
+    enterBarrier("result-aggregator-identified-" + step)
   }
 
-  def clusterResultAggregator: Option[ActorRef] = {
+  def identifyClusterResultAggregator(): Option[ActorRef] = {
     system.actorSelection(node(roles.head) / "user" / ("result" + step)).tell(Identify(step), identifyProbe.ref)
     identifyProbe.expectMsgType[ActorIdentity].ref
   }
@@ -571,7 +564,7 @@ abstract class StressSpec
 
   def awaitClusterResult(): Unit = {
     runOn(roles.head) {
-      clusterResultAggregator match {
+      identifyClusterResultAggregator() match {
         case Some(r) =>
           watch(r)
           expectMsgPF() { case Terminated(a) if a.path == r.path => true }
@@ -717,7 +710,7 @@ abstract class StressSpec
 
       runOn(roles.head) {
         for (x <- currentRoles; y <- removeRoles) {
-          testConductor.blackhole(x, y, ThrottlerTransportAdapter.Direction.Both).await
+          testConductor.blackhole(x, y, Direction.Both).await
         }
       }
       enterBarrier("partition-several-blackhole")
@@ -749,7 +742,7 @@ abstract class StressSpec
 
     val returnValue = thunk
 
-    clusterResultAggregator.foreach {
+    identifyClusterResultAggregator().foreach {
       _ ! ClusterResult(cluster.selfAddress, (System.nanoTime - startTime).nanos, latestGossipStats :- startStats)
     }
 
@@ -782,7 +775,7 @@ abstract class StressSpec
                 previousAS.foreach { as =>
                   TestKit.shutdownActorSystem(as)
                 }
-                val sys = ActorSystem(system.name, system.settings.config)
+                val sys = ActorSystem(system.name, MultiNodeSpec.configureNextPortIfFixed(system.settings.config))
                 muteLog(sys)
                 Cluster(sys).joinSeedNodes(seedNodes.toIndexedSeq.map(address))
                 Some(sys)
@@ -849,7 +842,7 @@ abstract class StressSpec
 
     // Aeron UDP with embedded driver seems too heavy to get to pass
     // note: there must be one test step before pending, otherwise afterTermination will not run
-    if (isArteryEnabled && isAeronUdpTransport) pending
+    if (isAeronUdpTransport) pending
 
     "join seed nodes" taggedAs LongRunningTest in within(30 seconds) {
 

@@ -1,18 +1,20 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.pattern
 
-import akka.Done
-import akka.annotation.InternalApi
-import akka.dispatch.ExecutionContexts
-
 import scala.concurrent.Future
-import scala.util.Try
-import scala.util.control.NoStackTrace
 import scala.util.{ Failure => ScalaFailure }
 import scala.util.{ Success => ScalaSuccess }
+import scala.util.Try
+import scala.util.control.NoStackTrace
+
+import akka.Done
+import akka.actor.InvalidMessageException
+import akka.annotation.InternalApi
+import akka.dispatch.ExecutionContexts
+import akka.pattern.StatusReply.ErrorMessage
 
 /**
  * Generic top-level message type for replies that signal failure or success. Convenient to use together with the
@@ -25,6 +27,8 @@ import scala.util.{ Success => ScalaSuccess }
  * @tparam T the type of value a successful reply would have
  */
 final class StatusReply[+T] private (private val status: Try[T]) {
+  if (status == null)
+    throw InvalidMessageException("[null] is not an allowed status")
 
   /**
    * Java API: in the case of a successful reply returns the value, if the reply was not successful the exception
@@ -51,8 +55,9 @@ final class StatusReply[+T] private (private val status: Try[T]) {
   override def hashCode(): Int = status.hashCode
 
   override def toString: String = status match {
-    case ScalaSuccess(t)  => s"Success($t)"
-    case ScalaFailure(ex) => s"Error(${ex.getMessage})"
+    case ScalaSuccess(t)                => s"Success($t)"
+    case ScalaFailure(ex: ErrorMessage) => s"Error(${ex.getMessage})"
+    case ScalaFailure(ex)               => s"Error($ex)"
   }
 
 }
@@ -93,6 +98,32 @@ object StatusReply {
   def error[T](exception: Throwable): StatusReply[T] = Error(exception)
 
   /**
+   * Scala API: Turn a Try into a status reply.
+   *
+   * Prefer the string based error response over this one when possible to avoid tightly coupled logic across
+   * actors and passing internal failure details on to callers that can not do much to handle them. [[#fromTry]]
+   * provides a convenience factory doing that for [[scala.util.Try]].
+   *
+   * For cases where types are needed to identify errors and behave differently enumerating them with a specific
+   * set of response messages may be a better alternative to encoding them as generic exceptions.
+   *
+   * Also note that Akka does not contain pre-built serializers for arbitrary exceptions.
+   */
+  def fromTryKeepException[T](status: Try[T]): StatusReply[T] = new StatusReply(status)
+
+  /**
+   * Scala API: Turn a try into a status reply.
+   *
+   * Transforms exceptions into status reply errors containing just the exception message string.
+   *
+   * See [[#fromTryKeepException]] for passing the exception along as is.
+   */
+  def fromTry[T](status: Try[T]): StatusReply[T] = status match {
+    case scala.util.Success(value) => success(value)
+    case scala.util.Failure(t)     => error[T](t.getMessage)
+  }
+
+  /**
    * Carrier exception used for textual error descriptions.
    *
    * Not meant for usage outside of [[StatusReply]].
@@ -118,7 +149,7 @@ object StatusReply {
      */
     def apply[T](value: T): StatusReply[T] = new StatusReply(ScalaSuccess(value))
     def unapply(status: StatusReply[Any]): Option[Any] =
-      if (status.isSuccess) Some(status.getValue)
+      if (status != null && status.isSuccess) Some(status.getValue)
       else None
   }
 
@@ -150,7 +181,7 @@ object StatusReply {
      */
     def apply[T](exception: Throwable): StatusReply[T] = new StatusReply(ScalaFailure(exception))
     def unapply(status: StatusReply[_]): Option[Throwable] =
-      if (status.isError) Some(status.getError)
+      if (status != null && status.isError) Some(status.getError)
       else None
   }
 
@@ -160,8 +191,13 @@ object StatusReply {
   @InternalApi
   private[akka] def flattenStatusFuture[T](f: Future[StatusReply[T]]): Future[T] =
     f.transform {
-      case ScalaSuccess(StatusReply.Success(v)) => ScalaSuccess(v.asInstanceOf[T])
-      case ScalaSuccess(StatusReply.Error(ex))  => ScalaFailure[T](ex)
-      case fail @ ScalaFailure(_)               => fail.asInstanceOf[Try[T]]
+      case ScalaSuccess(s) =>
+        s match {
+          case StatusReply.Success(v) => ScalaSuccess(v.asInstanceOf[T])
+          case StatusReply.Error(ex)  => ScalaFailure[T](ex)
+          case unexpected =>
+            ScalaFailure(new IllegalArgumentException(s"Unexpected status reply success value: ${unexpected}"))
+        }
+      case fail @ ScalaFailure(_) => fail.asInstanceOf[Try[T]]
     }(ExecutionContexts.parasitic)
 }

@@ -1,32 +1,31 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.cluster;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
-import jdocs.cluster.StatsMessages.JobFailed;
-import jdocs.cluster.StatsMessages.StatsJob;
-import jdocs.cluster.StatsMessages.StatsResult;
-import java.util.concurrent.ThreadLocalRandom;
-import java.time.Duration;
+import akka.actor.AbstractActor;
 import akka.actor.ActorSelection;
 import akka.actor.Address;
 import akka.actor.Cancellable;
-import akka.actor.AbstractActor;
 import akka.cluster.Cluster;
-import akka.cluster.ClusterEvent.UnreachableMember;
-import akka.cluster.ClusterEvent.ReachableMember;
 import akka.cluster.ClusterEvent.CurrentClusterState;
 import akka.cluster.ClusterEvent.MemberEvent;
 import akka.cluster.ClusterEvent.MemberUp;
 import akka.cluster.ClusterEvent.ReachabilityEvent;
+import akka.cluster.ClusterEvent.ReachableMember;
+import akka.cluster.ClusterEvent.UnreachableMember;
 import akka.cluster.Member;
 import akka.cluster.MemberStatus;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
+import jdocs.cluster.StatsMessages.JobFailed;
+import jdocs.cluster.StatsMessages.StatsJob;
+import jdocs.cluster.StatsMessages.StatsResult;
 
 public class StatsSampleClient extends AbstractActor {
 

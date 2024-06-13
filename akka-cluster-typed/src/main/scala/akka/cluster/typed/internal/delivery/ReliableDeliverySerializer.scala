@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.typed.internal.delivery
@@ -16,13 +16,14 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.annotation.InternalApi
 import akka.cluster.typed.internal.protobuf.ReliableDelivery
 import akka.cluster.typed.internal.protobuf.ReliableDelivery.Confirmed
+import akka.protobufv3.internal.ByteString
+import akka.remote.ByteStringUtils
 import akka.remote.ContainerFormats
 import akka.remote.ContainerFormats.Payload
 import akka.remote.serialization.WrappedPayloadSupport
 import akka.serialization.BaseSerializer
 import akka.serialization.SerializerWithStringManifest
 import akka.util.ccompat.JavaConverters._
-import akka.protobufv3.internal.ByteString
 
 /**
  * INTERNAL API
@@ -97,7 +98,7 @@ import akka.protobufv3.internal.ByteString
 
   private def chunkedMessageToProto(chunk: ChunkedMessage): Payload.Builder = {
     val payloadBuilder = ContainerFormats.Payload.newBuilder()
-    payloadBuilder.setEnclosedMessage(ByteString.copyFrom(chunk.serialized.toArray))
+    payloadBuilder.setEnclosedMessage(ByteStringUtils.toProtoByteStringUnsafe(chunk.serialized.toArrayUnsafe()))
     payloadBuilder.setMessageManifest(ByteString.copyFromUtf8(chunk.manifest))
     payloadBuilder.setSerializerId(chunk.serializerId)
     payloadBuilder
@@ -207,7 +208,7 @@ import akka.protobufv3.internal.ByteString
         val manifest =
           if (seqMsg.getMessage.hasMessageManifest) seqMsg.getMessage.getMessageManifest.toStringUtf8 else ""
         ChunkedMessage(
-          akka.util.ByteString(seqMsg.getMessage.getEnclosedMessage.toByteArray),
+          akka.util.ByteString.fromArrayUnsafe(seqMsg.getMessage.getEnclosedMessage.toByteArray),
           seqMsg.getFirstChunk,
           seqMsg.getLastChunk,
           seqMsg.getMessage.getSerializerId,
@@ -260,7 +261,7 @@ import akka.protobufv3.internal.ByteString
         val manifest =
           if (sent.getMessage.hasMessageManifest) sent.getMessage.getMessageManifest.toStringUtf8 else ""
         ChunkedMessage(
-          akka.util.ByteString(sent.getMessage.getEnclosedMessage.toByteArray),
+          akka.util.ByteString.fromArrayUnsafe(sent.getMessage.getEnclosedMessage.toByteArray),
           sent.getFirstChunk,
           sent.getLastChunk,
           sent.getMessage.getSerializerId,

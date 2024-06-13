@@ -1,19 +1,26 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding.typed
 
 import java.util.concurrent.ThreadLocalRandom
 
-import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
+import com.typesafe.config.Config
+import com.typesafe.config.ConfigFactory
+import org.scalatest.time.Span
+import org.scalatest.wordspec.AnyWordSpecLike
+
+import akka.actor.testkit.typed.scaladsl.{ ActorTestKit, LogCapturing, ScalaTestWithActorTestKit }
 import akka.actor.typed.ActorRef
 import akka.actor.typed.ActorSystem
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.scaladsl.LoggerOps
 import akka.cluster.MemberStatus
 import akka.cluster.sharding.typed.ReplicatedShardingSpec.DataCenter
+import akka.cluster.sharding.typed.ReplicatedShardingSpec.MyReplicatedIntSet
+import akka.cluster.sharding.typed.ReplicatedShardingSpec.MyReplicatedStringSet
 import akka.cluster.sharding.typed.ReplicatedShardingSpec.Normal
 import akka.cluster.sharding.typed.ReplicatedShardingSpec.ReplicationType
 import akka.cluster.sharding.typed.ReplicatedShardingSpec.Role
@@ -23,19 +30,12 @@ import akka.cluster.typed.Join
 import akka.persistence.testkit.PersistenceTestKitPlugin
 import akka.persistence.testkit.query.scaladsl.PersistenceTestKitReadJournal
 import akka.persistence.typed.ReplicaId
-import akka.persistence.typed.scaladsl.ReplicatedEventSourcing
+import akka.persistence.typed.ReplicationId
 import akka.persistence.typed.scaladsl.Effect
 import akka.persistence.typed.scaladsl.EventSourcedBehavior
+import akka.persistence.typed.scaladsl.ReplicatedEventSourcing
 import akka.serialization.jackson.CborSerializable
-import com.typesafe.config.ConfigFactory
-import org.scalatest.wordspec.AnyWordSpecLike
-import akka.actor.typed.scaladsl.LoggerOps
-import akka.cluster.sharding.typed.ReplicatedShardingSpec.MyReplicatedIntSet
-import akka.cluster.sharding.typed.ReplicatedShardingSpec.MyReplicatedStringSet
-import akka.persistence.typed.ReplicationId
-import com.typesafe.config.Config
 import akka.util.ccompat._
-import org.scalatest.time.Span
 
 @ccompatUsedUntil213
 object ReplicatedShardingSpec {
@@ -43,7 +43,6 @@ object ReplicatedShardingSpec {
       akka.loglevel = DEBUG
       akka.loggers = ["akka.testkit.SilenceAllTestEventListener"]
       akka.actor.provider = "cluster"
-      akka.remote.classic.netty.tcp.port = 0
       akka.remote.artery.canonical.port = 0""").withFallback(PersistenceTestKitPlugin.config)
 
   def roleAConfig = ConfigFactory.parseString("""
@@ -70,7 +69,7 @@ object ReplicatedShardingSpec {
   val AllReplicas = Set(ReplicaId("DC-A"), ReplicaId("DC-B"))
 
   object MyReplicatedStringSet {
-    trait Command extends CborSerializable
+    sealed trait Command extends CborSerializable
     case class Add(text: String) extends Command
     case class GetTexts(replyTo: ActorRef[Texts]) extends Command
 
@@ -122,7 +121,7 @@ object ReplicatedShardingSpec {
   }
 
   object MyReplicatedIntSet {
-    trait Command extends CborSerializable
+    sealed trait Command extends CborSerializable
     case class Add(text: Int) extends Command
     case class GetInts(replyTo: ActorRef[Ints]) extends Command
     case class Ints(ints: Set[Int]) extends CborSerializable
@@ -225,7 +224,8 @@ class DataCenterReplicatedShardingSpec
 
 abstract class ReplicatedShardingSpec(replicationType: ReplicationType, configA: Config, configB: Config)
     extends ScalaTestWithActorTestKit(configA)
-    with AnyWordSpecLike {
+    with AnyWordSpecLike
+    with LogCapturing {
 
   // don't retry quite so quickly
   override implicit val patience: PatienceConfig =
@@ -235,10 +235,7 @@ abstract class ReplicatedShardingSpec(replicationType: ReplicationType, configA:
 
   override protected def afterAll(): Unit = {
     super.afterAll()
-    ActorTestKit.shutdown(
-      system2,
-      testKitSettings.DefaultActorSystemShutdownTimeout,
-      testKitSettings.ThrowOnShutdownTimeout)
+    ActorTestKit.shutdown(system2)
   }
 
   "Replicated sharding" should {
@@ -290,6 +287,12 @@ abstract class ReplicatedShardingSpec(replicationType: ReplicationType, configA:
         val uniqueTexts = responses.flatMap(res => res.ints).toSet
         uniqueTexts should ===(Set(10, 11))
       }
+
+      // This is also done in 'afterAll', but we do it here as well so we can see the
+      // logging to diagnose
+      // https://github.com/akka/akka/issues/30501 and
+      // https://github.com/akka/akka/issues/30502
+      ActorTestKit.shutdown(system2)
     }
   }
 

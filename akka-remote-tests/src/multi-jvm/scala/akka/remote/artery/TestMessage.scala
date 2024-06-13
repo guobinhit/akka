@@ -1,8 +1,10 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
+
+import java.io.NotSerializableException
 
 import akka.actor.ExtendedActorSystem
 import akka.protobufv3.internal.ByteString
@@ -30,6 +32,7 @@ class TestMessageSerializer(val system: ExtendedActorSystem) extends SerializerW
   override def manifest(o: AnyRef): String =
     o match {
       case _: TestMessage => TestMessageManifest
+      case _              => throw new NotSerializableException()
     }
 
   override def toBinary(o: AnyRef): Array[Byte] = o match {
@@ -45,6 +48,7 @@ class TestMessageSerializer(val system: ExtendedActorSystem) extends SerializerW
         builder.addItems(proto.Item.newBuilder().setId(item.id).setName(item.name))
       }
       builder.build().toByteArray()
+    case _ => throw new NotSerializableException()
   }
 
   override def fromBinary(bytes: Array[Byte], manifest: String): AnyRef = {

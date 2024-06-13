@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.dispatcher;
@@ -12,8 +12,8 @@ import akka.dispatch.MailboxType;
 import akka.dispatch.MessageQueue;
 import akka.dispatch.ProducesMessageQueue;
 import com.typesafe.config.Config;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import scala.Option;
 
 public class MyUnboundedMailbox
@@ -41,8 +41,8 @@ public class MyUnboundedMailbox
     }
 
     public void cleanUp(ActorRef owner, MessageQueue deadLetters) {
-      for (Envelope handle : queue) {
-        deadLetters.enqueue(owner, handle);
+      while (!queue.isEmpty()) {
+        deadLetters.enqueue(owner, dequeue());
       }
     }
   }

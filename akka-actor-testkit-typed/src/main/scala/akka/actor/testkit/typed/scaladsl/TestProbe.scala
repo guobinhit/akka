@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.testkit.typed.scaladsl
@@ -13,6 +13,8 @@ import akka.actor.testkit.typed.TestKitSettings
 import akka.actor.testkit.typed.internal.TestProbeImpl
 import akka.actor.typed.ActorRef
 import akka.actor.typed.ActorSystem
+import akka.actor.typed.RecipientRef
+import akka.actor.typed.internal.InternalRecipientRef
 import akka.annotation.DoNotInherit
 import akka.annotation.InternalApi
 
@@ -56,7 +58,7 @@ object TestProbe {
  *
  * Not for user extension
  */
-@DoNotInherit trait TestProbe[M] {
+@DoNotInherit trait TestProbe[M] extends RecipientRef[M] { this: InternalRecipientRef[M] =>
 
   implicit protected def settings: TestKitSettings
 
@@ -197,9 +199,19 @@ object TestProbe {
   def fishForMessage(max: FiniteDuration, hint: String)(fisher: M => FishingOutcome): immutable.Seq[M]
 
   /**
+   * Same as `fishForMessage` but accepting a partial function and failing for non-matches
+   */
+  def fishForMessagePF(max: FiniteDuration, hint: String)(fisher: PartialFunction[M, FishingOutcome]): immutable.Seq[M]
+
+  /**
    * Same as the other `fishForMessage` but with no hint
    */
   def fishForMessage(max: FiniteDuration)(fisher: M => FishingOutcome): immutable.Seq[M]
+
+  /**
+   * Same as `fishForMessage` but with no hint, accepting a partial function and failing for non-matches
+   */
+  def fishForMessagePF(max: FiniteDuration)(fisher: PartialFunction[M, FishingOutcome]): immutable.Seq[M]
 
   /**
    * Expect the given actor to be stopped or stop within the given timeout or

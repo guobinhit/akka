@@ -1,26 +1,24 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.typed.tutorial_4;
 
-import akka.actor.testkit.typed.javadsl.TestKitJunitResource;
-import akka.actor.testkit.typed.javadsl.TestProbe;
-import akka.actor.typed.ActorRef;
-import org.junit.ClassRule;
-import org.junit.Test;
-import org.scalatestplus.junit.JUnitSuite;
-
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
+import static jdocs.typed.tutorial_4.DeviceManager.DeviceRegistered;
+import static jdocs.typed.tutorial_4.DeviceManager.ReplyDeviceList;
+import static jdocs.typed.tutorial_4.DeviceManager.RequestDeviceList;
+import static jdocs.typed.tutorial_4.DeviceManager.RequestTrackDevice;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 
-import static jdocs.typed.tutorial_4.DeviceManager.DeviceRegistered;
-import static jdocs.typed.tutorial_4.DeviceManager.RequestTrackDevice;
-import static jdocs.typed.tutorial_4.DeviceManager.ReplyDeviceList;
-import static jdocs.typed.tutorial_4.DeviceManager.RequestDeviceList;
+import akka.actor.testkit.typed.javadsl.TestKitJunitResource;
+import akka.actor.testkit.typed.javadsl.TestProbe;
+import akka.actor.typed.ActorRef;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.junit.ClassRule;
+import org.junit.Test;
+import org.scalatestplus.junit.JUnitSuite;
 
 public class DeviceGroupTest extends JUnitSuite {
 

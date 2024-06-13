@@ -1,19 +1,18 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.ddata.protobuf;
 
 // #serializer
-import jdocs.ddata.TwoPhaseSet;
+import akka.actor.ExtendedActorSystem;
+import akka.cluster.ddata.GSet;
+import akka.cluster.ddata.protobuf.AbstractSerializationSupport;
 import docs.ddata.protobuf.msg.TwoPhaseSetMessages;
 import docs.ddata.protobuf.msg.TwoPhaseSetMessages.TwoPhaseSet.Builder;
 import java.util.ArrayList;
 import java.util.Collections;
-
-import akka.actor.ExtendedActorSystem;
-import akka.cluster.ddata.GSet;
-import akka.cluster.ddata.protobuf.AbstractSerializationSupport;
+import jdocs.ddata.TwoPhaseSet;
 
 public class TwoPhaseSetSerializer extends AbstractSerializationSupport {
 

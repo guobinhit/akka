@@ -1,18 +1,19 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.japi.function
 
-import com.github.ghik.silencer.silent
+import scala.annotation.nowarn
 
 /**
  * A Function interface. Used to create first-class-functions is Java.
  * `Serializable` is needed to be able to grab line number for Java 8 lambdas.
  * Supports throwing `Exception` in the apply, which the `java.util.function.Function` counterpart does not.
  */
-@silent("@SerialVersionUID has no effect")
+@nowarn("msg=@SerialVersionUID has no effect")
 @SerialVersionUID(1L)
+@FunctionalInterface
 trait Function[-T, +R] extends java.io.Serializable {
   @throws(classOf[Exception])
   def apply(param: T): R
@@ -23,8 +24,9 @@ trait Function[-T, +R] extends java.io.Serializable {
  * `Serializable` is needed to be able to grab line number for Java 8 lambdas.
  * Supports throwing `Exception` in the apply, which the `java.util.function.BiFunction` counterpart does not.
  */
-@silent("@SerialVersionUID has no effect")
+@nowarn("msg=@SerialVersionUID has no effect")
 @SerialVersionUID(1L)
+@FunctionalInterface
 trait Function2[-T1, -T2, +R] extends java.io.Serializable {
   @throws(classOf[Exception])
   def apply(arg1: T1, arg2: T2): R
@@ -35,8 +37,9 @@ trait Function2[-T1, -T2, +R] extends java.io.Serializable {
  * `Serializable` is needed to be able to grab line number for Java 8 lambdas.
  * Supports throwing `Exception` in the apply, which the `java.util.function.Consumer` counterpart does not.
  */
-@silent("@SerialVersionUID has no effect")
+@nowarn("msg=@SerialVersionUID has no effect")
 @SerialVersionUID(1L)
+@FunctionalInterface
 trait Procedure[-T] extends java.io.Serializable {
   @throws(classOf[Exception])
   def apply(param: T): Unit
@@ -47,8 +50,9 @@ trait Procedure[-T] extends java.io.Serializable {
  * `Serializable` is needed to be able to grab line number for Java 8 lambdas.
  * Supports throwing `Exception` in the apply, which the `java.util.function.Effect` counterpart does not.
  */
-@silent("@SerialVersionUID has no effect")
+@nowarn("msg=@SerialVersionUID has no effect")
 @SerialVersionUID(1L)
+@FunctionalInterface
 trait Effect extends java.io.Serializable {
 
   @throws(classOf[Exception])
@@ -60,8 +64,9 @@ trait Effect extends java.io.Serializable {
  * `Serializable` is needed to be able to grab line number for Java 8 lambdas.
  * Supports throwing `Exception` in the apply, which the `java.util.function.Predicate` counterpart does not.
  */
-@silent("@SerialVersionUID has no effect")
+@nowarn("msg=@SerialVersionUID has no effect")
 @SerialVersionUID(1L)
+@FunctionalInterface
 trait Predicate[-T] extends java.io.Serializable {
   def test(param: T): Boolean
 }
@@ -70,8 +75,9 @@ trait Predicate[-T] extends java.io.Serializable {
  * A constructor/factory, takes no parameters but creates a new value of type T every call.
  * Supports throwing `Exception` in the apply, which the `java.util.function.Creator` counterpart does not.
  */
-@silent("@SerialVersionUID has no effect")
+@nowarn("msg=@SerialVersionUID has no effect")
 @SerialVersionUID(1L)
+@FunctionalInterface
 trait Creator[+T] extends Serializable {
 
   /**

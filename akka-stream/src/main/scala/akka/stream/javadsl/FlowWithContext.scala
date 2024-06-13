@@ -1,20 +1,22 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.javadsl
 
 import java.util.concurrent.CompletionStage
+import java.util.function.BiFunction
 
 import scala.annotation.unchecked.uncheckedVariance
 import scala.compat.java8.FutureConverters._
 
+import akka.annotation.ApiMayChange
 import akka.event.{ LogMarker, LoggingAdapter, MarkerLoggingAdapter }
-import akka.japi.{ function, Pair, Util }
+import akka.japi.{ function, Pair }
 import akka.stream._
 import akka.util.ConstantFun
-import akka.util.ccompat.JavaConverters._
 import akka.util.JavaDurationConverters._
+import akka.util.ccompat.JavaConverters._
 
 object FlowWithContext {
 
@@ -62,6 +64,23 @@ final class FlowWithContext[In, CtxIn, Out, CtxOut, +Mat](
     val under = asFlow().via(viaFlow)
     FlowWithContext.fromPairs(under)
   }
+
+  /**
+   * Transform this flow by the regular flow. The given flow works on the data portion of the stream and
+   * ignores the context.
+   *
+   * The given flow *must* not re-order, drop or emit multiple elements for one incoming
+   * element, the sequence of incoming contexts is re-combined with the outgoing
+   * elements of the stream. If a flow not fulfilling this requirement is used the stream
+   * will not fail but continue running in a corrupt state and re-combine incorrect pairs
+   * of elements and contexts or deadlock.
+   *
+   * For more background on these requirements
+   *  see https://doc.akka.io/docs/akka/current/stream/stream-context.html.
+   */
+  @ApiMayChange def unsafeDataVia[Out2, Mat2](
+      viaFlow: Graph[FlowShape[Out @uncheckedVariance, Out2], Mat2]): FlowWithContext[In, CtxIn, Out2, CtxOut, Mat] =
+    viaScala(_.unsafeDataVia(viaFlow))
 
   /**
    * Context-preserving variant of [[akka.stream.javadsl.Flow.withAttributes]].
@@ -148,10 +167,29 @@ final class FlowWithContext[In, CtxIn, Out, CtxOut, +Mat](
   def map[Out2](f: function.Function[Out, Out2]): FlowWithContext[In, CtxIn, Out2, CtxOut, Mat] =
     viaScala(_.map(f.apply))
 
+  /**
+   * Context-preserving variant of [[akka.stream.javadsl.Flow.mapAsync]]
+   *
+   * @see [[akka.stream.javadsl.Flow.mapAsync]]
+   */
   def mapAsync[Out2](
       parallelism: Int,
       f: function.Function[Out, CompletionStage[Out2]]): FlowWithContext[In, CtxIn, Out2, CtxOut, Mat] =
     viaScala(_.mapAsync[Out2](parallelism)(o => f.apply(o).toScala))
+
+  /**
+   * Context-preserving variant of [[akka.stream.javadsl.Flow.mapAsyncPartitioned]]
+   *
+   * @see [[akka.stream.javadsl.Flow.mapAsyncPartitioned]]
+   */
+  def mapAsyncPartitioned[Out2, P](
+      parallelism: Int,
+      perPartition: Int,
+      partitioner: function.Function[Out, P],
+      f: BiFunction[Out, P, CompletionStage[Out2]]): FlowWithContext[In, CtxIn, Out2, CtxOut, Mat] =
+    viaScala(_.mapAsyncPartitioned[Out2, P](parallelism, perPartition)(x => partitioner(x)) { (x, p) =>
+      f(x, p).toScala
+    })
 
   /**
    * Context-preserving variant of [[akka.stream.javadsl.Flow.mapConcat]].
@@ -183,7 +221,7 @@ final class FlowWithContext[In, CtxIn, Out, CtxOut, +Mat](
    */
   def mapConcat[Out2](
       f: function.Function[Out, _ <: java.lang.Iterable[Out2]]): FlowWithContext[In, CtxIn, Out2, CtxOut, Mat] =
-    viaScala(_.mapConcat(elem => Util.immutableSeq(f.apply(elem))))
+    viaScala(_.mapConcat(elem => f.apply(elem).asScala))
 
   /**
    * Apply the given function to each context element (leaving the data elements unchanged).

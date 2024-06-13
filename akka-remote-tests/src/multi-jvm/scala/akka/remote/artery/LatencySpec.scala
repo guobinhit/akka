@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -43,7 +43,6 @@ object LatencySpec extends MultiNodeConfig {
            provider = remote
          }
          remote.artery {
-           enabled = on
            advanced.aeron.idle-cpu-level = 7
 
            advanced.inbound-lanes = 1

@@ -1,18 +1,18 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.crdt
 
 import scala.annotation.tailrec
 import scala.collection.immutable
-import akka.util.HashCode
-import akka.annotation.{ ApiMayChange, InternalApi }
+
+import akka.annotation.InternalApi
 import akka.persistence.typed.ReplicaId
 import akka.persistence.typed.crdt.ORSet.DeltaOp
 import akka.persistence.typed.internal.{ ManyVersionVector, OneVersionVector, VersionVector }
+import akka.util.HashCode
 
-@ApiMayChange
 object ORSet {
   def empty[A](originReplica: ReplicaId): ORSet[A] = new ORSet(originReplica.id, Map.empty, VersionVector.empty)
   def apply[A](originReplica: ReplicaId): ORSet[A] = empty(originReplica)
@@ -43,8 +43,15 @@ object ORSet {
     def underlying: ORSet[A]
   }
 
-  /** INTERNAL API */
-  @InternalApi private[akka] final case class AddDeltaOp[A](underlying: ORSet[A]) extends AtomicDeltaOp[A] {
+  object AddDeltaOp {
+    def apply[A](underlying: ORSet[A]): AddDeltaOp[A] =
+      new AddDeltaOp(underlying)
+
+    def unapply[A](arg: AddDeltaOp[A]): Option[ORSet[A]] =
+      Some(arg.underlying)
+  }
+
+  final class AddDeltaOp[A](val underlying: ORSet[A]) extends AtomicDeltaOp[A] {
 
     override def merge(that: DeltaOp): DeltaOp = that match {
       case AddDeltaOp(u) =>
@@ -54,8 +61,8 @@ object ORSet {
             underlying.originReplica,
             concatElementsMap(u.elementsMap.asInstanceOf[Map[A, Dot]]),
             underlying.vvector.merge(u.vvector)))
-      case _: AtomicDeltaOp[A] => DeltaGroup(Vector(this, that))
-      case DeltaGroup(ops)     => DeltaGroup(this +: ops)
+      case _: AtomicDeltaOp[A @unchecked] => DeltaGroup(Vector(this, that))
+      case g: DeltaGroup[A @unchecked]    => DeltaGroup(this +: g.ops)
     }
 
     private def concatElementsMap(thatMap: Map[A, Dot]): Map[A, Dot] = {
@@ -65,41 +72,97 @@ object ORSet {
       } else
         underlying.elementsMap ++ thatMap
     }
+
+    override def toString: String = s"AddDeltaOp($underlying)"
+
+    override def equals(obj: Any): Boolean = obj match {
+      case other: AddDeltaOp[_] => underlying == other.underlying
+      case _                    => false
+    }
+
+    override def hashCode(): Int = underlying.hashCode
   }
 
-  /** INTERNAL API */
-  @InternalApi private[akka] final case class RemoveDeltaOp[A](underlying: ORSet[A]) extends AtomicDeltaOp[A] {
+  object RemoveDeltaOp {
+    def apply[A](underlying: ORSet[A]): RemoveDeltaOp[A] =
+      new RemoveDeltaOp(underlying)
+
+    def unapply[A](arg: RemoveDeltaOp[A]): Option[ORSet[A]] =
+      Some(arg.underlying)
+  }
+
+  final class RemoveDeltaOp[A](val underlying: ORSet[A]) extends AtomicDeltaOp[A] {
     if (underlying.size != 1)
       throw new IllegalArgumentException(s"RemoveDeltaOp should contain one removed element, but was $underlying")
 
     override def merge(that: DeltaOp): DeltaOp = that match {
-      case _: AtomicDeltaOp[A] => DeltaGroup(Vector(this, that)) // keep it simple for removals
-      case DeltaGroup(ops)     => DeltaGroup(this +: ops)
+      case _: AtomicDeltaOp[A @unchecked] => DeltaGroup(Vector(this, that)) // keep it simple for removals
+      case g: DeltaGroup[A @unchecked]    => DeltaGroup(this +: g.ops)
     }
+
+    override def toString: String = s"RemoveDeltaOp($underlying)"
+
+    override def equals(obj: Any): Boolean = obj match {
+      case other: RemoveDeltaOp[_] => underlying == other.underlying
+      case _                       => false
+    }
+
+    override def hashCode(): Int = underlying.hashCode
   }
 
-  /** INTERNAL API: Used for `clear` but could be used for other cases also */
-  @InternalApi private[akka] final case class FullStateDeltaOp[A](underlying: ORSet[A]) extends AtomicDeltaOp[A] {
-    override def merge(that: DeltaOp): DeltaOp = that match {
-      case _: AtomicDeltaOp[A] => DeltaGroup(Vector(this, that))
-      case DeltaGroup(ops)     => DeltaGroup(this +: ops)
-    }
+  object FullStateDeltaOp {
+    def apply[A](underlying: ORSet[A]): FullStateDeltaOp[A] =
+      new FullStateDeltaOp(underlying)
+
+    def unapply[A](arg: FullStateDeltaOp[A]): Option[ORSet[A]] =
+      Some(arg.underlying)
   }
 
-  /**
-   * INTERNAL API
-   */
-  @InternalApi private[akka] final case class DeltaGroup[A](ops: immutable.IndexedSeq[DeltaOp]) extends DeltaOp {
+  /** Used for `clear` but could be used for other cases also */
+  final class FullStateDeltaOp[A](val underlying: ORSet[A]) extends AtomicDeltaOp[A] {
     override def merge(that: DeltaOp): DeltaOp = that match {
-      case thatAdd: AddDeltaOp[A] =>
+      case _: AtomicDeltaOp[A @unchecked] => DeltaGroup(Vector(this, that))
+      case g: DeltaGroup[A @unchecked]    => DeltaGroup(this +: g.ops)
+    }
+
+    override def toString: String = s"FullStateDeltaOp($underlying)"
+
+    override def equals(obj: Any): Boolean = obj match {
+      case other: FullStateDeltaOp[_] => underlying == other.underlying
+      case _                          => false
+    }
+
+    override def hashCode(): Int = underlying.hashCode
+  }
+
+  object DeltaGroup {
+    def apply[A](ops: immutable.IndexedSeq[DeltaOp]): DeltaGroup[A] =
+      new DeltaGroup(ops)
+
+    def unapply[A](arg: DeltaGroup[A]): Option[immutable.IndexedSeq[DeltaOp]] =
+      Some(arg.ops)
+  }
+
+  final class DeltaGroup[A](val ops: immutable.IndexedSeq[DeltaOp]) extends DeltaOp {
+    override def merge(that: DeltaOp): DeltaOp = that match {
+      case thatAdd: AddDeltaOp[A @unchecked] =>
         // merge AddDeltaOp into last AddDeltaOp in the group, if possible
         ops.last match {
-          case thisAdd: AddDeltaOp[A] => DeltaGroup(ops.dropRight(1) :+ thisAdd.merge(thatAdd))
-          case _                      => DeltaGroup(ops :+ thatAdd)
+          case thisAdd: AddDeltaOp[A @unchecked] => DeltaGroup(ops.dropRight(1) :+ thisAdd.merge(thatAdd))
+          case _                                 => DeltaGroup(ops :+ thatAdd)
         }
-      case DeltaGroup(thatOps) => DeltaGroup(ops ++ thatOps)
-      case _                   => DeltaGroup(ops :+ that)
+      case g: DeltaGroup[A @unchecked] => DeltaGroup(ops ++ g.ops)
+      case _                           => DeltaGroup(ops :+ that)
     }
+
+    override def toString: String = s"DeltaGroup($ops)"
+
+    override def equals(obj: Any): Boolean = obj match {
+      case other: DeltaGroup[_] => ops == other.ops
+      case _                    => false
+    }
+
+    override def hashCode(): Int = ops.hashCode
 
   }
 
@@ -251,7 +314,7 @@ object ORSet {
  * over remove.
  *
  * It is not implemented as in the paper
- * <a href="http://hal.upmc.fr/file/index/docid/555588/filename/techreport.pdf">A comprehensive study of Convergent and Commutative Replicated Data Types</a>.
+ * <a href="https://hal.inria.fr/file/index/docid/555588/filename/techreport.pdf">A comprehensive study of Convergent and Commutative Replicated Data Types</a>.
  * This is more space efficient and doesn't accumulate garbage for removed elements.
  * It is described in the paper
  * <a href="https://hal.inria.fr/file/index/docid/738680/filename/RR-8083.pdf">An optimized conflict-free replicated set</a>
@@ -274,7 +337,6 @@ object ORSet {
  *
  * This class is immutable, i.e. "modifying" methods return a new instance.
  */
-@ApiMayChange
 final class ORSet[A] private[akka] (
     val originReplica: String,
     private[akka] val elementsMap: Map[A, ORSet.Dot],
@@ -436,15 +498,15 @@ final class ORSet[A] private[akka] (
 
   override def applyOperation(thatDelta: ORSet.DeltaOp): ORSet[A] = {
     thatDelta match {
-      case d: ORSet.AddDeltaOp[A]       => merge(d.underlying, addDeltaOp = true)
-      case d: ORSet.RemoveDeltaOp[A]    => mergeRemoveDelta(d)
-      case d: ORSet.FullStateDeltaOp[A] => merge(d.underlying, addDeltaOp = false)
-      case ORSet.DeltaGroup(ops) =>
-        ops.foldLeft(this) {
-          case (acc, op: ORSet.AddDeltaOp[A])       => acc.merge(op.underlying, addDeltaOp = true)
-          case (acc, op: ORSet.RemoveDeltaOp[A])    => acc.mergeRemoveDelta(op)
-          case (acc, op: ORSet.FullStateDeltaOp[A]) => acc.merge(op.underlying, addDeltaOp = false)
-          case (_, _: ORSet.DeltaGroup[A]) =>
+      case d: ORSet.AddDeltaOp[A @unchecked]       => merge(d.underlying, addDeltaOp = true)
+      case d: ORSet.RemoveDeltaOp[A @unchecked]    => mergeRemoveDelta(d)
+      case d: ORSet.FullStateDeltaOp[A @unchecked] => merge(d.underlying, addDeltaOp = false)
+      case g: ORSet.DeltaGroup[A @unchecked] =>
+        g.ops.foldLeft(this) {
+          case (acc, op: ORSet.AddDeltaOp[A @unchecked])       => acc.merge(op.underlying, addDeltaOp = true)
+          case (acc, op: ORSet.RemoveDeltaOp[A @unchecked])    => acc.mergeRemoveDelta(op)
+          case (acc, op: ORSet.FullStateDeltaOp[A @unchecked]) => acc.merge(op.underlying, addDeltaOp = false)
+          case (_, _: ORSet.DeltaGroup[A @unchecked]) =>
             throw new IllegalArgumentException("ORSet.DeltaGroup should not be nested")
         }
     }

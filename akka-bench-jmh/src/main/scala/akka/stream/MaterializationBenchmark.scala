@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream
@@ -61,7 +61,7 @@ object MaterializationBenchmark {
     })
 
   val graphWithImportedFlowBuilder = (numOfFlows: Int) =>
-    RunnableGraph.fromGraph(GraphDSL.create(Source.single(())) { implicit b => source =>
+    RunnableGraph.fromGraph(GraphDSL.createGraph(Source.single(())) { implicit b => source =>
       import GraphDSL.Implicits._
       val flow = Flow[Unit].map(identity)
       var out: Outlet[Unit] = source.out

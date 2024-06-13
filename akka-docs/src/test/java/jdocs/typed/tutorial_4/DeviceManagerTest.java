@@ -1,8 +1,12 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.typed.tutorial_4;
+
+import static jdocs.typed.tutorial_4.DeviceManager.DeviceRegistered;
+import static jdocs.typed.tutorial_4.DeviceManager.RequestTrackDevice;
+import static org.junit.Assert.assertNotEquals;
 
 import akka.actor.testkit.typed.javadsl.TestKitJunitResource;
 import akka.actor.testkit.typed.javadsl.TestProbe;
@@ -10,11 +14,6 @@ import akka.actor.typed.ActorRef;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.scalatestplus.junit.JUnitSuite;
-
-import static org.junit.Assert.assertNotEquals;
-
-import static jdocs.typed.tutorial_4.DeviceManager.DeviceRegistered;
-import static jdocs.typed.tutorial_4.DeviceManager.RequestTrackDevice;
 
 public class DeviceManagerTest extends JUnitSuite {
 

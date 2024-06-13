@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding.typed
@@ -9,7 +9,9 @@ import java.time.Duration
 import java.util.Optional
 import java.util.concurrent.CompletionStage
 
-import com.github.ghik.silencer.silent
+import scala.annotation.nowarn
+import scala.compat.java8.OptionConverters._
+
 import akka.actor.typed.ActorRef
 import akka.actor.typed.ActorSystem
 import akka.actor.typed.Behavior
@@ -22,7 +24,6 @@ import akka.cluster.sharding.ShardCoordinator.ShardAllocationStrategy
 import akka.cluster.sharding.typed.internal.EntityTypeKeyImpl
 import akka.japi.function.{ Function => JFunction }
 import akka.pattern.StatusReply
-import scala.compat.java8.OptionConverters._
 @FunctionalInterface
 trait EntityFactory[M] {
   def apply(shardRegion: ActorRef[ClusterSharding.ShardCommand], entityId: String): Behavior[M]
@@ -328,7 +329,7 @@ final class Entity[M, E] private (
       settings: Optional[ClusterShardingSettings] = settings,
       allocationStrategy: Optional[ShardAllocationStrategy] = allocationStrategy,
       role: Optional[String] = role,
-      dataCenter: Optional[String] = role): Entity[M, E] = {
+      dataCenter: Optional[String] = dataCenter): Entity[M, E] = {
     new Entity(
       createBehavior,
       typeKey,
@@ -385,7 +386,7 @@ final class EntityContext[M](
 
 }
 
-@silent // for unused msgClass to make class type explicit in the Java API. Not using @unused as the user is likely to see it
+@nowarn // for unused msgClass to make class type explicit in the Java API. Not using @unused as the user is likely to see it
 /** Allows starting a specific Sharded Entity by its entity identifier */
 object StartEntity {
 
@@ -402,7 +403,7 @@ object StartEntity {
  *
  * Not for user extension.
  */
-@DoNotInherit abstract class EntityTypeKey[T] { scaladslSelf: scaladsl.EntityTypeKey[T] =>
+@DoNotInherit abstract class EntityTypeKey[-T] { scaladslSelf: scaladsl.EntityTypeKey[T] =>
 
   /**
    * Name of the entity type.
@@ -441,6 +442,23 @@ object EntityTypeKey {
  */
 @DoNotInherit abstract class EntityRef[-M] extends RecipientRef[M] {
   scaladslSelf: scaladsl.EntityRef[M] with InternalRecipientRef[M] =>
+
+  /**
+   * The identifier for the particular entity referenced by this EntityRef.
+   */
+  def getEntityId: String = entityId
+
+  /**
+   * The name of the EntityTypeKey associated with this EntityRef
+   */
+  def getTypeKey: javadsl.EntityTypeKey[M] = typeKey.asJava
+
+  /**
+   * The specified datacenter of the incarnation of the particular entity referenced by this EntityRef,
+   * if a datacenter was specified.
+   */
+  def getDataCenter: Optional[String] =
+    Optional.ofNullable(dataCenter.orNull)
 
   /**
    * Send a message to the entity referenced by this EntityRef using *at-most-once*

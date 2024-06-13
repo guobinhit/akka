@@ -1,37 +1,40 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
+import scala.annotation.nowarn
 import scala.collection.immutable
 import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.concurrent.duration._
-import com.github.ghik.silencer.silent
+
 import akka.{ Done, NotUsed }
-import akka.stream.AbruptStageTerminationException
-import akka.stream.Materializer
-import akka.stream.NeverMaterializedException
+import akka.stream.{ AbruptStageTerminationException, Attributes, Materializer, NeverMaterializedException }
+import akka.stream.Attributes.Attribute
+import akka.stream.scaladsl.AttributesSpec.AttributesFlow
 import akka.stream.testkit.StreamSpec
 import akka.stream.testkit.TestPublisher
 import akka.stream.testkit.Utils._
-import akka.stream.testkit.scaladsl.StreamTestKit._
 import akka.stream.testkit.scaladsl.TestSink
 import akka.stream.testkit.scaladsl.TestSource
 import akka.testkit.TestProbe
 
-@silent("deprecated") // tests deprecated API as well
+@nowarn("msg=deprecated") // tests deprecated API as well
 class LazyFlowSpec extends StreamSpec("""
     akka.stream.materializer.initial-input-buffer-size = 1
     akka.stream.materializer.max-input-buffer-size = 1
   """) {
 
+  import system.dispatcher
   val ex = TE("")
+  case class MyAttribute() extends Attribute
+  val myAttributes = Attributes(MyAttribute())
 
   "Flow.lazyFlow" must {
     // more complete test coverage is for lazyFutureFlow since this is composition of that
-    "work in the happy case" in assertAllStagesStopped {
+    "work in the happy case" in {
       val result: (Future[NotUsed], Future[immutable.Seq[String]]) =
         Source(List(1, 2, 3))
           .viaMat(Flow.lazyFlow(() => Flow.fromFunction((n: Int) => n.toString)))(Keep.right)
@@ -44,11 +47,22 @@ class LazyFlowSpec extends StreamSpec("""
       deferredMatVal.isCompleted should ===(true)
     }
 
+    "provide attributes to inner flow" in {
+      val attributes = Source
+        .single(Done)
+        .viaMat(Flow.lazyFlow(() => Flow.fromGraph(new AttributesFlow())))(Keep.right)
+        .addAttributes(myAttributes)
+        .to(Sink.head)
+        .run()
+
+      val attribute = attributes.futureValue.get[MyAttribute]
+      attribute shouldBe Some(MyAttribute())
+    }
   }
 
   "Flow.futureFlow" must {
     // more complete test coverage is for lazyFutureFlow since this is composition of that
-    "work in the happy case" in assertAllStagesStopped {
+    "work in the happy case" in {
       val result: (Future[NotUsed], Future[immutable.Seq[String]]) =
         Source(List(1, 2, 3))
           .viaMat(Flow.futureFlow(Future.successful(Flow.fromFunction((n: Int) => n.toString))))(Keep.right)
@@ -60,11 +74,23 @@ class LazyFlowSpec extends StreamSpec("""
       list.futureValue should equal(Seq("1", "2", "3"))
       deferredMatVal.isCompleted should ===(true)
     }
+
+    "provide attributes to inner flow" in {
+      val attributes = Source
+        .single(Done)
+        .viaMat(Flow.futureFlow(Future(Flow.fromGraph(new AttributesFlow()))))(Keep.right)
+        .addAttributes(myAttributes)
+        .to(Sink.head)
+        .run()
+
+      val attribute = attributes.futureValue.get[MyAttribute]
+      attribute shouldBe Some(MyAttribute())
+    }
   }
 
   "Flow.lazyFutureFlow" must {
 
-    "work in the happy case" in assertAllStagesStopped {
+    "work in the happy case" in {
       val result: (Future[NotUsed], Future[immutable.Seq[String]]) =
         Source(List(1, 2, 3))
           .viaMat(Flow.lazyFutureFlow(() => Future.successful(Flow.fromFunction((n: Int) => n.toString))))(Keep.right)
@@ -77,7 +103,7 @@ class LazyFlowSpec extends StreamSpec("""
       deferredMatVal.isCompleted should ===(true)
     }
 
-    "complete without creating internal flow when there was no elements in the stream" in assertAllStagesStopped {
+    "complete without creating internal flow when there was no elements in the stream" in {
       val probe = TestProbe()
       val result: (Future[NotUsed], Future[immutable.Seq[Int]]) = Source
         .empty[Int]
@@ -96,7 +122,7 @@ class LazyFlowSpec extends StreamSpec("""
       probe.expectNoMessage(30.millis) // would have gotten it by now
     }
 
-    "complete without creating internal flow when the stream failed with no elements" in assertAllStagesStopped {
+    "complete without creating internal flow when the stream failed with no elements" in {
       val probe = TestProbe()
       val result: (Future[NotUsed], Future[immutable.Seq[Int]]) = Source
         .failed[Int](TE("no-elements"))
@@ -115,7 +141,7 @@ class LazyFlowSpec extends StreamSpec("""
       probe.expectNoMessage(30.millis) // would have gotten it by now
     }
 
-    "fail the flow when the factory function fails" in assertAllStagesStopped {
+    "fail the flow when the factory function fails" in {
       val result: (Future[NotUsed], Future[immutable.Seq[String]]) =
         Source(List(1, 2, 3))
           .viaMat(Flow.lazyFutureFlow(() => throw TE("no-flow-for-you")))(Keep.right)
@@ -129,7 +155,7 @@ class LazyFlowSpec extends StreamSpec("""
       deferredMatVal.failed.futureValue.getCause shouldBe a[TE]
     }
 
-    "fail the flow when the future is initially failed" in assertAllStagesStopped {
+    "fail the flow when the future is initially failed" in {
       val result: (Future[NotUsed], Future[immutable.Seq[String]]) =
         Source(List(1, 2, 3))
           .viaMat(Flow.lazyFutureFlow(() => Future.failed(TE("no-flow-for-you"))))(Keep.right)
@@ -143,7 +169,7 @@ class LazyFlowSpec extends StreamSpec("""
       deferredMatVal.failed.futureValue.getCause shouldBe a[TE]
     }
 
-    "fail the flow when the future is failed after the fact" in assertAllStagesStopped {
+    "fail the flow when the future is failed after the fact" in {
       val promise = Promise[Flow[Int, String, NotUsed]]()
       val result: (Future[NotUsed], Future[immutable.Seq[String]]) =
         Source(List(1, 2, 3))
@@ -160,7 +186,7 @@ class LazyFlowSpec extends StreamSpec("""
       deferredMatVal.failed.futureValue.getCause shouldBe a[TE]
     }
 
-    "work for a single element when the future is completed after the fact" in assertAllStagesStopped {
+    "work for a single element when the future is completed after the fact" in {
       import system.dispatcher
       val flowPromise = Promise[Flow[Int, String, NotUsed]]()
       val firstElementArrived = Promise[Done]()
@@ -180,7 +206,7 @@ class LazyFlowSpec extends StreamSpec("""
       result.futureValue shouldBe List("1")
     }
 
-    "fail the flow when the future materialization fails" in assertAllStagesStopped {
+    "fail the flow when the future materialization fails" in {
       val result: (Future[NotUsed], Future[immutable.Seq[String]]) =
         Source(List(1, 2, 3))
           .viaMat(Flow.lazyFutureFlow(() =>
@@ -196,7 +222,7 @@ class LazyFlowSpec extends StreamSpec("""
       deferredMatVal.failed.futureValue.getCause shouldEqual TE("mat-failed")
     }
 
-    "fail the flow when there was elements but the inner flow failed" in assertAllStagesStopped {
+    "fail the flow when there was elements but the inner flow failed" in {
       val result: (Future[NotUsed], Future[immutable.Seq[String]]) =
         Source(List(1, 2, 3))
           .viaMat(Flow.lazyFutureFlow(() => Future.successful(Flow[Int].map(_ => throw TE("inner-stream-fail")))))(
@@ -211,7 +237,7 @@ class LazyFlowSpec extends StreamSpec("""
       deferredMatVal.futureValue should ===(NotUsed) // inner materialization did succeed
     }
 
-    "fail the mat val when the stream is abruptly terminated before it got materialized" in assertAllStagesStopped {
+    "fail the mat val when the stream is abruptly terminated before it got materialized" in {
       val expendableMaterializer = Materializer(system)
       val promise = Promise[Flow[Int, String, NotUsed]]()
       val result: (Future[NotUsed], Future[immutable.Seq[String]]) =
@@ -229,25 +255,37 @@ class LazyFlowSpec extends StreamSpec("""
       list.failed.futureValue shouldBe an[AbruptStageTerminationException]
       deferredMatVal.failed.futureValue shouldBe an[AbruptStageTerminationException]
     }
+
+    "provide attributes to inner flow" in {
+      val attributes = Source
+        .single(Done)
+        .viaMat(Flow.lazyFutureFlow(() => Future(Flow.fromGraph(new AttributesFlow()))))(Keep.right)
+        .addAttributes(myAttributes)
+        .to(Sink.head)
+        .run()
+
+      val attribute = attributes.futureValue.get[MyAttribute]
+      attribute shouldBe Some(MyAttribute())
+    }
   }
 
   "The deprecated LazyFlow ops" must {
     def mapF(e: Int): () => Future[Flow[Int, String, NotUsed]] =
       () => Future.successful(Flow.fromFunction[Int, String](i => (i * e).toString))
     val flowF = Future.successful(Flow[Int])
-    "work in happy case" in assertAllStagesStopped {
-      val probe = Source(2 to 10).via(Flow.lazyInitAsync[Int, String, NotUsed](mapF(2))).runWith(TestSink.probe[String])
+    "work in happy case" in {
+      val probe = Source(2 to 10).via(Flow.lazyInitAsync[Int, String, NotUsed](mapF(2))).runWith(TestSink[String]())
       probe.request(100)
       (2 to 10).map(i => (i * 2).toString).foreach(probe.expectNext)
     }
 
-    "work with slow flow init" in assertAllStagesStopped {
+    "work with slow flow init" in {
       val p = Promise[Flow[Int, Int, NotUsed]]()
       val sourceProbe = TestPublisher.manualProbe[Int]()
       val flowProbe = Source
         .fromPublisher(sourceProbe)
         .via(Flow.lazyInitAsync[Int, Int, NotUsed](() => p.future))
-        .runWith(TestSink.probe[Int])
+        .runWith(TestSink[Int]())
 
       val sourceSub = sourceProbe.expectSubscription()
       flowProbe.request(1)
@@ -266,30 +304,26 @@ class LazyFlowSpec extends StreamSpec("""
       sourceSub.sendComplete()
     }
 
-    "complete when there was no elements in the stream" in assertAllStagesStopped {
+    "complete when there was no elements in the stream" in {
       def flowMaker() = flowF
-      val probe = Source.empty.via(Flow.lazyInitAsync(() => flowMaker())).runWith(TestSink.probe[Int])
+      val probe = Source.empty.via(Flow.lazyInitAsync(() => flowMaker())).runWith(TestSink[Int]())
       probe.request(1).expectComplete()
     }
 
-    "complete normally when upstream completes BEFORE the stage has switched to the inner flow" in assertAllStagesStopped {
+    "complete normally when upstream completes BEFORE the stage has switched to the inner flow" in {
       val promise = Promise[Flow[Int, Int, NotUsed]]()
-      val (pub, sub) = TestSource
-        .probe[Int]
-        .viaMat(Flow.lazyInitAsync(() => promise.future))(Keep.left)
-        .toMat(TestSink.probe)(Keep.both)
-        .run()
+      val (pub, sub) =
+        TestSource[Int]().viaMat(Flow.lazyInitAsync(() => promise.future))(Keep.left).toMat(TestSink())(Keep.both).run()
       sub.request(1)
       pub.sendNext(1).sendComplete()
       promise.success(Flow[Int])
       sub.expectNext(1).expectComplete()
     }
 
-    "complete normally when upstream completes AFTER the stage has switched to the inner flow" in assertAllStagesStopped {
-      val (pub, sub) = TestSource
-        .probe[Int]
+    "complete normally when upstream completes AFTER the stage has switched to the inner flow" in {
+      val (pub, sub) = TestSource[Int]()
         .viaMat(Flow.lazyInitAsync(() => Future.successful(Flow[Int])))(Keep.left)
-        .toMat(TestSink.probe)(Keep.both)
+        .toMat(TestSink())(Keep.both)
         .run()
       sub.request(1)
       pub.sendNext(1)
@@ -298,12 +332,12 @@ class LazyFlowSpec extends StreamSpec("""
       sub.expectComplete()
     }
 
-    "fail gracefully when flow factory function failed" in assertAllStagesStopped {
+    "fail gracefully when flow factory function failed" in {
       val sourceProbe = TestPublisher.manualProbe[Int]()
       val probe = Source
         .fromPublisher(sourceProbe)
         .via(Flow.lazyInitAsync[Int, Int, NotUsed](() => throw ex))
-        .runWith(TestSink.probe[Int])
+        .runWith(TestSink[Int]())
 
       val sourceSub = sourceProbe.expectSubscription()
       probe.request(1)
@@ -313,9 +347,9 @@ class LazyFlowSpec extends StreamSpec("""
       probe.expectError(ex)
     }
 
-    "fail gracefully when upstream failed" in assertAllStagesStopped {
+    "fail gracefully when upstream failed" in {
       val sourceProbe = TestPublisher.manualProbe[Int]()
-      val probe = Source.fromPublisher(sourceProbe).via(Flow.lazyInitAsync(() => flowF)).runWith(TestSink.probe)
+      val probe = Source.fromPublisher(sourceProbe).via(Flow.lazyInitAsync(() => flowF)).runWith(TestSink())
 
       val sourceSub = sourceProbe.expectSubscription()
       sourceSub.expectRequest(1)
@@ -325,12 +359,12 @@ class LazyFlowSpec extends StreamSpec("""
       probe.expectError(ex)
     }
 
-    "fail gracefully when factory future failed" in assertAllStagesStopped {
+    "fail gracefully when factory future failed" in {
       val sourceProbe = TestPublisher.manualProbe[Int]()
       val flowProbe = Source
         .fromPublisher(sourceProbe)
         .via(Flow.lazyInitAsync[Int, Int, NotUsed](() => Future.failed(ex)))
-        .runWith(TestSink.probe)
+        .runWith(TestSink())
 
       val sourceSub = sourceProbe.expectSubscription()
       sourceSub.expectRequest(1)
@@ -338,12 +372,13 @@ class LazyFlowSpec extends StreamSpec("""
       flowProbe.request(1).expectError(ex)
     }
 
-    "cancel upstream when the downstream is cancelled" in assertAllStagesStopped {
+    "cancel upstream when the downstream is cancelled" in {
       val sourceProbe = TestPublisher.manualProbe[Int]()
-      val probe = Source
-        .fromPublisher(sourceProbe)
-        .via(Flow.lazyInitAsync[Int, Int, NotUsed](() => flowF))
-        .runWith(TestSink.probe[Int])
+      val probe =
+        Source
+          .fromPublisher(sourceProbe)
+          .via(Flow.lazyInitAsync[Int, Int, NotUsed](() => flowF))
+          .runWith(TestSink[Int]())
 
       val sourceSub = sourceProbe.expectSubscription()
       probe.request(1)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.testkit.typed.javadsl;
@@ -8,7 +8,6 @@ import akka.actor.typed.ActorRef;
 import akka.actor.typed.Props;
 import akka.actor.typed.Scheduler;
 import akka.actor.typed.javadsl.Behaviors;
-
 import java.time.Duration;
 import java.util.List;
 

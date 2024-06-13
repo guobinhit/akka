@@ -1,7 +1,7 @@
 ---
 project.description: Details about the underlying remoting module for Akka Cluster.
 ---
-# Artery Remoting
+# Remoting
 
 @@@ note
 
@@ -16,11 +16,22 @@ such as [HTTP](https://doc.akka.io/docs/akka-http/current/),
 
 @@@
 
+If migrating from classic remoting see @ref:[what's new in Artery](#what-is-new-in-artery)
+
 ## Dependency
 
-To use Artery Remoting, you must add the following dependency in your project:
+The Akka dependencies are available from Akka's library repository. To access them there, you need to configure the URL for this repository.
+
+@@repository [sbt,Maven,Gradle] {
+id="akka-repository"
+name="Akka library repository"
+url="https://repo.akka.io/maven"
+}
+
+To use Remoting, you must add the following dependency in your project:
 
 @@dependency[sbt,Maven,Gradle] {
+  bomGroup=com.typesafe.akka bomArtifact=akka-bom_$scala.binary.version$ bomVersionSymbols=AkkaVersion
   symbol1=AkkaVersion
   value1="$akka.version$"
   group=com.typesafe.akka
@@ -28,8 +39,8 @@ To use Artery Remoting, you must add the following dependency in your project:
   version=AkkaVersion
 }
 
-Artery UDP depends on Aeron. This needs to be explicitly added as a dependency if using `aeron-udp` so that users
-not using Artery remoting do not have Aeron on the classpath:
+One option is to use Artery with Aeron, see @ref:[Selecting a transport](#selecting-a-transport).
+The Aeron dependency needs to be explicitly added if using the `aeron-udp` transport:
 
 @@dependency[sbt,Maven,Gradle] {
   group=io.aeron
@@ -40,7 +51,11 @@ not using Artery remoting do not have Aeron on the classpath:
   version2="$aeron_version$"
 }
 
-If migrating from classic remoting see @ref:[what's new in Artery](#what-is-new-in-artery)
+@@@ note { title="Java 17" }
+
+When using Aeron with Java 17 you have to add JVM flag `--add-opens=java.base/sun.nio.ch=ALL-UNNAMED`.
+
+@@@
 
 ## Configuration
 
@@ -90,17 +105,10 @@ All settings are described in @ref:[Remote Configuration](#remote-configuration-
 We recommend @ref:[Akka Cluster](cluster-usage.md) over using remoting directly. As remoting is the
 underlying module that allows for Cluster, it is still useful to understand details about it though.
 
-@@@ note
-
-This page describes the remoting subsystem, codenamed *Artery* that has replaced the
-@ref:[classic remoting implementation](remoting.md).
-
-@@@
-
 Remoting enables Actor systems on different hosts or JVMs to communicate with each other. By enabling remoting
 the system will start listening on a provided network address and also gains the ability to connect to other
 systems through the network. From the application's perspective there is no API difference between local or remote
-systems, `ActorRef` instances that point to remote systems look exactly the same as local ones: they can be
+systems, @apidoc[akka.actor.ActorRef] instances that point to remote systems look exactly the same as local ones: they can be
 sent messages to, watched, etc.
 Every `ActorRef` contains hostname and port information and can be passed around even on the network. This means
 that on a network every `ActorRef` is a unique identifier of an actor on that network.
@@ -147,18 +155,18 @@ officially supported. If you're on a Big Endian processor, such as Sparc, it is 
 
 ## Migrating from classic remoting
 
-See @ref:[migrating from classic remoting](project/migration-guide-2.5.x-2.6.x.md#classic-to-artery)
+See [migrating from classic remoting](https://doc.akka.io/docs/akka/2.6/project/migration-guide-2.5.x-2.6.x.html#classic-to-artery)
 
 ## Canonical address
 
-In order to remoting to work properly, where each system can send messages to any other system on the same network
+In order for remoting to work properly, where each system can send messages to any other system on the same network
 (for example a system forwards a message to a third system, and the third replies directly to the sender system)
 it is essential for every system to have a *unique, globally reachable* address and port. This address is part of the
 unique name of the system and will be used by other systems to open a connection to it and send messages. This means
 that if a host has multiple names (different DNS records pointing to the same IP address) then only one of these
 can be *canonical*. If a message arrives to a system but it contains a different hostname than the expected canonical
 name then the message will be dropped. If multiple names for a system would be allowed, then equality checks among
-`ActorRef` instances would no longer to be trusted and this would violate the fundamental assumption that
+@apidoc[akka.actor.ActorRef] instances would no longer to be trusted and this would violate the fundamental assumption that
 an actor has a globally unique reference on a given network. As a consequence, this also means that localhost addresses
 (e.g. *127.0.0.1*) cannot be used in general (apart from local development) since they are not unique addresses in a
 real network.
@@ -170,24 +178,24 @@ for details.
 
 ## Acquiring references to remote actors
 
-In order to communicate with an actor, it is necessary to have its `ActorRef`. In the local case it is usually
+In order to communicate with an actor, it is necessary to have its @apidoc[akka.actor.ActorRef]. In the local case it is usually
 the creator of the actor (the caller of `actorOf()`) is who gets the `ActorRef` for an actor that it can
 then send to other actors. In other words:
 
- * An Actor can get a remote Actor's reference by receiving a message from it (as it's available as @scala[`sender()`]@java[`getSender()`] then),
+ * An Actor can get a remote Actor's reference by receiving a message from it (as it's available as @scala[@scaladoc[sender()](akka.actor.Actor#sender():akka.actor.ActorRef)]@java[@javadoc[getSender()](akka.actor.AbstractActor#getSender())] then),
 or inside of a remote message (e.g. *PleaseReply(message: String, remoteActorRef: ActorRef)*)
 
 Alternatively, an actor can look up another located at a known path using
-`ActorSelection`. These methods are available even in remoting enabled systems:
+@apidoc[akka.actor.ActorSelection]. These methods are available even in remoting enabled systems:
 
- * Remote Lookup    : used to look up an actor on a remote node with `actorSelection(path)`
- * Remote Creation  : used to create an actor on a remote node with `actorOf(Props(...), actorName)`
+ * Remote Lookup    : used to look up an actor on a remote node with @apidoc[actorSelection(path)](akka.actor.ActorRefFactory) {scala="#actorSelection(path:String):akka.actor.ActorSelection" java="#actorSelection(java.lang.String)"}
+ * Remote Creation  : used to create an actor on a remote node with @apidoc[actorOf(Props(...), actorName)](akka.actor.ActorRefFactory) {scala="#actorOf(props:akka.actor.Props,name:String):akka.actor.ActorRef" java="#actorOf(akka.actor.Props,java.lang.String)"}
 
 In the next sections the two alternatives are described in detail.
 
 ### Looking up Remote Actors
 
-`actorSelection(path)` will obtain an `ActorSelection` to an Actor on a remote node, e.g.:
+@apidoc[actorSelection(path)](akka.actor.ActorRefFactory) {scala="#actorSelection(path:String):akka.actor.ActorSelection" java="#actorSelection(java.lang.String)"} will obtain an @apidoc[akka.actor.ActorSelection] to an Actor on a remote node, e.g.:
 
 Scala
 :   ```
@@ -231,12 +239,12 @@ Java
     @@@
 
 
-To acquire an `ActorRef` for an `ActorSelection` you need to
-send a message to the selection and use the `sender` reference of the reply from
-the actor. There is a built-in `Identify` message that all Actors will understand
-and automatically reply to with a `ActorIdentity` message containing the
-`ActorRef`. This can also be done with the `resolveOne` method of
-the `ActorSelection`, which returns a `Future` of the matching
+To acquire an @apidoc[akka.actor.ActorRef] for an @apidoc[akka.actor.ActorSelection] you need to
+send a message to the selection and use the @scala[@scaladoc[sender()](akka.actor.Actor#sender():akka.actor.ActorRef)]@java[@javadoc[getSender()](akka.actor.AbstractActor#getSender())] reference of the reply from
+the actor. There is a built-in @apidoc[akka.actor.Identify] message that all Actors will understand
+and automatically reply to with a @apidoc[akka.actor.ActorIdentity] message containing the
+`ActorRef`. This can also be done with the @apidoc[resolveOne](akka.actor.ActorSelection) {scala="#resolveOne(timeout:scala.concurrent.duration.FiniteDuration):scala.concurrent.Future[akka.actor.ActorRef]" java="#resolveOne(java.time.Duration)"} method of
+the `ActorSelection`, which returns a @scala[@scaladoc[Future](scala.concurrent.Future)]@java[@javadoc[CompletionStage](java.util.concurrent.CompletionStage)] of the matching
 `ActorRef`.
 
 For more details on how actor addresses and paths are formed and used, please refer to @ref:[Actor References, Paths and Addresses](general/addressing.md).
@@ -254,205 +262,22 @@ be delivered just fine.
 
 @@@
 
+<a id="remote-tls"></a>
 ## Remote Security
 
-An `ActorSystem` should not be exposed via Akka Remote (Artery) over plain Aeron/UDP or TCP to an untrusted
+An @apidoc[akka.actor.ActorSystem] should not be exposed via Akka Remote (Artery) over plain Aeron/UDP or TCP to an untrusted
 network (e.g. Internet). It should be protected by network security, such as a firewall. If that is not considered
-as enough protection @ref:[TLS with mutual authentication](#remote-tls) should be enabled.
-
-Best practice is that Akka remoting nodes should only be accessible from the adjacent network. Note that if TLS is
-enabled with mutual authentication there is still a risk that an attacker can gain access to a valid certificate by
-compromising any node with certificates issued by the same internal PKI tree.
-
-By default, @ref[Java serialization](serialization.md#java-serialization) is disabled in Akka.
-That is also security best-practice because of its multiple
-[known attack surfaces](https://community.hpe.com/t5/Security-Research/The-perils-of-Java-deserialization/ba-p/6838995).
-
-<a id="remote-tls"></a>
-### Configuring SSL/TLS for Akka Remoting
-
-SSL can be used as the remote transport by using the `tls-tcp` transport:
-
-```
-akka.remote.artery {
-  transport = tls-tcp
-}
-```
-
-Next the actual SSL/TLS parameters have to be configured:
-
-```
-akka.remote.artery {
-  transport = tls-tcp
-
-  ssl.config-ssl-engine {
-    key-store = "/example/path/to/mykeystore.jks"
-    trust-store = "/example/path/to/mytruststore.jks"
-
-    key-store-password = ${SSL_KEY_STORE_PASSWORD}
-    key-password = ${SSL_KEY_PASSWORD}
-    trust-store-password = ${SSL_TRUST_STORE_PASSWORD}
-
-    protocol = "TLSv1.2"
-
-    enabled-algorithms = [TLS_DHE_RSA_WITH_AES_128_GCM_SHA256]
-  }
-}
-```
-
-Always use [substitution from environment variables](https://github.com/lightbend/config#optional-system-or-env-variable-overrides)
-for passwords. Don't define real passwords in config files.
-
-According to [RFC 7525](https://tools.ietf.org/html/rfc7525) the recommended algorithms to use with TLS 1.2 (as of writing this document) are:
-
- * TLS_DHE_RSA_WITH_AES_128_GCM_SHA256
- * TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
- * TLS_DHE_RSA_WITH_AES_256_GCM_SHA384
- * TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-
-You should always check the latest information about security and algorithm recommendations though before you configure your system.
-
-Creating and working with keystores and certificates is well documented in the
-[Generating X.509 Certificates](https://lightbend.github.io/ssl-config/CertificateGeneration.html#using-keytool)
-section of Lightbend's SSL-Config library.
-
-Since an Akka remoting is inherently @ref:[peer-to-peer](general/remoting.md#symmetric-communication) both the key-store as well as trust-store
-need to be configured on each remoting node participating in the cluster.
-
-The official [Java Secure Socket Extension documentation](https://docs.oracle.com/javase/8/docs/technotes/guides/security/jsse/JSSERefGuide.html)
-as well as the [Oracle documentation on creating KeyStore and TrustStores](https://docs.oracle.com/cd/E19509-01/820-3503/6nf1il6er/index.html)
-are both great resources to research when setting up security on the JVM. Please consult those resources when troubleshooting
-and configuring SSL.
-
-Mutual authentication between TLS peers is enabled by default. Mutual authentication means that the the passive side
-(the TLS server side) of a connection will also request and verify a certificate from the connecting peer.
-Without this mode only the client side is requesting and verifying certificates. While Akka is a peer-to-peer
-technology, each connection between nodes starts out from one side (the "client") towards the other (the "server").
-
-Note that if TLS is enabled with mutual authentication there is still a risk that an attacker can gain access to a
-valid certificate by compromising any node with certificates issued by the same internal PKI tree.
-
-It's recommended that you enable hostname verification with
-`akka.remote.artery.ssl.config-ssl-engine.hostname-verification=on`.
-When enabled it will verify that the destination hostname matches the hostname in the peer's certificate.
-
-In deployments where hostnames are dynamic and not known up front it can make sense to leave the hostname verification off.
-
-You have a few choices how to set up certificates and hostname verification:
-
-* Have a single set of keys and a single certificate for all nodes and *disable* hostname checking
-    * The single set of keys and the single certificate is distributed to all nodes. The certificate can
-      be self-signed as it is distributed both as a certificate for authentication but also as the trusted certificate.
-    * If the keys/certificate are lost, someone else can connect to your cluster.
-    * Adding nodes to the cluster is simple as the key material can be deployed / distributed to the new node.
-* Have a single set of keys and a single certificate for all nodes that contains all of the host names and *enable*
-  hostname checking.
-    * This means that only the hosts mentioned in the certificate can connect to the cluster.
-    * It cannot be checked, though, if the node you talk to is actually the node it is supposed to be (or if it is one
-      of the other nodes). This seems like a minor restriction as you'll have to trust all cluster nodes the same in an
-      Akka cluster anyway.
-    * The certificate can be self-signed in which case the same single certificate is distributed and trusted on all
-      nodes (but see the next bullet)
-    * Adding a new node means that its host name needs to conform to the trusted host names in the certificate.
-      That either means to foresee new hosts, use a wildcard certificate, or use a full CA in the first place,
-      so you can later issue more certificates if more nodes are to be added (but then you already get into the
-      territory of the next solution).
-    * If a certificate is stolen, it can only be used to connect to the cluster from a node reachable via a hostname
-      that is trusted in the certificate. It would require tampering with DNS to allow other nodes to get access to
-      the cluster (however, tampering DNS might be easier in an internal setting than on internet scale).
-* Have a CA and then keys/certificates, one for each node, and *enable*  host name checking.
-    * Basically like internet HTTPS but that you only trust the internal CA and then issue certificates for each new node.
-    * Needs a PKI, the CA certificate is trusted on all nodes, the individual certificates are used for authentication.
-    * Only the CA certificate and the key/certificate for a node is distributed.
-    * If keys/certificates are stolen, only the same node can access the cluster (unless DNS is tampered with as well).
-      You can revoke single certificates.
-
-See also a description of the settings in the @ref:[Remote Configuration](#remote-configuration-artery) section.
-
-@@@ note
-
-When using SHA1PRNG on Linux it's recommended specify `-Djava.security.egd=file:/dev/urandom` as argument
-to the JVM to prevent blocking. It is NOT as secure because it reuses the seed.
-
-@@@
-
-
-### Untrusted Mode
-
-As soon as an actor system can connect to another remotely, it may in principle
-send any possible message to any actor contained within that remote system. One
-example may be sending a `PoisonPill` to the system guardian, shutting
-that system down. This is not always desired, and it can be disabled with the
-following setting:
-
-```
-akka.remote.artery.untrusted-mode = on
-```
-
-This disallows sending of system messages (actor life-cycle commands,
-DeathWatch, etc.) and any message extending `PossiblyHarmful` to the
-system on which this flag is set. Should a client send them nonetheless they
-are dropped and logged (at DEBUG level in order to reduce the possibilities for
-a denial of service attack). `PossiblyHarmful` covers the predefined
-messages like `PoisonPill` and `Kill`, but it can also be added
-as a marker trait to user-defined messages.
-
-@@@ warning
-
-Untrusted mode does not give full protection against attacks by itself.
-It makes it slightly harder to perform malicious or unintended actions but
-it should be noted that @ref:[Java serialization](serialization.md#java-serialization)
-should still not be enabled.
-Additional protection can be achieved when running in an untrusted network by
-network security (e.g. firewalls) and/or enabling @ref:[TLS with mutual authentication](#remote-tls).
-
-@@@
-
-Messages sent with actor selection are by default discarded in untrusted mode, but
-permission to receive actor selection messages can be granted to specific actors
-defined in configuration:
-
-```
-akka.remote.artery.trusted-selection-paths = ["/user/receptionist", "/user/namingService"]
-```
-
-
-The actual message must still not be of type `PossiblyHarmful`.
-
-In summary, the following operations are ignored by a system configured in
-untrusted mode when incoming via the remoting layer:
-
- * remote deployment (which also means no remote supervision)
- * remote DeathWatch
- * `system.stop()`, `PoisonPill`, `Kill`
- * sending any message which extends from the `PossiblyHarmful` marker
-interface, which includes `Terminated`
- * messages sent with actor selection, unless destination defined in `trusted-selection-paths`.
-
-@@@ note
-
-Enabling the untrusted mode does not remove the capability of the client to
-freely choose the target of its message sends, which means that messages not
-prohibited by the above rules can be sent to any actor in the remote system.
-It is good practice for a client-facing system to only contain a well-defined
-set of entry point actors, which then forward requests (possibly after
-performing validation) to another actor system containing the actual worker
-actors. If messaging between these two server-side systems is done using
-local `ActorRef` (they can be exchanged safely between actor systems
-within the same JVM), you can restrict the messages on this interface by
-marking them `PossiblyHarmful` so that a client cannot forge them.
-
-@@@
+as enough protection TLS with mutual authentication should be enabled. Read more about @ref:[how to enable remote security](remote-security.md).
 
 ## Quarantine
 
-Akka remoting is using Aeron as underlying message transport. Aeron is using UDP and adds
+Akka remoting is using TCP or Aeron as underlying message transport. Aeron is using UDP and adds
 among other things reliable delivery and session semantics, very similar to TCP. This means that
 the order of the messages are preserved, which is needed for the @ref:[Actor message ordering guarantees](general/message-delivery-reliability.md#message-ordering).
 Under normal circumstances all messages will be delivered but there are cases when messages
 may not be delivered to the destination:
 
- * during a network partition and the Aeron session is broken, this automatically recovered once the partition is over
+ * during a network partition when the TCP connection or the Aeron session is broken, this automatically recovered once the partition is over
  * when sending too many messages without flow control and thereby filling up the outbound send queue (`outbound-message-queue-size` config)
  * if serialization or deserialization of a message fails (only that message will be dropped)
  * if an unexpected exception occurs in the remoting infrastructure
@@ -467,7 +292,7 @@ association with the destination system is irrecoverable failed, and Terminated 
 actors on the remote system. It is placed in a so called quarantined state. Quarantine usually does not
 happen if remote watch or remote deployment is not used.
 
-Each `ActorSystem` instance has an unique identifier (UID), which is important for differentiating between
+Each @apidoc[akka.actor.ActorSystem] instance has an unique identifier (UID), which is important for differentiating between
 incarnations of a system when it is restarted with the same hostname and port. It is the specific
 incarnation (UID) that is quarantined. The only way to recover from this state is to restart one of the
 actor systems.
@@ -486,7 +311,7 @@ partition heals. A cluster member is not quarantined when the failure detector t
 (`system-message-buffer-size` config).
  * Unexpected exception occurs in the control subchannel of the remoting infrastructure.
 
-The UID of the `ActorSystem` is exchanged in a two-way handshake when the first message is sent to
+The UID of the @apidoc[akka.actor.ActorSystem] is exchanged in a two-way handshake when the first message is sent to
 a destination. The handshake will be retried until the other system replies and no other messages will
 pass through until the handshake is completed. If the handshake cannot be established within a timeout
 (`handshake-timeout` config) the association is stopped (freeing up resources). Queued messages will be
@@ -506,7 +331,7 @@ by the built-in failure detector.
 
 ### Failure Detector
 
-Under the hood remote death watch uses heartbeat messages and a failure detector to generate `Terminated`
+Under the hood remote death watch uses heartbeat messages and a failure detector to generate @apidoc[akka.actor.Terminated]
 message from network failures and JVM crashes, in addition to graceful termination of watched
 actor.
 
@@ -567,8 +392,8 @@ recommendation if you don't have other preference.
 <a id="remote-bytebuffer-serialization"></a>
 ### ByteBuffer based serialization
 
-Artery introduces a new serialization mechanism which allows the `ByteBufferSerializer` to directly write into a
-shared `java.nio.ByteBuffer` instead of being forced to allocate and return an `Array[Byte]` for each serialized
+Artery introduces a new serialization mechanism which allows the @apidoc[ByteBufferSerializer] to directly write into a
+shared @javadoc[java.nio.ByteBuffer](java.nio.ByteBuffer) instead of being forced to allocate and return an `Array[Byte]` for each serialized
 message. For high-throughput messaging this API change can yield significant performance benefits, so we recommend
 changing your serializers to use this new mechanism.
 
@@ -589,8 +414,8 @@ Java
 Implementing a serializer for Artery is therefore as simple as implementing this interface, and binding the serializer
 as usual (which is explained in @ref:[Serialization](serialization.md)).
 
-Implementations should typically extend `SerializerWithStringManifest` and in addition to the `ByteBuffer` based
-`toBinary` and `fromBinary` methods also implement the array based `toBinary` and `fromBinary` methods.
+Implementations should typically extend @apidoc[SerializerWithStringManifest] and in addition to the `ByteBuffer` based
+@apidoc[toBinary](ByteBufferSerializer) {scala="#toBinary(o:AnyRef,buf:java.nio.ByteBuffer):Unit" java="#toBinary(java.lang.Object,java.nio.ByteBuffer)"} and @apidoc[fromBinary](ByteBufferSerializer) {scala="#fromBinary(buf:java.nio.ByteBuffer,manifest:String):AnyRef" java="#fromBinary(java.nio.ByteBuffer,java.lang.String)"} methods also implement the array based @apidoc[toBinary](SerializerWithStringManifest) {scala="#toBinary(o:AnyRef):Array[Byte]" java="#toBinary(java.lang.Object)"} and @apidoc[fromBinary](SerializerWithStringManifest) {scala="#fromBinary(bytes:Array[Byte],manifest:Option[Class[_]]):AnyRef" java="#fromBinary(byte%5B%5D,scala.Option)"} methods.
 The array based methods will be used when `ByteBuffer` is not used, e.g. in Akka Persistence.
 
 Note that the array based methods can be implemented by delegation like this:
@@ -629,7 +454,7 @@ Artery is a reimplementation of the old remoting module aimed at improving perfo
 source compatible with the old implementation and it is a drop-in replacement in many cases. Main features
 of Artery compared to the previous implementation:
 
- * Based on [Aeron](https://github.com/real-logic/Aeron) (UDP) and Akka Streams TCP/TLS instead of Netty TCP
+ * Based on Akka Streams TCP/TLS or [Aeron](https://github.com/real-logic/Aeron) (UDP) instead of Netty TCP
  * Focused on high-throughput, low-latency communication
  * Isolation of internal control messages from user messages improving stability and reducing false failure detection
 in case of heavy traffic by using a dedicated subchannel.
@@ -637,12 +462,12 @@ in case of heavy traffic by using a dedicated subchannel.
  * Support for a separate subchannel for large messages to avoid interference with smaller messages
  * Compression of actor paths on the wire to reduce overhead for smaller messages
  * Support for faster serialization/deserialization using ByteBuffers directly
- * Built-in Flight-Recorder to help debugging implementation issues without polluting users logs with implementation
+ * Built-in Java Flight Recorder (JFR) to help debugging implementation issues without polluting users logs with implementation
 specific events
  * Providing protocol stability across major Akka versions to support rolling updates of large-scale systems
 
-The main incompatible change from the previous implementation that the protocol field of the string representation of an
-`ActorRef` is always *akka* instead of the previously used *akka.tcp* or *akka.ssl.tcp*. Configuration properties
+The main incompatible change from the previous implementation is that the protocol field of the string representation of an
+@apidoc[akka.actor.ActorRef] is always *akka* instead of the previously used *akka.tcp* or *akka.ssl.tcp*. Configuration properties
 are also different.
 
 
@@ -680,8 +505,10 @@ akka.remote.artery.large-message-destinations = [
    "/user/largeMessagesGroup/*",
    "/user/anotherGroup/*/largeMesssages",
    "/user/thirdGroup/**",
+   "/temp/session-ask-actor*"
 ]
 ```
+\*NOTE: Support for \* inside of an actor path (ie. /temp/session-ask-actor\*) is only available in 2.6.18+
 
 This means that all messages sent to the following actors will pass through the dedicated, large messages channel:
 
@@ -692,6 +519,7 @@ This means that all messages sent to the following actors will pass through the 
  * `/user/anotherGroup/actor2/largeMessages`
  * `/user/thirdGroup/actor3/`
  * `/user/thirdGroup/actor4/actor5`
+ * `/temp/session-ask-actor$abc`
 
 Messages destined for actors not matching any of these patterns are sent using the default channel as before.
 
@@ -857,11 +685,6 @@ akka {
 }
 ```
 
-You can look at the
-@java[@extref[Cluster with docker-compse example project](samples:akka-sample-cluster-docker-compose-java)]
-@scala[@extref[Cluster with docker-compose example project](samples:akka-sample-cluster-docker-compose-scala)]
-to see what this looks like in practice.
-
 ### Running in Docker/Kubernetes
 
 When using `aeron-udp` in a containerized environment special care must be taken that the media driver runs on a ram disk.
@@ -899,3 +722,128 @@ The flight recorder is automatically enabled by detecting JDK 11 but can be disa
 
 Low overhead Artery specific events are emitted by default when JFR is enabled, higher overhead events needs a custom settings template and are not enabled automatically with the `profiling` JFR template.
 To enable those create a copy of the `profiling` template and enable all `Akka` sub category events, for example through the JMC GUI. 
+
+## Creating Actors Remotely
+
+@@@ warning
+
+We recommend against Creating Actors Remotely, also known as remote deployment, but it is documented here
+for completeness.
+
+@@@
+
+If you want to use the creation functionality in Akka remoting you have to further amend the
+`application.conf` file in the following way (only showing deployment section):
+
+```
+akka {
+  actor {
+    deployment {
+      /sampleActor {
+        remote = "akka.tcp://sampleActorSystem@127.0.0.1:2553"
+      }
+    }
+  }
+}
+```
+
+The configuration above instructs Akka to react when an actor with path `/sampleActor` is created, i.e.
+using @scala[`system.actorOf(Props(...), "sampleActor")`]@java[`system.actorOf(new Props(...), "sampleActor")`]. This specific actor will not be directly instantiated,
+but instead the remote daemon of the remote system will be asked to create the actor,
+which in this sample corresponds to `sampleActorSystem@127.0.0.1:2553`.
+
+Once you have configured the properties above you would do the following in code:
+
+Scala
+:   @@snip [RemoteDeploymentDocSpec.scala](/akka-docs/src/test/scala/docs/remoting/RemoteDeploymentDocSpec.scala) { #sample-actor }
+
+Java
+:   @@snip [RemoteDeploymentDocTest.java](/akka-docs/src/test/java/jdocs/remoting/RemoteDeploymentDocTest.java) { #sample-actor }
+
+The actor class `SampleActor` has to be available to the runtimes using it, i.e. the classloader of the
+actor systems has to have a JAR containing the class.
+
+When using remote deployment of actors you must ensure that all parameters of the `Props` can
+be @ref:[serialized](serialization.md).
+
+@@@ note
+
+In order to ensure serializability of `Props` when passing constructor
+arguments to the actor being created, do not make the factory @scala[an]@java[a non-static] inner class:
+this will inherently capture a reference to its enclosing object, which in
+most cases is not serializable. It is best to @scala[create a factory method in the
+companion object of the actor’s class]@java[make a static
+inner class which implements `Creator<T extends Actor>`].
+
+Serializability of all Props can be tested by setting the configuration item
+`akka.actor.serialize-creators=on`. Only Props whose `deploy` has
+`LocalScope` are exempt from this check.
+
+@@@
+
+@@@ note
+
+You can use asterisks as wildcard matches for the actor path sections, so you could specify:
+`/*/sampleActor` and that would match all `sampleActor` on that level in the hierarchy.
+You can also use wildcard in the last position to match all actors at a certain level:
+`/someParent/*`. Non-wildcard matches always have higher priority to match than wildcards, so:
+`/foo/bar` is considered **more specific** than `/foo/*` and only the highest priority match is used.
+Please note that it **cannot** be used to partially match section, like this: `/foo*/bar`, `/f*o/bar` etc.
+
+@@@
+
+### Programmatic Remote Deployment
+
+@@@ warning
+
+We recommend against Creating Actors Remotely, also known as remote deployment, but it is documented here
+for completeness. This is only available for the classic Actor API.
+
+@@@
+
+To allow dynamically deployed systems, it is also possible to include
+deployment configuration in the `Props` which are used to create an
+actor: this information is the equivalent of a deployment section from the
+configuration file, and if both are given, the external configuration takes
+precedence.
+
+With these imports:
+
+Scala
+:   @@snip [RemoteDeploymentDocSpec.scala](/akka-docs/src/test/scala/docs/remoting/RemoteDeploymentDocSpec.scala) { #import }
+
+Java
+:   @@snip [RemoteDeploymentDocTest.java](/akka-docs/src/test/java/jdocs/remoting/RemoteDeploymentDocTest.java) { #import }
+
+and a remote address like this:
+
+Scala
+:   @@snip [RemoteDeploymentDocSpec.scala](/akka-docs/src/test/scala/docs/remoting/RemoteDeploymentDocSpec.scala) { #make-address }
+
+Java
+:   @@snip [RemoteDeploymentDocTest.java](/akka-docs/src/test/java/jdocs/remoting/RemoteDeploymentDocTest.java) { #make-address }
+
+you can advise the system to create a child on that remote node like so:
+
+Scala
+:   @@snip [RemoteDeploymentDocSpec.scala](/akka-docs/src/test/scala/docs/remoting/RemoteDeploymentDocSpec.scala) { #deploy }
+
+Java
+:   @@snip [RemoteDeploymentDocTest.java](/akka-docs/src/test/java/jdocs/remoting/RemoteDeploymentDocTest.java) { #deploy }
+
+### Remote deployment allow list
+
+As remote deployment can potentially be abused by both users and even attackers an allow list feature
+is available to guard the ActorSystem from deploying unexpected actors. Please note that remote deployment
+is *not* remote code loading, the Actors class to be deployed onto a remote system needs to be present on that
+remote system. This still however may pose a security risk, and one may want to restrict remote deployment to
+only a specific set of known actors by enabling the allow list feature.
+
+To enable remote deployment allow list set the `akka.remote.deployment.enable-allow-list` value to `on`.
+The list of allowed classes has to be configured on the "remote" system, in other words on the system onto which
+others will be attempting to remote deploy Actors. That system, locally, knows best which Actors it should or
+should not allow others to remote deploy onto it. The full settings section may for example look like this:
+
+@@snip [RemoteDeploymentAllowListSpec.scala](/akka-remote/src/test/scala/akka/remote/artery/RemoteDeploymentSpec.scala) { #allow-list-config }
+
+Actor classes not included in the allow list will not be allowed to be remote deployed onto this system.

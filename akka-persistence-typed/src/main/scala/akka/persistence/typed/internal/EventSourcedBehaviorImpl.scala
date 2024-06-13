@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.internal
@@ -8,6 +8,9 @@ import java.util.Optional
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 
+import org.slf4j.LoggerFactory
+
+import akka.Done
 import akka.actor.typed
 import akka.actor.typed.ActorRef
 import akka.actor.typed.BackoffSupervisorStrategy
@@ -43,7 +46,7 @@ import akka.persistence.typed.SnapshotSelectionCriteria
 import akka.persistence.typed.scaladsl._
 import akka.persistence.typed.scaladsl.{ Recovery => TypedRecovery }
 import akka.persistence.typed.scaladsl.RetentionCriteria
-import akka.util.ConstantFun
+import akka.persistence.typed.telemetry.EventSourcedBehaviorInstrumentationProvider
 import akka.util.unused
 
 @InternalApi
@@ -71,7 +74,12 @@ private[akka] object EventSourcedBehaviorImpl {
    * Used by EventSourcedBehaviorTestKit to retrieve the state.
    * Can't be a Signal because those are not stashed.
    */
-  final case class GetState[State](replyTo: ActorRef[State]) extends InternalProtocol
+  final case class GetState[State](replyTo: ActorRef[GetStateReply[State]]) extends InternalProtocol
+
+  /**
+   * Used to send a state being `null` as an Actor message
+   */
+  final case class GetStateReply[State](currentState: State)
 
   /**
    * Used to start the replication stream at the correct sequence number
@@ -89,22 +97,26 @@ private[akka] final case class EventSourcedBehaviorImpl[Command, Event, State](
     loggerClass: Class[_],
     journalPluginId: Option[String] = None,
     snapshotPluginId: Option[String] = None,
-    tagger: Event => Set[String] = (_: Event) => Set.empty[String],
+    tagger: (State, Event) => Set[String] = (_: State, _: Event) => Set.empty[String],
     eventAdapter: EventAdapter[Event, Any] = NoOpEventAdapter.instance[Event],
     snapshotAdapter: SnapshotAdapter[State] = NoOpSnapshotAdapter.instance[State],
-    snapshotWhen: (State, Event, Long) => Boolean = ConstantFun.scalaAnyThreeToFalse,
+    snapshotWhen: SnapshotWhenPredicate[State, Event] = SnapshotWhenPredicate.noSnapshot[State, Event],
     recovery: Recovery = Recovery(),
     retention: RetentionCriteria = RetentionCriteria.disabled,
     supervisionStrategy: SupervisorStrategy = SupervisorStrategy.stop,
     override val signalHandler: PartialFunction[(State, Signal), Unit] = PartialFunction.empty,
     replication: Option[ReplicationSetup] = None,
-    publishEvents: Boolean = true)
+    publishEvents: Boolean = true,
+    customStashCapacity: Option[Int] = None)
     extends EventSourcedBehavior[Command, Event, State] {
 
   import EventSourcedBehaviorImpl.WriterIdentity
 
   if (persistenceId eq null)
     throw new IllegalArgumentException("persistenceId must not be null")
+
+  // Don't use it directly, but instead call internalLogger() (see below)
+  private val loggerForInternal = LoggerFactory.getLogger(this.getClass)
 
   override def apply(context: typed.TypedActorContext[Command]): Behavior[Command] = {
     val ctx = context.asScala
@@ -113,33 +125,57 @@ private[akka] final case class EventSourcedBehaviorImpl[Command, Event, State](
       case _                                => false
     }
     if (!hasCustomLoggerName) ctx.setLoggerName(loggerClass)
-    val settings = EventSourcedSettings(ctx.system, journalPluginId.getOrElse(""), snapshotPluginId.getOrElse(""))
+    val settings = EventSourcedSettings(
+      ctx.system,
+      journalPluginId.getOrElse(""),
+      snapshotPluginId.getOrElse(""),
+      customStashCapacity)
 
     // stashState outside supervise because StashState should survive restarts due to persist failures
     val stashState = new StashState(ctx.asInstanceOf[ActorContext[InternalProtocol]], settings)
 
+    // This method ensures that the MDC is set before we use the internal logger
+    def internalLogger() = {
+      if (settings.useContextLoggerForInternalLogging) ctx.log
+      else {
+        // MDC is cleared (if used) from aroundReceive in ActorAdapter after processing each message,
+        // but important to call `context.log` to mark MDC as used
+        ctx.log
+        loggerForInternal
+      }
+    }
+
     val actualSignalHandler: PartialFunction[(State, Signal), Unit] = signalHandler.orElse {
       // default signal handler is always the fallback
       case (_, SnapshotCompleted(meta)) =>
-        ctx.log.debug("Save snapshot successful, snapshot metadata [{}].", meta)
+        internalLogger().debug("Save snapshot successful, snapshot metadata [{}].", meta)
       case (_, SnapshotFailed(meta, failure)) =>
-        ctx.log.error(s"Save snapshot failed, snapshot metadata [$meta] due to: ${failure.getMessage}", failure)
+        internalLogger()
+          .error(s"Save snapshot failed, snapshot metadata [$meta] due to: ${failure.getMessage}", failure)
       case (_, DeleteSnapshotsCompleted(DeletionTarget.Individual(meta))) =>
-        ctx.log.debug("Persistent snapshot [{}] deleted successfully.", meta)
+        internalLogger().debug("Persistent snapshot [{}] deleted successfully.", meta)
       case (_, DeleteSnapshotsCompleted(DeletionTarget.Criteria(criteria))) =>
-        ctx.log.debug("Persistent snapshots given criteria [{}] deleted successfully.", criteria)
+        internalLogger().debug("Persistent snapshots given criteria [{}] deleted successfully.", criteria)
       case (_, DeleteSnapshotsFailed(DeletionTarget.Individual(meta), failure)) =>
-        ctx.log.warn2("Failed to delete snapshot with meta [{}] due to: {}", meta, failure.getMessage)
+        internalLogger().warn2("Failed to delete snapshot with meta [{}] due to: {}", meta, failure.getMessage)
       case (_, DeleteSnapshotsFailed(DeletionTarget.Criteria(criteria), failure)) =>
-        ctx.log.warn2("Failed to delete snapshots given criteria [{}] due to: {}", criteria, failure.getMessage)
+        internalLogger().warn2(
+          "Failed to delete snapshots given criteria [{}] due to: {}",
+          criteria,
+          failure.getMessage)
       case (_, DeleteEventsCompleted(toSequenceNr)) =>
-        ctx.log.debug("Events successfully deleted to sequence number [{}].", toSequenceNr)
+        internalLogger().debug("Events successfully deleted to sequence number [{}].", toSequenceNr)
       case (_, DeleteEventsFailed(toSequenceNr, failure)) =>
-        ctx.log.warn2("Failed to delete events to sequence number [{}] due to: {}", toSequenceNr, failure.getMessage)
+        internalLogger().warn2(
+          "Failed to delete events to sequence number [{}] due to: {}",
+          toSequenceNr,
+          failure.getMessage)
       case (_, EventSourcedBehaviorImpl.GetPersistenceId(replyTo)) => replyTo ! persistenceId
     }
 
+    val instrumentation = EventSourcedBehaviorInstrumentationProvider(ctx.system).instrumentation
     // do this once, even if the actor is restarted
+    instrumentation.actorInitialized(ctx.self)
     initialize(context.asScala)
 
     Behaviors
@@ -163,7 +199,10 @@ private[akka] final case class EventSourcedBehaviorImpl[Command, Event, State](
             settings = settings,
             stashState = stashState,
             replication = replication,
-            publishEvents = publishEvents)
+            publishEvents = publishEvents,
+            internalLoggerFactory = () => internalLogger(),
+            retentionInProgress = false,
+            instrumentation)
 
           // needs to accept Any since we also can get messages from the journal
           // not part of the user facing Command protocol
@@ -179,7 +218,7 @@ private[akka] final case class EventSourcedBehaviorImpl[Command, Event, State](
                 case res: SnapshotProtocol.Response          => InternalProtocol.SnapshotterResponse(res)
                 case RecoveryPermitter.RecoveryPermitGranted => InternalProtocol.RecoveryPermitGranted
                 case internal: InternalProtocol              => internal // such as RecoveryTickEvent
-                case cmd: Command @unchecked                 => InternalProtocol.IncomingCommand(cmd)
+                case cmd                                     => InternalProtocol.IncomingCommand(cmd.asInstanceOf[Command])
               }
               target(ctx, innerMsg)
             }
@@ -206,6 +245,7 @@ private[akka] final case class EventSourcedBehaviorImpl[Command, Event, State](
       .onFailure[JournalFailureException](supervisionStrategy)
   }
 
+  // FIXME remove instrumentation hook method in 2.10.0
   @InternalStableApi
   private[akka] def initialize(@unused context: ActorContext[_]): Unit = ()
 
@@ -229,12 +269,21 @@ private[akka] final case class EventSourcedBehaviorImpl[Command, Event, State](
   }
 
   override def snapshotWhen(predicate: (State, Event, Long) => Boolean): EventSourcedBehavior[Command, Event, State] =
-    copy(snapshotWhen = predicate)
+    snapshotWhen(predicate, deleteEventsOnSnapshot = false)
+
+  override def snapshotWhen(
+      predicate: (State, Event, Long) => Boolean,
+      deleteEventsOnSnapshot: Boolean): EventSourcedBehavior[Command, Event, State] = {
+    copy(snapshotWhen = SnapshotWhenPredicate(predicate, deleteEventsOnSnapshot))
+  }
 
   override def withRetention(criteria: RetentionCriteria): EventSourcedBehavior[Command, Event, State] =
     copy(retention = criteria)
 
   override def withTagger(tagger: Event => Set[String]): EventSourcedBehavior[Command, Event, State] =
+    copy(tagger = (_, event) => tagger(event))
+
+  override def withTaggerForState(tagger: (State, Event) => Set[String]): EventSourcedBehavior[Command, Event, State] =
     copy(tagger = tagger)
 
   override def eventAdapter(adapter: EventAdapter[Event, _]): EventSourcedBehavior[Command, Event, State] =
@@ -260,6 +309,10 @@ private[akka] final case class EventSourcedBehaviorImpl[Command, Event, State](
     copy(
       replication = Some(ReplicationSetup(context.replicationId.replicaId, context.replicasAndQueryPlugins, context)))
   }
+
+  override def withStashCapacity(size: Int): EventSourcedBehavior[Command, Event, State] =
+    copy(customStashCapacity = Some(size))
+
 }
 
 /** Protocol used internally by the eventsourced behaviors. */
@@ -270,6 +323,7 @@ private[akka] final case class EventSourcedBehaviorImpl[Command, Event, State](
   final case class SnapshotterResponse(msg: akka.persistence.SnapshotProtocol.Response) extends InternalProtocol
   final case class RecoveryTickEvent(snapshot: Boolean) extends InternalProtocol
   final case class IncomingCommand[C](c: C) extends InternalProtocol
+  case object ContinueUnstash extends InternalProtocol
 
   final case class ReplicatedEventEnvelope[E](event: ReplicatedEvent[E], ack: ActorRef[ReplicatedEventAck.type])
       extends InternalProtocol
@@ -282,8 +336,8 @@ object ReplicatedEventMetadata {
    * For a journal supporting Replicated Event Sourcing needing to add test coverage, use this instance as metadata and defer
    * to the built in serializer for serialization format
    */
-  @ApiMayChange
-  def instanceForJournalTest: Any = ReplicatedEventMetadata(ReplicaId("DC-A"), 1L, VersionVector.empty + "DC-A", true)
+  def instanceForJournalTest: Any =
+    ReplicatedEventMetadata(ReplicaId("DC-A"), 1L, VersionVector.empty + "DC-A", concurrent = true)
 }
 
 /**
@@ -305,7 +359,6 @@ object ReplicatedSnapshotMetadata {
    * For a snapshot store supporting Replicated Event Sourcing needing to add test coverage, use this instance as metadata and defer
    * to the built in serializer for serialization format
    */
-  @ApiMayChange
   def instanceForSnapshotStoreTest: Any =
     ReplicatedSnapshotMetadata(
       VersionVector.empty + "DC-B" + "DC-A",
@@ -336,13 +389,14 @@ final class ReplicatedPublishedEventMetaData(val replicaId: ReplicaId, private[a
 /**
  * INTERNAL API
  */
-@InternalApi
+@InternalStableApi
 private[akka] final case class PublishedEventImpl(
     persistenceId: PersistenceId,
     sequenceNumber: Long,
     payload: Any,
     timestamp: Long,
-    replicatedMetaData: Option[ReplicatedPublishedEventMetaData])
+    replicatedMetaData: Option[ReplicatedPublishedEventMetaData],
+    replyTo: Option[ActorRef[Done]])
     extends PublishedEvent
     with InternalProtocol {
   import scala.compat.java8.OptionConverters._
@@ -356,6 +410,13 @@ private[akka] final case class PublishedEventImpl(
     case Tagged(event, _) => event
     case _                => payload
   }
+
+  override def withoutTags: PublishedEvent = payload match {
+    case Tagged(event, _) => copy(payload = event)
+    case _                => this
+  }
+
+  def lossyTransport: Boolean = replyTo.isEmpty
 
   override def getReplicatedMetaData: Optional[ReplicatedPublishedEventMetaData] = replicatedMetaData.asJava
 }

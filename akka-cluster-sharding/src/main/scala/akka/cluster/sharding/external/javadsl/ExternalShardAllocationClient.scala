@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding.external.javadsl
@@ -8,16 +8,14 @@ import java.util.concurrent.CompletionStage
 
 import akka.Done
 import akka.actor.Address
-import akka.annotation.ApiMayChange
+import akka.annotation.DoNotInherit
 import akka.cluster.sharding.ShardRegion.ShardId
 import akka.cluster.sharding.external.ShardLocations
 
 /**
- * API May Change
- *
  * Not for user extension
  */
-@ApiMayChange
+@DoNotInherit
 trait ExternalShardAllocationClient {
 
   /**

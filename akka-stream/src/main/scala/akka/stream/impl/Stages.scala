@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl
@@ -27,11 +27,14 @@ import akka.stream.Attributes._
     val filterNot = name("filterNot")
     val collect = name("collect")
     val recover = name("recover")
+    val mapError = name("mapError")
     val mapAsync = name("mapAsync")
     val mapAsyncUnordered = name("mapAsyncUnordered")
+    val mapWithResource = name("mapWithResource") and IODispatcher
     val ask = name("ask")
     val grouped = name("grouped")
     val groupedWithin = name("groupedWithin")
+    val groupedWeighted = name("groupedWeighted")
     val groupedWeightedWithin = name("groupedWeightedWithin")
     val limit = name("limit")
     val limitWeighted = name("limitWeighted")
@@ -51,6 +54,7 @@ import akka.stream.Attributes._
     val batch = name("batch")
     val batchWeighted = name("batchWeighted")
     val expand = name("expand")
+    val statefulMap = name("statefulMap")
     val statefulMapConcat = name("statefulMapConcat")
     val detacher = name("detacher")
     val groupBy = name("groupBy")
@@ -76,6 +80,7 @@ import akka.stream.Attributes._
     val mergePrioritized = name("mergePrioritized")
     val flattenMerge = name("flattenMerge")
     val recoverWith = name("recoverWith")
+    val onErrorComplete = name("onErrorComplete")
     val broadcast = name("broadcast")
     val wireTap = name("wireTap")
     val balance = name("balance")
@@ -114,7 +119,7 @@ import akka.stream.Attributes._
     val actorRefWithBackpressureSource = name("actorRefWithBackpressureSource")
     val queueSource = name("queueSource")
     val inputStreamSource = name("inputStreamSource") and IODispatcher
-    val outputStreamSource = name("outputStreamSource") and IODispatcher
+    val outputStreamSource = name("outputStreamSource")
     val fileSource = name("fileSource") and IODispatcher
     val unfoldResourceSource = name("unfoldResourceSource") and IODispatcher
     val unfoldResourceSourceAsync = name("unfoldResourceSourceAsync") and IODispatcher
@@ -133,15 +138,19 @@ import akka.stream.Attributes._
     val publisherSink = name("publisherSink")
     val fanoutPublisherSink = name("fanoutPublisherSink")
     val ignoreSink = name("ignoreSink")
+    val neverSink = name("neverSink")
     val actorRefSink = name("actorRefSink")
     val actorRefWithBackpressureSink = name("actorRefWithBackpressureSink")
     val actorSubscriberSink = name("actorSubscriberSink")
     val queueSink = name("queueSink")
     val lazySink = name("lazySink")
     val lazyFlow = name("lazyFlow")
+    val futureFlow = name("futureFlow")
     val lazySource = name("lazySource")
+    val lazyFuture = name("lazyFuture")
+    val lazySingle = name("lazySingle")
     val outputStreamSink = name("outputStreamSink") and IODispatcher
-    val inputStreamSink = name("inputStreamSink") and IODispatcher
+    val inputStreamSink = name("inputStreamSink")
     val fileSink = name("fileSink") and IODispatcher
     val fromJavaStream = name("fromJavaStream")
 

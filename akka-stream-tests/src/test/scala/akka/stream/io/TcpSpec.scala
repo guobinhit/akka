@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.io
@@ -8,6 +8,7 @@ import java.net._
 import java.security.SecureRandom
 import java.util.concurrent.atomic.AtomicInteger
 
+import scala.annotation.nowarn
 import scala.collection.immutable
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext
@@ -15,7 +16,6 @@ import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.concurrent.duration._
 
-import com.github.ghik.silencer.silent
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import org.scalatest.concurrent.PatienceConfiguration
@@ -41,7 +41,6 @@ import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Tcp.IncomingConnection
 import akka.stream.scaladsl.Tcp.ServerBinding
 import akka.stream.testkit._
-import akka.stream.testkit.scaladsl.StreamTestKit._
 import akka.testkit.EventFilter
 import akka.testkit.SocketUtil.{ temporaryServerAddress, temporaryServerHostnameAndPort }
 import akka.testkit.TestKit
@@ -50,7 +49,7 @@ import akka.testkit.TestProbe
 import akka.testkit.WithLogCapturing
 import akka.util.ByteString
 
-@silent("never used")
+@nowarn("msg=never used")
 class NonResolvingDnsActor(cache: SimpleDnsCache, config: Config) extends Actor {
   def receive = {
     case msg =>
@@ -58,7 +57,7 @@ class NonResolvingDnsActor(cache: SimpleDnsCache, config: Config) extends Actor 
   }
 }
 
-@silent("never used")
+@nowarn("msg=never used")
 class NonResolvingDnsManager(ext: akka.io.DnsExt) extends Actor {
 
   def receive = {
@@ -67,7 +66,7 @@ class NonResolvingDnsManager(ext: akka.io.DnsExt) extends Actor {
   }
 }
 
-@silent("deprecated")
+@nowarn("msg=deprecated")
 class FailingDnsResolver extends DnsProvider {
   override val cache: Dns = new Dns {
     override def cached(name: String): Option[Dns.Resolved] = None
@@ -101,7 +100,7 @@ class TcpSpec extends StreamSpec("""
 
   "Outgoing TCP stream" must {
 
-    "work in the happy case" in assertAllStagesStopped {
+    "work in the happy case" in {
       val testData = ByteString(1, 2, 3, 4, 5)
 
       val server = new Server()
@@ -157,7 +156,7 @@ class TcpSpec extends StreamSpec("""
 
     }
 
-    "fail the materialized future when the connection fails" in assertAllStagesStopped {
+    "fail the materialized future when the connection fails" in {
       val tcpWriteProbe = new TcpWriteProbe()
       val future = Source
         .fromPublisher(tcpWriteProbe.publisherProbe)
@@ -170,7 +169,7 @@ class TcpSpec extends StreamSpec("""
       future.failed.futureValue shouldBe a[StreamTcpException]
     }
 
-    "work when client closes write, then remote closes write" in assertAllStagesStopped {
+    "work when client closes write, then remote closes write" in {
       val testData = ByteString(1, 2, 3, 4, 5)
       val server = new Server()
 
@@ -204,7 +203,7 @@ class TcpSpec extends StreamSpec("""
       serverConnection.expectTerminated()
     }
 
-    "work when remote closes write, then client closes write" in assertAllStagesStopped {
+    "work when remote closes write, then client closes write" in {
       val testData = ByteString(1, 2, 3, 4, 5)
       val server = new Server()
 
@@ -236,7 +235,7 @@ class TcpSpec extends StreamSpec("""
       serverConnection.expectTerminated()
     }
 
-    "work when client closes read, then client closes write" in assertAllStagesStopped {
+    "work when client closes read, then client closes write" in {
       val testData = ByteString(1, 2, 3, 4, 5)
       val server = new Server()
 
@@ -272,7 +271,7 @@ class TcpSpec extends StreamSpec("""
       serverConnection.expectTerminated()
     }
 
-    "work when client closes write, then client closes read" in assertAllStagesStopped {
+    "work when client closes write, then client closes read" in {
       val testData = ByteString(1, 2, 3, 4, 5)
       val server = new Server()
 
@@ -309,7 +308,7 @@ class TcpSpec extends StreamSpec("""
       serverConnection.expectTerminated()
     }
 
-    "work when client closes read, then server closes write, then client closes write" in assertAllStagesStopped {
+    "work when client closes read, then server closes write, then client closes write" in {
       val testData = ByteString(1, 2, 3, 4, 5)
       val server = new Server()
 
@@ -342,7 +341,7 @@ class TcpSpec extends StreamSpec("""
       serverConnection.expectTerminated()
     }
 
-    "shut everything down if client signals error" in assertAllStagesStopped {
+    "shut everything down if client signals error" in {
       val testData = ByteString(1, 2, 3, 4, 5)
       val server = new Server()
 
@@ -373,7 +372,7 @@ class TcpSpec extends StreamSpec("""
       serverConnection.expectTerminated()
     }
 
-    "shut everything down if client signals error after remote has closed write" in assertAllStagesStopped {
+    "shut everything down if client signals error after remote has closed write" in {
       val testData = ByteString(1, 2, 3, 4, 5)
       val server = new Server()
 
@@ -405,7 +404,7 @@ class TcpSpec extends StreamSpec("""
       serverConnection.expectTerminated()
     }
 
-    "shut down both streams when connection is aborted remotely" in assertAllStagesStopped {
+    "shut down both streams when connection is aborted remotely" in {
       // Client gets a PeerClosed event and does not know that the write side is also closed
       val server = new Server()
 
@@ -469,7 +468,7 @@ class TcpSpec extends StreamSpec("""
       server.close()
     }
 
-    "properly half-close by default" in assertAllStagesStopped {
+    "properly half-close by default" in {
       val writeButDontRead: Flow[ByteString, ByteString, NotUsed] =
         Flow.fromSinkAndSource(Sink.cancelled, Source.single(ByteString("Early response")))
 
@@ -492,7 +491,7 @@ class TcpSpec extends StreamSpec("""
       binding.unbind()
     }
 
-    "properly full-close if requested" in assertAllStagesStopped {
+    "properly full-close if requested" in {
       val writeButIgnoreRead: Flow[ByteString, ByteString, NotUsed] =
         Flow.fromSinkAndSourceMat(Sink.ignore, Source.single(ByteString("Early response")))(Keep.right)
 
@@ -669,7 +668,7 @@ class TcpSpec extends StreamSpec("""
     "bind and unbind correctly" in EventFilter[BindException](occurrences = 2).intercept {
       val address = temporaryServerAddress()
       val probe1 = TestSubscriber.manualProbe[Tcp.IncomingConnection]()
-      val bind = Tcp(system).bind(address.getHostString, address.getPort)
+      val bind = Tcp().bind(address.getHostString, address.getPort)
       // Bind succeeded, we have a local address
       val binding1 = bind.to(Sink.fromSubscriber(probe1)).run().futureValue
 
@@ -699,7 +698,7 @@ class TcpSpec extends StreamSpec("""
       binding4.unbind().futureValue
     }
 
-    "not shut down connections after the connection stream cancelled" in assertAllStagesStopped {
+    "not shut down connections after the connection stream cancelled" in {
 
       // configure a few timeouts we do not want to hit
       val config = ConfigFactory.parseString("""
@@ -769,10 +768,10 @@ class TcpSpec extends StreamSpec("""
       }
     }
 
-    "handle single connection when connection flow is immediately cancelled" in assertAllStagesStopped {
+    "handle single connection when connection flow is immediately cancelled" in {
       implicit val ec: ExecutionContext = system.dispatcher
 
-      val (bindingFuture, connection) = Tcp(system).bind("localhost", 0).toMat(Sink.head)(Keep.both).run()
+      val (bindingFuture, connection) = Tcp().bind("localhost", 0).toMat(Sink.head)(Keep.both).run()
 
       connection.map { c =>
         c.handleWith(Flow[ByteString])
@@ -781,13 +780,13 @@ class TcpSpec extends StreamSpec("""
       val binding = bindingFuture.futureValue
 
       val expected = ByteString("test")
-      val msg = Source.single(expected).via(Tcp(system).outgoingConnection(binding.localAddress)).runWith(Sink.head)
+      val msg = Source.single(expected).via(Tcp().outgoingConnection(binding.localAddress)).runWith(Sink.head)
       msg.futureValue shouldBe expected
 
       binding.unbind()
     }
 
-    "shut down properly even if some accepted connection Flows have not been subscribed to" in assertAllStagesStopped {
+    "shut down properly even if some accepted connection Flows have not been subscribed to" in {
       val address = temporaryServerAddress()
       val firstClientConnected = Promise[Unit]()
       val secondClientIgnored = Promise[Unit]()
@@ -816,7 +815,8 @@ class TcpSpec extends StreamSpec("""
           }
           .to(Sink.ignore)
 
-      val serverBound = Tcp().bind(address.getHostString, address.getPort).toMat(accept2ConnectionSink)(Keep.left).run()
+      val serverBound =
+        Tcp().bind(address.getHostString, address.getPort).toMat(accept2ConnectionSink)(Keep.left).run()
 
       // make sure server has started
       serverBound.futureValue
@@ -863,7 +863,7 @@ class TcpSpec extends StreamSpec("""
 
     "show host and port in bind exception message" in EventFilter[BindException](occurrences = 1).intercept {
       val (host, port) = temporaryServerHostnameAndPort()
-      val bind = Tcp(system).bind(host, port)
+      val bind = Tcp().bind(host, port)
 
       val probe1 = TestSubscriber.manualProbe[Tcp.IncomingConnection]()
       val binding1 = bind.to(Sink.fromSubscriber(probe1)).run().futureValue
@@ -959,102 +959,6 @@ class TcpSpec extends StreamSpec("""
       engine
     }
     // #setting-up-ssl-engine
-
-  }
-
-  "TLS client and server convenience methods with deprecated SSLContext setup" should {
-
-    "allow for TLS" in {
-      test()
-    }
-
-    @silent("deprecated")
-    def test(): Unit = {
-      // cert is valid until 2025, so if this tests starts failing after that you need to create a new one
-      val (sslContext, firstSession) = initSslMess()
-      val address = temporaryServerAddress()
-
-      Tcp()
-        .bindAndHandleTls(
-          // just echo characters until we reach '\n', then complete stream
-          // also - byte is our framing
-          Flow[ByteString].mapConcat(_.utf8String.toList).takeWhile(_ != '\n').map(c => ByteString(c)),
-          address.getHostName,
-          address.getPort,
-          sslContext,
-          firstSession)
-        .futureValue
-      system.log.info(s"Server bound to ${address.getHostString}:${address.getPort}")
-
-      val connectionFlow = Tcp().outgoingTlsConnection(address.getHostName, address.getPort, sslContext, firstSession)
-
-      val chars = "hello\n".toList.map(_.toString)
-      val (connectionF, result) =
-        Source(chars)
-          .map(c => ByteString(c))
-          .concat(Source.maybe) // do not complete it from our side
-          .viaMat(connectionFlow)(Keep.right)
-          .map(_.utf8String)
-          .toMat(Sink.fold("")(_ + _))(Keep.both)
-          .run()
-
-      connectionF.futureValue
-      system.log.info(s"Client connected to ${address.getHostString}:${address.getPort}")
-
-      result.futureValue(PatienceConfiguration.Timeout(10.seconds)) should ===("hello")
-    }
-
-    @silent("deprecated")
-    def initSslMess() = {
-      // #setting-up-ssl-context
-      import java.security.KeyStore
-      import javax.net.ssl._
-
-      import com.typesafe.sslconfig.akka.AkkaSSLConfig
-
-      import akka.stream.TLSClientAuth
-      import akka.stream.TLSProtocol
-
-      val sslConfig = AkkaSSLConfig()
-
-      // Don't hardcode your password in actual code
-      val password = "abcdef".toCharArray
-
-      // trust store and keys in one keystore
-      val keyStore = KeyStore.getInstance("PKCS12")
-      keyStore.load(classOf[TcpSpec].getResourceAsStream("/tcp-spec-keystore.p12"), password)
-
-      val tmf = TrustManagerFactory.getInstance("SunX509")
-      tmf.init(keyStore)
-
-      val keyManagerFactory = KeyManagerFactory.getInstance("SunX509")
-      keyManagerFactory.init(keyStore, password)
-
-      // initial ssl context
-      val sslContext = SSLContext.getInstance("TLS")
-      sslContext.init(keyManagerFactory.getKeyManagers, tmf.getTrustManagers, new SecureRandom)
-
-      // protocols
-      val defaultParams = sslContext.getDefaultSSLParameters
-      val defaultProtocols = defaultParams.getProtocols
-      val protocols = sslConfig.configureProtocols(defaultProtocols, sslConfig.config)
-      defaultParams.setProtocols(protocols)
-
-      // ciphers
-      val defaultCiphers = defaultParams.getCipherSuites
-      val cipherSuites = sslConfig.configureCipherSuites(defaultCiphers, sslConfig.config)
-      defaultParams.setCipherSuites(cipherSuites)
-
-      val negotiateNewSession = TLSProtocol.NegotiateNewSession
-        .withCipherSuites(cipherSuites.toIndexedSeq: _*)
-        .withProtocols(protocols.toIndexedSeq: _*)
-        .withParameters(defaultParams)
-        .withClientAuth(TLSClientAuth.None)
-
-      // #setting-up-ssl-context
-
-      (sslContext, negotiateNewSession)
-    }
 
   }
 

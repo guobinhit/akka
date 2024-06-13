@@ -1,11 +1,13 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
 
 import java.net.URLEncoder
 import java.util
+
+import scala.concurrent.duration._
 
 import akka.actor.Actor
 import akka.actor.ActorLogging
@@ -20,21 +22,25 @@ import akka.actor.Terminated
 import akka.actor.Timers
 import akka.annotation.InternalStableApi
 import akka.cluster.Cluster
+import akka.cluster.ClusterEvent.InitialStateAsEvents
+import akka.cluster.ClusterEvent.MemberEvent
+import akka.cluster.ClusterEvent.MemberPreparingForShutdown
+import akka.cluster.ClusterEvent.MemberReadyForShutdown
+import akka.cluster.sharding.ShardRegion.ShardsUpdated
+import akka.cluster.sharding.internal.EntityPassivationStrategy
+import akka.cluster.sharding.internal.RememberEntitiesProvider
 import akka.cluster.sharding.internal.RememberEntitiesShardStore
 import akka.cluster.sharding.internal.RememberEntitiesShardStore.GetEntities
-import akka.cluster.sharding.internal.RememberEntitiesProvider
-import akka.cluster.sharding.internal.RememberEntityStarter
+import akka.cluster.sharding.internal.RememberEntityStarterManager
 import akka.coordination.lease.scaladsl.Lease
 import akka.coordination.lease.scaladsl.LeaseProvider
 import akka.event.LoggingAdapter
 import akka.pattern.pipe
+import akka.util.Clock
 import akka.util.MessageBufferMap
 import akka.util.OptionVal
 import akka.util.PrettyDuration._
 import akka.util.unused
-
-import scala.collection.immutable.Set
-import scala.concurrent.duration._
 
 /**
  * INTERNAL API
@@ -89,7 +95,8 @@ private[akka] object Shard {
       extractEntityId: ShardRegion.ExtractEntityId,
       extractShardId: ShardRegion.ExtractShardId,
       handOffStopMessage: Any,
-      rememberEntitiesProvider: Option[RememberEntitiesProvider]): Props =
+      rememberEntitiesProvider: Option[RememberEntitiesProvider],
+      rememberEntityStarterManager: ActorRef): Props =
     Props(
       new Shard(
         typeName,
@@ -99,9 +106,10 @@ private[akka] object Shard {
         extractEntityId,
         extractShardId,
         handOffStopMessage,
-        rememberEntitiesProvider)).withDeploy(Deploy.local)
+        rememberEntitiesProvider,
+        rememberEntityStarterManager)).withDeploy(Deploy.local)
 
-  case object PassivateIdleTick extends NoSerializationVerificationNeeded
+  case object PassivateIntervalTick extends NoSerializationVerificationNeeded
 
   private final case class EntityTerminated(ref: ActorRef)
 
@@ -225,7 +233,7 @@ private[akka] object Shard {
    * its stop is being recorded in the remember entities store, or while the stop is queued up
    * to be stored in the next batch.
    */
-  final case object RememberingStop extends EntityState {
+  case object RememberingStop extends EntityState {
     override def transition(newState: EntityState, entities: Entities): EntityState = newState match {
       case NoState => NoState
       case _       => invalidTransition(newState, entities)
@@ -410,7 +418,8 @@ private[akka] class Shard(
     extractEntityId: ShardRegion.ExtractEntityId,
     @unused extractShardId: ShardRegion.ExtractShardId,
     handOffStopMessage: Any,
-    rememberEntitiesProvider: Option[RememberEntitiesProvider])
+    rememberEntitiesProvider: Option[RememberEntitiesProvider],
+    rememberEntityStarterManager: ActorRef)
     extends Actor
     with ActorLogging
     with Stash
@@ -446,28 +455,27 @@ private[akka] class Shard(
     new Entities(log, settings.rememberEntities, verboseDebug, failOnInvalidStateTransition)
   }
 
-  private var lastMessageTimestamp = Map.empty[EntityId, Long]
-
   // Messages are buffered while an entity is passivating or waiting for a response
   // for that entity from the remember store
   private val messageBuffers = new MessageBufferMap[EntityId]
 
   private var handOffStopper: Option[ActorRef] = None
+  private var preparingForShutdown = false
+
+  private val passivationStrategy = EntityPassivationStrategy(settings, clock = () => Clock(context.system))
 
   import context.dispatcher
-  private val passivateIdleTask = if (settings.shouldPassivateIdleEntities) {
-    val idleInterval = settings.passivateIdleEntityAfter / 2
-    Some(context.system.scheduler.scheduleWithFixedDelay(idleInterval, idleInterval, self, PassivateIdleTick))
-  } else {
-    None
+  private val passivateIntervalTask = passivationStrategy.scheduledInterval.map { interval =>
+    context.system.scheduler.scheduleWithFixedDelay(interval, interval, self, PassivateIntervalTick)
   }
 
-  private val lease = settings.leaseSettings.map(
-    ls =>
-      LeaseProvider(context.system).getLease(
-        s"${context.system.name}-shard-$typeName-$shardId",
-        ls.leaseImplementation,
-        Cluster(context.system).selfAddress.hostPort))
+  private val lease = settings.leaseSettings.map { ls =>
+    val leaseName =
+      if (ls.leaseName.isEmpty) s"${context.system.name}-shard-$typeName-$shardId"
+      else s"${ls.leaseName}-$shardId"
+    LeaseProvider(context.system)
+      .getLease(leaseName, ls.leaseImplementation, Cluster(context.system).selfAddress.hostPort)
+  }
 
   private val leaseRetryInterval = settings.leaseSettings match {
     case Some(l) => l.leaseRetryInterval
@@ -479,6 +487,11 @@ private[akka] class Shard(
   }
 
   override def preStart(): Unit = {
+    Cluster(context.system).subscribe(
+      self,
+      InitialStateAsEvents,
+      classOf[MemberPreparingForShutdown],
+      classOf[MemberReadyForShutdown])
     acquireLeaseIfNeeded()
   }
 
@@ -509,6 +522,8 @@ private[akka] class Shard(
       tryGetLease(lease.get)
     case ll: LeaseLost =>
       receiveLeaseLost(ll)
+    case me: MemberEvent =>
+      receiveMemberEvent(me)
     case msg =>
       if (verboseDebug)
         log.debug(
@@ -517,6 +532,15 @@ private[akka] class Shard(
           msg.getClass.getName,
           sender())
       stash()
+  }
+
+  private def receiveMemberEvent(event: MemberEvent): Unit = event match {
+    case _: MemberReadyForShutdown | _: MemberPreparingForShutdown =>
+      if (!preparingForShutdown) {
+        log.info("{}: Preparing for shutdown", typeName)
+        preparingForShutdown = true
+      }
+    case _ =>
   }
 
   private def tryGetLease(l: Lease): Unit = {
@@ -548,6 +572,8 @@ private[akka] class Shard(
       onEntitiesRemembered(entityIds)
     case RememberEntityTimeout(GetEntities) =>
       loadingEntityIdsFailed()
+    case me: MemberEvent =>
+      receiveMemberEvent(me)
     case msg =>
       if (verboseDebug)
         log.debug(
@@ -571,9 +597,7 @@ private[akka] class Shard(
     if (ids.nonEmpty) {
       entities.alreadyRemembered(ids)
       log.debug("{}: Restarting set of [{}] entities", typeName, ids.size)
-      context.actorOf(
-        RememberEntityStarter.props(context.parent, self, shardId, ids, settings),
-        "RememberEntitiesStarter")
+      rememberEntityStarterManager ! RememberEntityStarterManager.StartEntities(self, shardId, ids)
     }
     shardInitialized()
   }
@@ -590,17 +614,21 @@ private[akka] class Shard(
   // when not remembering entities, we stay in this state all the time
   def idle: Receive = {
     case Terminated(ref)                         => receiveTerminated(ref)
+    case me: MemberEvent                         => receiveMemberEvent(me)
     case EntityTerminated(ref)                   => entityTerminated(ref)
     case msg: CoordinatorMessage                 => receiveCoordinatorMessage(msg)
     case msg: RememberEntityCommand              => receiveRememberEntityCommand(msg)
     case msg: ShardRegion.StartEntity            => startEntity(msg.entityId, Some(sender()))
+    case msg: ShardRegion.SetActiveEntityLimit   => activeEntityLimitUpdated(msg)
+    case msg: ShardRegion.ShardsUpdated          => shardsUpdated(msg)
     case Passivate(stopMessage)                  => passivate(sender(), stopMessage)
+    case PassivateIntervalTick                   => passivateEntitiesAfterInterval()
     case msg: ShardQuery                         => receiveShardQuery(msg)
-    case PassivateIdleTick                       => passivateIdleEntities()
     case msg: LeaseLost                          => receiveLeaseLost(msg)
     case msg: RememberEntityStoreCrashed         => rememberEntityStoreCrashed(msg)
     case msg if extractEntityId.isDefinedAt(msg) => deliverMessage(msg, sender())
   }
+
   def rememberUpdate(add: Set[EntityId] = Set.empty, remove: Set[EntityId] = Set.empty): Unit = {
     rememberEntitiesStore match {
       case None =>
@@ -659,6 +687,7 @@ private[akka] class Shard(
       throw new RuntimeException(
         s"Async write timed out after ${settings.tuningParameters.updatingStateTimeout.pretty}")
     case ShardRegion.StartEntity(entityId) => startEntity(entityId, Some(sender()))
+    case me: MemberEvent                   => receiveMemberEvent(me)
     case Terminated(ref)                   => receiveTerminated(ref)
     case EntityTerminated(ref)             => entityTerminated(ref)
     case _: CoordinatorMessage             => stash()
@@ -672,8 +701,9 @@ private[akka] class Shard(
           entities.entityId(sender()).getOrElse(s"Unknown actor ${sender()}"))
       passivate(sender(), stopMessage)
     case msg: ShardQuery                 => receiveShardQuery(msg)
-    case PassivateIdleTick               => stash()
+    case PassivateIntervalTick           => stash()
     case msg: RememberEntityStoreCrashed => rememberEntityStoreCrashed(msg)
+    case msg: ShardsUpdated              => shardsUpdated(msg)
     case msg if extractEntityId.isDefinedAt(msg) =>
       deliverMessage(msg, sender())
     case msg =>
@@ -700,7 +730,6 @@ private[akka] class Shard(
         case RememberingStart(ackTo) => ackTo.foreach(_ ! ShardRegion.StartEntityAck(entityId, shardId))
         case _                       =>
       }
-      touchLastMessageTimestamp(entityId)
     }
     stops.foreach { entityId =>
       entities.entityState(entityId) match {
@@ -784,7 +813,6 @@ private[akka] class Shard(
       case Active(_) =>
         if (verboseDebug)
           log.debug("{}: Request to start entity [{}] (Already started)", typeName, entityId)
-        touchLastMessageTimestamp(entityId)
         ackTo.foreach(_ ! ShardRegion.StartEntityAck(entityId, shardId))
       case _: RememberingStart =>
         entities.rememberingStart(entityId, ackTo)
@@ -793,7 +821,6 @@ private[akka] class Shard(
         // this is the normal path for initially remembered entities getting started
         log.debug("{}: Request to start entity [{}] (in state [{}])", typeName, entityId, state)
         getOrCreateEntity(entityId)
-        touchLastMessageTimestamp(entityId)
         ackTo.foreach(_ ! ShardRegion.StartEntityAck(entityId, shardId))
       case Passivating(_) =>
         // since StartEntity is handled in deliverMsg we can buffer a StartEntity to handle when
@@ -814,7 +841,8 @@ private[akka] class Shard(
   }
 
   private def receiveCoordinatorMessage(msg: CoordinatorMessage): Unit = msg match {
-    case HandOff(`shardId`) => handOff(sender())
+    case HandOff(`shardId`) =>
+      handOff(sender())
     case HandOff(shard) =>
       log.warning("{}: Shard [{}] can not hand off for another Shard [{}]", typeName, shardId, shard)
     case _ => unhandled(msg)
@@ -839,8 +867,12 @@ private[akka] class Shard(
 
       // does conversion so only do once
       val activeEntities = entities.activeEntities()
-      if (activeEntities.nonEmpty) {
-        val entityHandOffTimeout = (settings.tuningParameters.handOffTimeout - 5.seconds).max(1.seconds)
+      if (preparingForShutdown) {
+        log.info("{}: HandOff shard [{}] while preparing for shutdown. Stopping right away.", typeName, shardId)
+        activeEntities.foreach { _ ! handOffStopMessage }
+        replyTo ! ShardStopped(shardId)
+        context.stop(self)
+      } else if (activeEntities.nonEmpty && !preparingForShutdown) {
         log.debug(
           "{}: Starting HandOffStopper for shard [{}] to terminate [{}] entities.",
           typeName,
@@ -848,9 +880,16 @@ private[akka] class Shard(
           activeEntities.size)
         activeEntities.foreach(context.unwatch)
         handOffStopper = Some(
-          context.watch(context.actorOf(
-            HandOffStopper.props(typeName, shardId, replyTo, activeEntities, handOffStopMessage, entityHandOffTimeout),
-            "HandOffStopper")))
+          context.watch(
+            context.actorOf(
+              HandOffStopper.props(
+                typeName,
+                shardId,
+                replyTo,
+                activeEntities,
+                handOffStopMessage,
+                settings.tuningParameters.handOffTimeout),
+              "HandOffStopper")))
 
         //During hand off we only care about watching for termination of the hand off stopper
         context.become {
@@ -872,9 +911,7 @@ private[akka] class Shard(
     import settings.tuningParameters._
     entities.entityId(ref) match {
       case OptionVal.Some(entityId) =>
-        if (passivateIdleTask.isDefined) {
-          lastMessageTimestamp -= entityId
-        }
+        passivationStrategy.entityTerminated(entityId)
         entities.entityState(entityId) match {
           case RememberingStop =>
             if (verboseDebug)
@@ -929,7 +966,7 @@ private[akka] class Shard(
               entityId,
               unexpected)
         }
-      case OptionVal.None =>
+      case _ =>
         log.warning("{}: Unexpected entity terminated: {}", typeName, ref)
     }
   }
@@ -951,26 +988,35 @@ private[akka] class Shard(
           entity ! stopMessage
           flightRecorder.entityPassivate(id)
         }
-      case OptionVal.None =>
+      case _ =>
         log.debug("{}: Unknown entity passivating [{}]. Not sending stopMessage back to entity", typeName, entity)
     }
   }
 
-  def touchLastMessageTimestamp(id: EntityId): Unit = {
-    if (passivateIdleTask.isDefined) {
-      lastMessageTimestamp = lastMessageTimestamp.updated(id, System.nanoTime())
-    }
+  private def activeEntityLimitUpdated(updated: ShardRegion.SetActiveEntityLimit): Unit = {
+    val entitiesToPassivate = passivationStrategy.limitUpdated(updated.perRegionLimit)
+    passivateEntities(entitiesToPassivate)
   }
 
-  private def passivateIdleEntities(): Unit = {
-    val deadline = System.nanoTime() - settings.passivateIdleEntityAfter.toNanos
-    val refsToPassivate = lastMessageTimestamp.collect {
-      case (entityId, lastMessageTimestamp) if lastMessageTimestamp < deadline && entities.entity(entityId).isDefined =>
-        entities.entity(entityId).get
-    }
-    if (refsToPassivate.nonEmpty) {
-      log.debug("{}: Passivating [{}] idle entities", typeName, refsToPassivate.size)
-      refsToPassivate.foreach(passivate(_, handOffStopMessage))
+  private def shardsUpdated(updated: ShardRegion.ShardsUpdated): Unit = {
+    val entitiesToPassivate = passivationStrategy.shardsUpdated(updated.activeShards)
+    passivateEntities(entitiesToPassivate)
+  }
+
+  private def passivateEntitiesAfterInterval(): Unit = {
+    val entitiesToPassivate = passivationStrategy.intervalPassed()
+    passivateEntities(entitiesToPassivate)
+  }
+
+  private def passivateEntities(entitiesToPassivate: EntityPassivationStrategy.PassivateEntities): Unit = {
+    if (entitiesToPassivate.nonEmpty) {
+      val refsToPassivate = entitiesToPassivate.collect {
+        case entityId if entities.entity(entityId).isDefined => entities.entity(entityId).get
+      }
+      if (refsToPassivate.nonEmpty) {
+        log.debug("{}: Passivating [{}] entities", typeName, refsToPassivate.size)
+        refsToPassivate.foreach(passivate(_, handOffStopMessage))
+      }
     }
   }
 
@@ -1023,8 +1069,9 @@ private[akka] class Shard(
             case Active(ref) =>
               if (verboseDebug)
                 log.debug("{}: Delivering message of type [{}] to [{}]", typeName, payload.getClass.getName, entityId)
-              touchLastMessageTimestamp(entityId)
+              val entitiesToPassivate = passivationStrategy.entityTouched(entityId)
               ref.tell(payload, snd)
+              passivateEntities(entitiesToPassivate)
             case RememberingStart(_) | RememberingStop | Passivating(_) =>
               appendToMessageBuffer(entityId, msg, snd)
             case state @ (WaitingForRestart | RememberedButNotCreated) =>
@@ -1035,14 +1082,14 @@ private[akka] class Shard(
                   payload.getClass.getName,
                   entityId,
                   state)
-              val actor = getOrCreateEntity(entityId)
-              touchLastMessageTimestamp(entityId)
-              actor.tell(payload, snd)
+              getOrCreateEntity(entityId).tell(payload, snd)
             case NoState =>
               if (!rememberEntities) {
                 // don't buffer if remember entities not enabled
-                getOrCreateEntity(entityId).tell(payload, snd)
-                touchLastMessageTimestamp(entityId)
+                val ref = getOrCreateEntity(entityId)
+                val entitiesToPassivate = passivationStrategy.entityTouched(entityId)
+                ref.tell(payload, snd)
+                passivateEntities(entitiesToPassivate)
               } else {
                 if (entities.pendingRememberedEntitiesExist()) {
                   // No actor running and write in progress for some other entity id (can only happen with remember entities enabled)
@@ -1077,13 +1124,12 @@ private[akka] class Shard(
   def getOrCreateEntity(id: EntityId): ActorRef = {
     entities.entity(id) match {
       case OptionVal.Some(child) => child
-      case OptionVal.None =>
+      case _ =>
         val name = URLEncoder.encode(id, "utf-8")
         val a = context.actorOf(entityProps(id), name)
         context.watchWith(a, EntityTerminated(a))
         log.debug("{}: Started entity [{}] with entity id [{}] in shard [{}]", typeName, a, id, shardId)
         entities.addEntity(id, a)
-        touchLastMessageTimestamp(id)
         entityCreated(id)
         a
     }
@@ -1128,7 +1174,6 @@ private[akka] class Shard(
         case (ShardRegion.StartEntity(entityId), snd) => startEntity(entityId, Some(snd))
         case (msg, snd)                               => deliverMessage(msg, snd)
       }
-      touchLastMessageTimestamp(entityId)
     }
   }
 
@@ -1144,7 +1189,8 @@ private[akka] class Shard(
   }
 
   override def postStop(): Unit = {
-    passivateIdleTask.foreach(_.cancel())
+    passivateIntervalTask.foreach(_.cancel())
+    lease.foreach(_.release())
     log.debug("{}: Shard [{}] shutting down", typeName, shardId)
   }
 

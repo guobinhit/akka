@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl
@@ -47,7 +47,7 @@ import akka.util.OptionVal
         case OptionVal.Some(value) =>
           push(out, value)
           completeStage()
-        case OptionVal.None =>
+        case _ =>
       }
 
       private def handleCompletion(elem: Try[Option[AnyRef]]): Unit = {

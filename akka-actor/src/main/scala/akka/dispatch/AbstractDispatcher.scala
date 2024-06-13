@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.dispatch
@@ -7,12 +7,12 @@ package akka.dispatch
 import java.{ util => ju }
 import java.util.concurrent._
 
+import scala.annotation.nowarn
 import scala.annotation.tailrec
 import scala.concurrent.{ ExecutionContext, ExecutionContextExecutor }
 import scala.concurrent.duration.{ Duration, FiniteDuration }
 import scala.util.control.NonFatal
 
-import com.github.ghik.silencer.silent
 import com.typesafe.config.Config
 
 import akka.actor._
@@ -23,7 +23,12 @@ import akka.event.EventStream
 import akka.event.Logging.{ Debug, Error, LogEventException }
 import akka.util.{ unused, Index, Unsafe }
 
-final case class Envelope private (message: Any, sender: ActorRef)
+final case class Envelope private (message: Any, sender: ActorRef) {
+
+  def copy(message: Any = message, sender: ActorRef = sender) = {
+    Envelope(message, sender)
+  }
+}
 
 object Envelope {
   def apply(message: Any, sender: ActorRef, system: ActorSystem): Envelope = {
@@ -38,11 +43,7 @@ object Envelope {
 }
 
 final case class TaskInvocation(eventStream: EventStream, runnable: Runnable, cleanup: () => Unit) extends Batchable {
-  final override def isBatchable: Boolean = runnable match {
-    case b: Batchable                           => b.isBatchable
-    case _: scala.concurrent.OnCompleteRunnable => true
-    case _                                      => false
-  }
+  final override def isBatchable: Boolean = akka.dispatch.internal.ScalaBatchable.isBatchable(runnable)
 
   def run(): Unit =
     try runnable.run()
@@ -104,8 +105,12 @@ abstract class MessageDispatcher(val configurator: MessageDispatcherConfigurator
   val mailboxes = prerequisites.mailboxes
   val eventStream = prerequisites.eventStream
 
-  @silent @volatile private[this] var _inhabitantsDoNotCallMeDirectly: Long = _ // DO NOT TOUCH!
-  @silent @volatile private[this] var _shutdownScheduleDoNotCallMeDirectly: Int = _ // DO NOT TOUCH!
+  @nowarn @volatile private[this] var _inhabitantsDoNotCallMeDirectly: Long = _ // DO NOT TOUCH!
+  @nowarn @volatile private[this] var _shutdownScheduleDoNotCallMeDirectly: Int = _ // DO NOT TOUCH!
+  @nowarn private def _preventPrivateUnusedErasure = {
+    _inhabitantsDoNotCallMeDirectly
+    _shutdownScheduleDoNotCallMeDirectly
+  }
 
   private final def addInhabitants(add: Long): Long = {
     val old = Unsafe.instance.getAndAddLong(this, inhabitantsOffset, add)
@@ -144,7 +149,7 @@ abstract class MessageDispatcher(val configurator: MessageDispatcherConfigurator
    */
   final def attach(actor: ActorCell): Unit = {
     register(actor)
-    registerForExecution(actor.mailbox, false, true)
+    registerForExecution(actor.mailbox, hasMessageHint = false, hasSystemMessageHint = true)
   }
 
   /**
@@ -181,6 +186,8 @@ abstract class MessageDispatcher(val configurator: MessageDispatcherConfigurator
         if (updateShutdownSchedule(SCHEDULED, RESCHEDULED)) ()
         else ifSensibleToDoSoThenScheduleShutdown()
       case RESCHEDULED =>
+      case unexpected =>
+        throw new IllegalArgumentException(s"Unexpected actor class marker: $unexpected") // will not happen, for exhaustiveness check
     }
   }
 
@@ -240,6 +247,8 @@ abstract class MessageDispatcher(val configurator: MessageDispatcherConfigurator
           if (updateShutdownSchedule(RESCHEDULED, SCHEDULED)) scheduleShutdownAction()
           else run()
         case UNSCHEDULED =>
+        case unexpected =>
+          throw new IllegalArgumentException(s"Unexpected actor class marker: $unexpected") // will not happen, for exhaustiveness check
       }
     }
   }
@@ -268,7 +277,7 @@ abstract class MessageDispatcher(val configurator: MessageDispatcherConfigurator
   protected[akka] def resume(actor: ActorCell): Unit = {
     val mbox = actor.mailbox
     if ((mbox.actor eq actor) && (mbox.dispatcher eq this) && mbox.resume())
-      registerForExecution(mbox, false, false)
+      registerForExecution(mbox, hasMessageHint = false, hasSystemMessageHint = false)
   }
 
   /**
@@ -398,7 +407,7 @@ class ThreadPoolExecutorConfigurator(config: Config, prerequisites: DispatcherPr
           case size if size > 0 =>
             Some(config.getString("task-queue-type"))
               .map {
-                case "array"       => ThreadPoolConfig.arrayBlockingQueue(size, false) //TODO config fairness?
+                case "array"       => ThreadPoolConfig.arrayBlockingQueue(size, fair = false) //TODO config fairness?
                 case "" | "linked" => ThreadPoolConfig.linkedBlockingQueue(size)
                 case x =>
                   throw new IllegalArgumentException("[%s] is not a valid task-queue-type [array|linked]!".format(x))

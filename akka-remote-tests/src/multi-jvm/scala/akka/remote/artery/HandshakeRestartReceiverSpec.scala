@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -12,7 +12,6 @@ import scala.concurrent.duration._
 import com.typesafe.config.ConfigFactory
 
 import akka.actor._
-import akka.remote.AddressUidExtension
 import akka.remote.RARP
 import akka.remote.UniqueAddress
 import akka.remote.testkit.MultiNodeConfig
@@ -24,13 +23,12 @@ object HandshakeRestartReceiverSpec extends MultiNodeConfig {
   val first = role("first")
   val second = role("second")
 
-  commonConfig(debugConfig(on = false).withFallback(ConfigFactory.parseString(s"""
+  commonConfig(
+    debugConfig(on = false)
+      .withFallback(ConfigFactory.parseString("""
        akka {
          loglevel = INFO
          actor.provider = remote
-         remote.artery {
-           enabled = on
-         }
        }
        # test is using Java serialization and not priority to rewrite
        akka.actor.allow-java-serialization = on
@@ -40,7 +38,7 @@ object HandshakeRestartReceiverSpec extends MultiNodeConfig {
   class Subject extends Actor {
     def receive = {
       case "shutdown" => context.system.terminate()
-      case "identify" => sender() ! (AddressUidExtension(context.system).longAddressUid -> self)
+      case "identify" => sender() ! (context.system.asInstanceOf[ExtendedActorSystem].uid -> self)
     }
   }
 

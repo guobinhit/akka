@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed
@@ -22,7 +22,6 @@ import akka.persistence.typed.scaladsl.EventSourcedBehavior
 object ClusterSingletonPersistenceSpec {
   val config = ConfigFactory.parseString("""
       akka.actor.provider = cluster
-      akka.remote.classic.netty.tcp.port = 0
       akka.remote.artery.canonical.port = 0
       akka.remote.artery.canonical.hostname = 127.0.0.1
 

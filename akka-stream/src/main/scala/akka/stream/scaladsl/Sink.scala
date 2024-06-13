@@ -1,13 +1,13 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
 
+import scala.annotation.nowarn
 import scala.annotation.tailrec
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.immutable
-import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.util.Failure
 import scala.util.Success
@@ -37,7 +37,6 @@ import akka.util.ccompat._
 final class Sink[-In, +Mat](override val traversalBuilder: LinearTraversalBuilder, override val shape: SinkShape[In])
     extends Graph[SinkShape[In], Mat] {
 
-  // TODO: Debug string
   override def toString: String = s"Sink($shape)"
 
   /**
@@ -71,6 +70,9 @@ final class Sink[-In, +Mat](override val traversalBuilder: LinearTraversalBuilde
    * that can be consume elements 'into' the pre-materialized one.
    *
    * Useful for when you need a materialized value of a Sink when handing it out to someone to materialize it for you.
+   *
+   * Note that `preMaterialize` is implemented through a reactive streams `Subscriber` which means that a buffer is introduced
+   * and that errors are not propagated upstream but are turned into cancellations without error details.
    */
   def preMaterialize()(implicit materializer: Materializer): (Mat, Sink[In, NotUsed]) = {
     val (sub, mat) = Source.asSubscriber.toMat(this)(Keep.both).run()
@@ -125,6 +127,9 @@ final class Sink[-In, +Mat](override val traversalBuilder: LinearTraversalBuilde
    * Converts this Scala DSL element to it's Java DSL counterpart.
    */
   def asJava[JIn <: In]: javadsl.Sink[JIn, Mat @uncheckedVariance] = new javadsl.Sink(this)
+
+  override def getAttributes: Attributes = traversalBuilder.attributes
+
 }
 
 object Sink {
@@ -139,7 +144,7 @@ object Sink {
   def fromGraph[T, M](g: Graph[SinkShape[T], M]): Sink[T, M] =
     g match {
       case s: Sink[T, M]                                       => s
-      case s: javadsl.Sink[T, M]                               => s.asScala
+      case s: javadsl.Sink[T, M] @unchecked                    => s.asScala
       case g: GraphStageWithMaterializedValue[SinkShape[T], M] =>
         // move these from the stage itself to make the returned source
         // behave as it is the stage with regards to attributes
@@ -159,7 +164,13 @@ object Sink {
    * [[Attributes]] of the [[Sink]] returned by this method.
    */
   def fromMaterializer[T, M](factory: (Materializer, Attributes) => Sink[T, M]): Sink[T, Future[M]] =
-    Sink.fromGraph(new SetupSinkStage(factory))
+    Flow
+      .fromMaterializer({ (mat, attr) =>
+        Flow.fromGraph(GraphDSL.createGraph(factory(mat, attr)) { b => sink =>
+          FlowShape(sink.in, b.materializedValue.outlet)
+        })
+      })
+      .to(Sink.head)
 
   /**
    * Defers the creation of a [[Sink]] until materialization. The `factory` function
@@ -168,8 +179,9 @@ object Sink {
    */
   @deprecated("Use 'fromMaterializer' instead", "2.6.0")
   def setup[T, M](factory: (ActorMaterializer, Attributes) => Sink[T, M]): Sink[T, Future[M]] =
-    Sink.fromGraph(new SetupSinkStage((materializer, attributes) =>
-      factory(ActorMaterializerHelper.downcast(materializer), attributes)))
+    fromMaterializer { (mat, attr) =>
+      factory(ActorMaterializerHelper.downcast(mat), attr)
+    }
 
   /**
    * Helper to create [[Sink]] from `Subscriber`.
@@ -292,6 +304,12 @@ object Sink {
   def ignore: Sink[Any, Future[Done]] = fromGraph(GraphStages.IgnoreSink)
 
   /**
+   * A [[Sink]] that will always backpressure never cancel and never consume any elements from the stream.
+   * */
+  def never: Sink[Any, Future[Done]] = _never
+  private[this] val _never: Sink[Any, Future[Done]] = fromGraph(GraphStages.NeverSink)
+
+  /**
    * A `Sink` that will invoke the given procedure for each received element. The sink is materialized
    * into a [[scala.concurrent.Future]] which will be completed with `Success` when reaching the
    * normal end of the stream, or completed with `Failure` if there is a failure signaled in
@@ -313,10 +331,12 @@ object Sink {
    * Combine several sinks with fan-out strategy like `Broadcast` or `Balance` and returns `Sink`.
    */
   def combine[T, U](first: Sink[U, _], second: Sink[U, _], rest: Sink[U, _]*)(
-      strategy: Int => Graph[UniformFanOutShape[T, U], NotUsed]): Sink[T, NotUsed] =
+      @nowarn
+      @deprecatedName(Symbol("strategy"))
+      fanOutStrategy: Int => Graph[UniformFanOutShape[T, U], NotUsed]): Sink[T, NotUsed] =
     Sink.fromGraph(GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
-      val d = b.add(strategy(rest.size + 2))
+      val d = b.add(fanOutStrategy(rest.size + 2))
       d.out(0) ~> first
       d.out(1) ~> second
 
@@ -330,23 +350,37 @@ object Sink {
     })
 
   /**
-   * A `Sink` that will invoke the given function to each of the elements
-   * as they pass in. The sink is materialized into a [[scala.concurrent.Future]]
-   *
-   * If `f` throws an exception and the supervision decision is
-   * [[akka.stream.Supervision.Stop]] the `Future` will be completed with failure.
-   *
-   * If `f` throws an exception and the supervision decision is
-   * [[akka.stream.Supervision.Resume]] or [[akka.stream.Supervision.Restart]] the
-   * element is dropped and the stream continues.
-   *
-   * See also [[Flow.mapAsyncUnordered]]
+   * Combine two sinks with fan-out strategy like `Broadcast` or `Balance` and returns `Sink` with 2 outlets.
    */
-  @deprecated(
-    "Use `foreachAsync` instead, it allows you to choose how to run the procedure, by calling some other API returning a Future or spawning a new Future.",
-    since = "2.5.17")
-  def foreachParallel[T](parallelism: Int)(f: T => Unit)(implicit ec: ExecutionContext): Sink[T, Future[Done]] =
-    Flow[T].mapAsyncUnordered(parallelism)(t => Future(f(t))).toMat(Sink.ignore)(Keep.right)
+  def combineMat[T, U, M1, M2, M](first: Sink[U, M1], second: Sink[U, M2])(
+      fanOutStrategy: Int => Graph[UniformFanOutShape[T, U], NotUsed])(matF: (M1, M2) => M): Sink[T, M] = {
+    Sink.fromGraph(GraphDSL.createGraph(first, second)(matF) { implicit b => (shape1, shape2) =>
+      import GraphDSL.Implicits._
+      val d = b.add(fanOutStrategy(2))
+      d.out(0) ~> shape1
+      d.out(1) ~> shape2
+      new SinkShape[T](d.in)
+    })
+  }
+
+  /**
+   * Combine several sinks with fan-out strategy like `Broadcast` or `Balance` and returns `Sink`.
+   * The fanoutGraph's outlets size must match the provides sinks'.
+   */
+  def combine[T, U, M](sinks: immutable.Seq[Graph[SinkShape[U], M]])(
+      fanOutStrategy: Int => Graph[UniformFanOutShape[T, U], NotUsed]): Sink[T, immutable.Seq[M]] =
+    sinks match {
+      case immutable.Seq()     => Sink.cancelled.mapMaterializedValue(_ => Nil)
+      case immutable.Seq(sink) => sink.asInstanceOf[Sink[T, M]].mapMaterializedValue(_ :: Nil)
+      case _ =>
+        Sink.fromGraph(GraphDSL.create(sinks) { implicit b => shapes =>
+          import GraphDSL.Implicits._
+          val c = b.add(fanOutStrategy(sinks.size))
+          for ((shape, idx) <- shapes.zipWithIndex)
+            c.out(idx) ~> shape
+          SinkShape(c.in)
+        })
+    }
 
   /**
    * A `Sink` that will invoke the given function for every received element, giving it its previous
@@ -484,6 +518,7 @@ object Sink {
    * `ackMessage` from the given actor which means that it is ready to process
    * elements. It also requires `ackMessage` message after each stream element
    * to make backpressure work.
+   * If `ackMessage` is empty any message will be considered an acknowledgement message.
    *
    * Every message that is sent to the actor is first transformed using `messageAdapter`.
    * This can be used to capture the ActorRef of the actor that expects acknowledgments as
@@ -499,7 +534,7 @@ object Sink {
       ref: ActorRef,
       messageAdapter: ActorRef => T => Any,
       onInitMessage: ActorRef => Any,
-      ackMessage: Any,
+      ackMessage: Option[Any],
       onCompleteMessage: Any,
       onFailureMessage: (Throwable) => Any): Sink[T, NotUsed] =
     Sink.fromGraph(
@@ -530,7 +565,27 @@ object Sink {
       ackMessage: Any,
       onCompleteMessage: Any,
       onFailureMessage: Throwable => Any): Sink[T, NotUsed] =
-    actorRefWithAck(ref, _ => identity, _ => onInitMessage, ackMessage, onCompleteMessage, onFailureMessage)
+    actorRefWithAck(ref, _ => identity, _ => onInitMessage, Some(ackMessage), onCompleteMessage, onFailureMessage)
+
+  /**
+   * Sends the elements of the stream to the given `ActorRef` that sends back back-pressure signal.
+   * First element is always `onInitMessage`, then stream is waiting for acknowledgement message
+   * from the given actor which means that it is ready to process
+   * elements. It also requires an ack message after each stream element
+   * to make backpressure work. This variant will consider any message as ack message.
+   *
+   * If the target actor terminates the stream will be canceled.
+   * When the stream is completed successfully the given `onCompleteMessage`
+   * will be sent to the destination actor.
+   * When the stream is completed with failure - result of `onFailureMessage(throwable)`
+   * function will be sent to the destination actor.
+   */
+  def actorRefWithBackpressure[T](
+      ref: ActorRef,
+      onInitMessage: Any,
+      onCompleteMessage: Any,
+      onFailureMessage: Throwable => Any): Sink[T, NotUsed] =
+    actorRefWithAck(ref, _ => identity, _ => onInitMessage, None, onCompleteMessage, onFailureMessage)
 
   /**
    * Sends the elements of the stream to the given `ActorRef` that sends back back-pressure signal.
@@ -551,8 +606,8 @@ object Sink {
       onInitMessage: Any,
       ackMessage: Any,
       onCompleteMessage: Any,
-      onFailureMessage: (Throwable) => Any = Status.Failure): Sink[T, NotUsed] =
-    actorRefWithAck(ref, _ => identity, _ => onInitMessage, ackMessage, onCompleteMessage, onFailureMessage)
+      onFailureMessage: (Throwable) => Any = Status.Failure.apply): Sink[T, NotUsed] =
+    actorRefWithAck(ref, _ => identity, _ => onInitMessage, Some(ackMessage), onCompleteMessage, onFailureMessage)
 
   /**
    * Creates a `Sink` that is materialized as an [[akka.stream.scaladsl.SinkQueueWithCancel]].

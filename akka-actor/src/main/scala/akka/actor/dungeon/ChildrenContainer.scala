@@ -1,17 +1,18 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.dungeon
 
 import scala.collection.immutable
-
 import akka.actor.{ ActorRef, ChildNameReserved, ChildRestartStats, ChildStats, InvalidActorNameException }
+import akka.annotation.InternalApi
 import akka.util.Collections.{ EmptyImmutableSeq, PartialImmutableValuesIterable }
 
 /**
  * INTERNAL API
  */
+@InternalApi
 private[akka] trait ChildrenContainer {
 
   def add(name: String, stats: ChildRestartStats): ChildrenContainer
@@ -40,6 +41,7 @@ private[akka] trait ChildrenContainer {
  * This object holds the classes performing the logic of managing the children
  * of an actor, hence they are intimately tied to ActorCell.
  */
+@InternalApi
 private[akka] object ChildrenContainer {
 
   sealed trait SuspendReason

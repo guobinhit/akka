@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package doc.akka.serialization.jackson
 
 import java.util.Optional
-
 import akka.actor.ActorSystem
 import akka.serialization.Serialization
 import akka.serialization.SerializationExtension
@@ -23,12 +22,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 
 //#marker-interface
-/**
- * Marker interface for messages, events and snapshots that are serialized with Jackson.
- */
-trait MySerializable
+import akka.serialization.jackson.JsonSerializable
 
-final case class Message(name: String, nr: Int) extends MySerializable
+final case class Message(name: String, nr: Int) extends JsonSerializable
 //#marker-interface
 
 object SerializationDocSpec {
@@ -132,7 +128,7 @@ object SerializationDocSpec {
   object Polymorphism {
 
     //#polymorphism
-    final case class Zoo(primaryAttraction: Animal) extends MySerializable
+    final case class Zoo(primaryAttraction: Animal) extends JsonSerializable
 
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
     @JsonSubTypes(
@@ -150,7 +146,7 @@ object SerializationDocSpec {
   object PolymorphismMixedClassObject {
 
     //#polymorphism-case-object
-    final case class Zoo(primaryAttraction: Animal) extends MySerializable
+    final case class Zoo(primaryAttraction: Animal) extends JsonSerializable
 
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
     @JsonSubTypes(
@@ -163,7 +159,7 @@ object SerializationDocSpec {
     final case class Lion(name: String) extends Animal
     final case class Elephant(name: String, age: Int) extends Animal
 
-    @JsonDeserialize(using = classOf[UnicornDeserializer])
+    @JsonDeserialize(`using` = classOf[UnicornDeserializer])
     sealed trait Unicorn extends Animal
     @JsonTypeName("unicorn")
     case object Unicorn extends Unicorn
@@ -197,7 +193,8 @@ class SerializationDocSpec
     extends TestKit(
       ActorSystem(
         "SerializationDocSpec",
-        ConfigFactory.parseString(s"""
+        ConfigFactory.parseString(
+          """
     akka.serialization.jackson.migrations {
         # migrations for Java classes
         "jdoc.akka.serialization.jackson.v2b.ItemAdded" = "jdoc.akka.serialization.jackson.v2b.ItemAddedMigration"
@@ -213,10 +210,6 @@ class SerializationDocSpec
     }
     akka.actor {
       allow-java-serialization = off
-      serialization-bindings {
-        "${classOf[jdoc.akka.serialization.jackson.MySerializable].getName}" = jackson-json
-        "${classOf[doc.akka.serialization.jackson.MySerializable].getName}" = jackson-json
-      }
     }
     """)))
     with AnyWordSpecLike

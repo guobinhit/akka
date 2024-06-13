@@ -1,8 +1,12 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.stream.javadsl.cookbook;
+
+import static akka.util.ByteString.emptyByteString;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import akka.NotUsed;
 import akka.actor.ActorSystem;
@@ -13,20 +17,15 @@ import akka.stream.javadsl.Source;
 import akka.stream.stage.*;
 import akka.testkit.javadsl.TestKit;
 import akka.util.ByteString;
-import static akka.util.ByteString.emptyByteString;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
-import scala.Tuple2;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import scala.Tuple2;
 
 public class RecipeByteStrings extends RecipeTest {
   static ActorSystem system;

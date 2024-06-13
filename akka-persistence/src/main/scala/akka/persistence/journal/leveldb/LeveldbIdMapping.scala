@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.journal.leveldb
@@ -66,7 +66,7 @@ private[persistence] trait LeveldbIdMapping extends Actor { this: LeveldbStore =
   private def writeIdMapping(id: String, numericId: Int): Int = {
     idMap = idMap + (id -> numericId)
     leveldb.put(keyToBytes(mappingKey(numericId)), id.getBytes(UTF_8))
-    newPersistenceIdAdded(id)
+    this.newPersistenceIdAdded(id)
     numericId
   }
 

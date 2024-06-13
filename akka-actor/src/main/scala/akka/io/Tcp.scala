@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.io
@@ -9,10 +9,10 @@ import java.net.InetSocketAddress
 import java.net.Socket
 import java.nio.file.{ Path, Paths }
 
+import scala.annotation.nowarn
 import scala.collection.immutable
 import scala.concurrent.duration._
 
-import com.github.ghik.silencer.silent
 import com.typesafe.config.Config
 
 import akka.actor._
@@ -27,7 +27,7 @@ import akka.util.ccompat.JavaConverters._
  * TCP Extension for Akka’s IO layer.
  *
  * For a full description of the design and philosophy behind this IO
- * implementation please refer to <a href="http://doc.akka.io/">the Akka online documentation</a>.
+ * implementation please refer to <a href="https://akka.io/docs/">the Akka online documentation</a>.
  *
  * In order to open an outbound connection send a [[Tcp.Connect]] message
  * to the [[TcpExt#manager]].
@@ -119,7 +119,7 @@ object Tcp extends ExtensionId[TcpExt] with ExtensionIdProvider {
    * @param localAddress optionally specifies a specific address to bind to
    * @param options Please refer to the `Tcp.SO` object for a list of all supported options.
    */
-  @silent("deprecated")
+  @nowarn("msg=deprecated")
   final case class Connect(
       remoteAddress: InetSocketAddress,
       localAddress: Option[InetSocketAddress] = None,
@@ -147,7 +147,7 @@ object Tcp extends ExtensionId[TcpExt] with ExtensionIdProvider {
    *
    * @param options Please refer to the `Tcp.SO` object for a list of all supported options.
    */
-  @silent("deprecated")
+  @nowarn("msg=deprecated")
   final case class Bind(
       handler: ActorRef,
       localAddress: InetSocketAddress,
@@ -360,6 +360,7 @@ object Tcp extends ExtensionId[TcpExt] with ExtensionIdProvider {
    * @see [[WritePath]]
    */
   @deprecated("Use WritePath instead", "2.5.10")
+  @nowarn("msg=deprecated")
   final case class WriteFile(filePath: String, position: Long, count: Long, ack: Event) extends SimpleWriteCommand {
     require(position >= 0, "WriteFile.position must be >= 0")
     require(count > 0, "WriteFile.count must be > 0")
@@ -644,7 +645,7 @@ class TcpExt(system: ExtendedActorSystem) extends IO.Extension {
    */
   val manager: ActorRef = {
     system.systemActorOf(
-      props = Props(classOf[TcpManager], this).withDispatcher(Settings.ManagementDispatcher).withDeploy(Deploy.local),
+      props = Props(new TcpManager(this)).withDispatcher(Settings.ManagementDispatcher).withDeploy(Deploy.local),
       name = "IO-TCP")
   }
 

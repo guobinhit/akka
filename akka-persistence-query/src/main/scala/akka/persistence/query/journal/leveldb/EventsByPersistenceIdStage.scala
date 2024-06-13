@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.query.journal.leveldb
 
 import scala.concurrent.duration.FiniteDuration
+
 import akka.actor.ActorRef
 import akka.annotation.InternalApi
 import akka.persistence.JournalProtocol.RecoverySuccess
@@ -52,6 +53,8 @@ final private[akka] class EventsByPersistenceIdStage(
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
     new TimerGraphStageLogicWithLogging(shape) with OutHandler with Buffer[EventEnvelope] {
+      override def doPush(out: Outlet[EventEnvelope], elem: EventEnvelope): Unit = super.push(out, elem)
+
       val journal: ActorRef = Persistence(mat.system).journalFor(writeJournalPluginId)
       var stageActorRef: ActorRef = null
       var replayInProgress = false
@@ -133,6 +136,8 @@ final private[akka] class EventsByPersistenceIdStage(
 
           case EventAppended(_) =>
             requestMore()
+
+          case _ => throw new RuntimeException() // compiler exhaustiveness check pleaser
         }
       }
 

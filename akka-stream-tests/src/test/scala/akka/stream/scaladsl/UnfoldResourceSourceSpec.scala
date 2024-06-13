@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -24,7 +24,6 @@ import akka.stream.impl.StreamSupervisor.Children
 import akka.stream.testkit.StreamSpec
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.Utils._
-import akka.stream.testkit.scaladsl.StreamTestKit._
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.EventFilter
 import akka.util.ByteString
@@ -50,7 +49,7 @@ class UnfoldResourceSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
   private def newBufferedReader() = Files.newBufferedReader(manyLinesPath, StandardCharsets.UTF_8)
 
   "Unfold Resource Source" must {
-    "read contents from a file" in assertAllStagesStopped {
+    "read contents from a file" in {
       val p = Source
         .unfoldResource[String, BufferedReader](
           () => newBufferedReader(),
@@ -78,7 +77,7 @@ class UnfoldResourceSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
       c.expectComplete()
     }
 
-    "continue when Strategy is Resume and exception happened" in assertAllStagesStopped {
+    "continue when Strategy is Resume and exception happened" in {
       val p = Source
         .unfoldResource[String, BufferedReader](() => newBufferedReader(), reader => {
           val s = reader.readLine()
@@ -99,7 +98,7 @@ class UnfoldResourceSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
       c.expectComplete()
     }
 
-    "close and open stream again when Strategy is Restart" in assertAllStagesStopped {
+    "close and open stream again when Strategy is Restart" in {
       val p = Source
         .unfoldResource[String, BufferedReader](() => newBufferedReader(), reader => {
           val s = reader.readLine()
@@ -119,7 +118,7 @@ class UnfoldResourceSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
       sub.cancel()
     }
 
-    "work with ByteString as well" in assertAllStagesStopped {
+    "work with ByteString as well" in {
       val chunkSize = 50
       val buffer = new Array[Char](chunkSize)
       val p = Source
@@ -148,13 +147,13 @@ class UnfoldResourceSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
       c.expectComplete()
     }
 
-    "use dedicated blocking-io-dispatcher by default" in assertAllStagesStopped {
+    "use dedicated blocking-io-dispatcher by default" in {
       val p = Source
         .unfoldResource[String, BufferedReader](
           () => newBufferedReader(),
           reader => Option(reader.readLine()),
           reader => reader.close())
-        .runWith(TestSink.probe)
+        .runWith(TestSink())
 
       SystemMaterializer(system).materializer
         .asInstanceOf[PhasedFusingActorMaterializer]
@@ -165,7 +164,7 @@ class UnfoldResourceSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
       finally p.cancel()
     }
 
-    "fail when create throws exception" in assertAllStagesStopped {
+    "fail when create throws exception" in {
       EventFilter[TE](occurrences = 1).intercept {
         val p = Source
           .unfoldResource[String, BufferedReader](
@@ -181,7 +180,7 @@ class UnfoldResourceSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
       }
     }
 
-    "fail when close throws exception" in assertAllStagesStopped {
+    "fail when close throws exception" in {
       val out = TestSubscriber.probe[String]()
 
       EventFilter[TE](occurrences = 1).intercept {
@@ -206,7 +205,7 @@ class UnfoldResourceSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
           () => 23, // the best resource there is
           _ => throw TE("failing read"),
           _ => closedCounter.incrementAndGet())
-        .runWith(TestSink.probe[Int])
+        .runWith(TestSink[Int]())
 
       probe.request(1)
       probe.expectError(TE("failing read"))
@@ -223,7 +222,7 @@ class UnfoldResourceSourceSpec extends StreamSpec(UnboundedMailboxConfig) {
             closedCounter.incrementAndGet()
             if (closedCounter.get == 1) throw TE("boom")
           })
-        .runWith(TestSink.probe[Int])
+        .runWith(TestSink[Int]())
 
       EventFilter[TE](occurrences = 1).intercept {
         probe.request(1)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.pubsub
@@ -202,6 +202,8 @@ object DistributedPubSubMediator {
   @SerialVersionUID(1L) final case class Send(path: String, msg: Any, localAffinity: Boolean)
       extends DistributedPubSubMessage
       with WrappedMessage {
+    if (msg == null)
+      throw InvalidMessageException("[null] is not an allowed message")
 
     /**
      * Convenience constructor with `localAffinity` false
@@ -213,6 +215,9 @@ object DistributedPubSubMediator {
   @SerialVersionUID(1L) final case class SendToAll(path: String, msg: Any, allButSelf: Boolean = false)
       extends DistributedPubSubMessage
       with WrappedMessage {
+    if (msg == null)
+      throw InvalidMessageException("[null] is not an allowed message")
+
     def this(path: String, msg: Any) = this(path, msg, allButSelf = false)
 
     override def message: Any = msg
@@ -278,7 +283,7 @@ object DistributedPubSubMediator {
 
     @SerialVersionUID(1L)
     final case class ValueHolder(version: Long, ref: Option[ActorRef]) {
-      @transient lazy val routee: Option[Routee] = ref.map(ActorRefRoutee)
+      @transient lazy val routee: Option[Routee] = ref.map(ActorRefRoutee(_))
     }
 
     @SerialVersionUID(1L)
@@ -443,7 +448,7 @@ object DistributedPubSubMediator {
       }
 
       def newGroupActor(encGroup: String): ActorRef = {
-        val g = context.actorOf(Props(classOf[Group], emptyTimeToLive, routingLogic), name = encGroup)
+        val g = context.actorOf(Props(new Group(emptyTimeToLive, routingLogic)), name = encGroup)
         context.watch(g)
         context.parent ! RegisterTopic(g)
         g
@@ -454,7 +459,7 @@ object DistributedPubSubMediator {
       def business = {
         case SendToOneSubscriber(msg) =>
           if (subscribers.nonEmpty)
-            Router(routingLogic, subscribers.map(ActorRefRoutee).toVector).route(wrapIfNeeded(msg), sender())
+            Router(routingLogic, subscribers.map(ActorRefRoutee(_)).toVector).route(wrapIfNeeded(msg), sender())
       }
     }
 
@@ -911,7 +916,7 @@ class DistributedPubSubMediator(settings: DistributedPubSubSettings)
   }
 
   def newTopicActor(encTopic: String): ActorRef = {
-    val t = context.actorOf(Props(classOf[Topic], removedTimeToLive, routingLogic), name = encTopic)
+    val t = context.actorOf(Props(new Topic(removedTimeToLive, routingLogic)), name = encTopic)
     registerTopic(t)
     t
   }

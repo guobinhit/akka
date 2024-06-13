@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.ddata
 
 import akka.annotation.InternalApi
-import akka.cluster.Cluster
 import akka.cluster.UniqueAddress
 import akka.util.HashCode
 
@@ -55,30 +54,12 @@ object LWWRegister {
   def apply[A](node: SelfUniqueAddress, initialValue: A, clock: Clock[A]): LWWRegister[A] =
     apply(node.uniqueAddress, initialValue, clock)
 
-  @deprecated("Use `apply` that takes a `SelfUniqueAddress` parameter instead.", since = "2.5.20")
-  def apply[A](initialValue: A)(implicit node: Cluster, clock: Clock[A] = defaultClock[A]): LWWRegister[A] =
-    apply(node.selfUniqueAddress, initialValue, clock)
-
   /**
    * Scala API
    * Creates a `LWWRegister` with implicits, given deprecated `apply` functions using Cluster constrain overloading.
    */
   def create[A](initialValue: A)(implicit node: SelfUniqueAddress, clock: Clock[A] = defaultClock[A]): LWWRegister[A] =
     apply(node.uniqueAddress, initialValue, clock)
-
-  /**
-   * Java API
-   */
-  @deprecated("Use `create` that takes a `SelfUniqueAddress` parameter instead.", since = "2.5.20")
-  def create[A](node: Cluster, initialValue: A): LWWRegister[A] =
-    apply(initialValue)(node)
-
-  /**
-   * Java API
-   */
-  @deprecated("Use `create` that takes a `SelfUniqueAddress` parameter instead.", since = "2.5.20")
-  def create[A](node: Cluster, initialValue: A, clock: Clock[A]): LWWRegister[A] =
-    apply(node.selfUniqueAddress, initialValue, clock)
 
   /**
    * Java API
@@ -103,7 +84,7 @@ object LWWRegister {
  * Implements a 'Last Writer Wins Register' CRDT, also called a 'LWW-Register'.
  *
  * It is described in the paper
- * <a href="http://hal.upmc.fr/file/index/docid/555588/filename/techreport.pdf">A comprehensive study of Convergent and Commutative Replicated Data Types</a>.
+ * <a href="https://hal.inria.fr/file/index/docid/555588/filename/techreport.pdf">A comprehensive study of Convergent and Commutative Replicated Data Types</a>.
  *
  * Merge takes the register with highest timestamp. Note that this
  * relies on synchronized clocks. `LWWRegister` should only be used when the choice of
@@ -169,18 +150,6 @@ final class LWWRegister[A] private[akka] (private[akka] val node: UniqueAddress,
   def withValueOf(value: A)(implicit node: SelfUniqueAddress, clock: Clock[A] = defaultClock[A]): LWWRegister[A] =
     withValue(node, value, clock)
 
-  @deprecated("Use `withValueOf` that takes a `SelfUniqueAddress` parameter instead.", since = "2.5.20")
-  def withValue(value: A)(implicit node: Cluster, clock: Clock[A] = defaultClock[A]): LWWRegister[A] =
-    withValue(node, value, clock)
-
-  @deprecated("Use `withValue` that takes a `SelfUniqueAddress` parameter instead.", since = "2.5.20")
-  def withValue(node: Cluster, value: A): LWWRegister[A] =
-    withValue(node, value, defaultClock[A])
-
-  @deprecated("Use `withValue` that takes a `SelfUniqueAddress` parameter instead.", since = "2.5.20")
-  def withValue(node: Cluster, value: A, clock: Clock[A]): LWWRegister[A] =
-    withValue(node.selfUniqueAddress, value, clock)
-
   /**
    * The current `value` was set by this node.
    */
@@ -223,4 +192,7 @@ object LWWRegisterKey {
 }
 
 @SerialVersionUID(1L)
-final case class LWWRegisterKey[A](_id: String) extends Key[LWWRegister[A]](_id) with ReplicatedDataSerialization
+final case class LWWRegisterKey[A](_id: String) extends Key[LWWRegister[A]](_id) with ReplicatedDataSerialization {
+  override def withId(newId: Key.KeyId): LWWRegisterKey[A] =
+    LWWRegisterKey(newId)
+}

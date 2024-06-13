@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.dispatch
@@ -30,12 +30,14 @@ object PriorityDispatcherSpec {
       extends UnboundedPriorityMailbox(PriorityGenerator({
         case i: Int => i //Reverse order
         case Result => Int.MaxValue
+        case _      => throw new RuntimeException() // compiler exhaustiveness check pleaser
       }: Any => Int))
 
   class Bounded(@unused settings: ActorSystem.Settings, @unused config: Config)
       extends BoundedPriorityMailbox(PriorityGenerator({
         case i: Int => i //Reverse order
         case Result => Int.MaxValue
+        case _      => throw new RuntimeException() // compiler exhaustiveness check pleaser
       }: Any => Int), 1000, 10 seconds)
 
 }
@@ -83,7 +85,7 @@ class PriorityDispatcherSpec extends AkkaSpec(PriorityDispatcherSpec.config) wit
 
     }))
 
-    expectMsgType[List[Int]] should ===(msgs)
+    (expectMsgType[List[Int]]: List[Int]) should ===(msgs)
   }
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.pubsub
@@ -33,7 +33,6 @@ object DistributedPubSubRestartSpec extends MultiNodeConfig {
     akka.loglevel = INFO
     akka.cluster.pub-sub.gossip-interval = 500ms
     akka.actor.provider = cluster
-    akka.remote.log-remote-lifecycle-events = off
     akka.cluster.downing-provider-class = akka.cluster.testkit.AutoDowning
     akka.cluster.testkit.auto-down-unreachable-after = off
     """))
@@ -76,7 +75,8 @@ class DistributedPubSubRestartSpec
     val probe = TestProbe()
     awaitAssert {
       mediator.tell(Count, probe.ref)
-      probe.expectMsgType[Int] should ===(expected)
+      val actual = probe.expectMsgType[Int]
+      actual should ===(expected)
     }
   }
 
@@ -102,10 +102,11 @@ class DistributedPubSubRestartSpec
       expectMsg("msg1")
       enterBarrier("got-msg1")
 
-      runOn(second) {
-        mediator ! Internal.DeltaCount
-        val oldDeltaCount = expectMsgType[Long]
+      mediator ! Internal.DeltaCount
+      val oldDeltaCount = expectMsgType[Long]
+      enterBarrier("old-delta-count")
 
+      runOn(second) {
         enterBarrier("end")
 
         mediator ! Internal.DeltaCount
@@ -114,9 +115,6 @@ class DistributedPubSubRestartSpec
       }
 
       runOn(first) {
-        mediator ! Internal.DeltaCount
-        val oldDeltaCount = expectMsgType[Long]
-
         val thirdAddress = node(third).address
         testConductor.shutdown(third).await
 
@@ -143,7 +141,6 @@ class DistributedPubSubRestartSpec
           val port = Cluster(system).selfAddress.port.get
           val config = ConfigFactory.parseString(s"""
               akka.remote.artery.canonical.port=$port
-              akka.remote.classic.netty.tcp.port=$port
               """).withFallback(system.settings.config)
 
           ActorSystem(system.name, config)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.akka.typed;
@@ -213,7 +213,8 @@ public class InteractionPatternsAskWithStatusTest extends JUnitSuite {
 
         cookies.whenComplete(
             (cookiesReply, failure) -> {
-              if (cookies != null) System.out.println("Yay, " + cookiesReply.count + " cookies!");
+              if (cookiesReply != null)
+                System.out.println("Yay, " + cookiesReply.count + " cookies!");
               else System.out.println("Boo! didn't get cookies in time. " + failure);
             });
         // #standalone-ask-with-status-fail-future

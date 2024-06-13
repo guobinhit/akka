@@ -1,27 +1,27 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.io;
 
 // #imports
-import akka.actor.ActorRef;
 import akka.actor.AbstractActor;
+import akka.actor.ActorRef;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
 import akka.io.Inet;
 import akka.io.Udp;
 import akka.io.UdpMessage;
 import akka.util.ByteString;
-
+import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
 import java.net.StandardProtocolFamily;
-import java.net.DatagramSocket;
 import java.nio.channels.DatagramChannel;
 import java.util.ArrayList;
 import java.util.List;
+
 // #imports
 
 public class JavaUdpMulticast {

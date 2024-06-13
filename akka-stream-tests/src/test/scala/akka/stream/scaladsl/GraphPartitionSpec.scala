@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -13,7 +13,6 @@ import akka.stream.OverflowStrategy
 import akka.stream.Supervision
 import akka.stream.testkit._
 import akka.stream.testkit.Utils.TE
-import akka.stream.testkit.scaladsl.StreamTestKit._
 
 class GraphPartitionSpec extends StreamSpec("""
     akka.stream.materializer.initial-input-buffer-size = 2
@@ -22,10 +21,10 @@ class GraphPartitionSpec extends StreamSpec("""
   "A partition" must {
     import GraphDSL.Implicits._
 
-    "partition to three subscribers" in assertAllStagesStopped {
+    "partition to three subscribers" in {
 
       val (s1, s2, s3) = RunnableGraph
-        .fromGraph(GraphDSL.create(Sink.seq[Int], Sink.seq[Int], Sink.seq[Int])(Tuple3.apply) {
+        .fromGraph(GraphDSL.createGraph(Sink.seq[Int], Sink.seq[Int], Sink.seq[Int])(Tuple3.apply) {
           implicit b => (sink1, sink2, sink3) =>
             val partition = b.add(Partition[Int](3, {
               case g if (g > 3)  => 0
@@ -46,7 +45,7 @@ class GraphPartitionSpec extends StreamSpec("""
 
     }
 
-    "complete stage after upstream completes" in assertAllStagesStopped {
+    "complete stage after upstream completes" in {
       val c1 = TestSubscriber.probe[String]()
       val c2 = TestSubscriber.probe[String]()
 
@@ -75,7 +74,7 @@ class GraphPartitionSpec extends StreamSpec("""
 
     }
 
-    "remember first pull even though first element targeted another out" in assertAllStagesStopped {
+    "remember first pull even though first element targeted another out" in {
       val c1 = TestSubscriber.probe[Int]()
       val c2 = TestSubscriber.probe[Int]()
 
@@ -98,7 +97,7 @@ class GraphPartitionSpec extends StreamSpec("""
       c2.expectComplete()
     }
 
-    "cancel upstream when all downstreams cancel if eagerCancel is false" in assertAllStagesStopped {
+    "cancel upstream when all downstreams cancel if eagerCancel is false" in {
       val p1 = TestPublisher.probe[Int]()
       val c1 = TestSubscriber.probe[Int]()
       val c2 = TestSubscriber.probe[Int]()
@@ -131,7 +130,7 @@ class GraphPartitionSpec extends StreamSpec("""
       p1Sub.expectCancellation()
     }
 
-    "cancel upstream when any downstream cancel if eagerCancel is true" in assertAllStagesStopped {
+    "cancel upstream when any downstream cancel if eagerCancel is true" in {
       val p1 = TestPublisher.probe[Int]()
       val c1 = TestSubscriber.probe[Int]()
       val c2 = TestSubscriber.probe[Int]()
@@ -159,7 +158,7 @@ class GraphPartitionSpec extends StreamSpec("""
       p1Sub.expectCancellation()
     }
 
-    "handle upstream completes and downstream cancel" in assertAllStagesStopped {
+    "handle upstream completes and downstream cancel" in {
       val c1 = TestSubscriber.probe[String]()
       val c2 = TestSubscriber.probe[String]()
 
@@ -185,7 +184,7 @@ class GraphPartitionSpec extends StreamSpec("""
       c1.expectComplete()
     }
 
-    "handle upstream completes and downstream pulls" in assertAllStagesStopped {
+    "handle upstream completes and downstream pulls" in {
       val c1 = TestSubscriber.probe[String]()
       val c2 = TestSubscriber.probe[String]()
 
@@ -213,11 +212,11 @@ class GraphPartitionSpec extends StreamSpec("""
       c2.expectComplete()
     }
 
-    "work with merge" in assertAllStagesStopped {
+    "work with merge" in {
       val s = Sink.seq[Int]
       val input = Set(5, 2, 9, 1, 1, 1, 10)
 
-      val g = RunnableGraph.fromGraph(GraphDSL.create(s) { implicit b => sink =>
+      val g = RunnableGraph.fromGraph(GraphDSL.createGraph(s) { implicit b => sink =>
         val partition = b.add(Partition[Int](2, { case l if l < 4 => 0; case _ => 1 }))
         val merge = b.add(Merge[Int](2))
         Source(input) ~> partition.in
@@ -234,7 +233,7 @@ class GraphPartitionSpec extends StreamSpec("""
 
     }
 
-    "stage completion is waiting for pending output" in assertAllStagesStopped {
+    "stage completion is waiting for pending output" in {
 
       val c1 = TestSubscriber.probe[Int]()
       val c2 = TestSubscriber.probe[Int]()
@@ -257,7 +256,7 @@ class GraphPartitionSpec extends StreamSpec("""
       c2.expectComplete()
     }
 
-    "must fail stage if partitioner outcome is out of bound" in assertAllStagesStopped {
+    "must fail stage if partitioner outcome is out of bound" in {
 
       val c1 = TestSubscriber.probe[Int]()
 
@@ -277,10 +276,10 @@ class GraphPartitionSpec extends StreamSpec("""
           "partitioner must return an index in the range [0,1]. returned: [-1] for input [java.lang.Integer]."))
     }
 
-    "partition to three subscribers, with Resume supervision" in assertAllStagesStopped {
+    "partition to three subscribers, with Resume supervision" in {
 
       val (s1, s2, s3) = RunnableGraph
-        .fromGraph(GraphDSL.create(Sink.seq[Int], Sink.seq[Int], Sink.seq[Int])(Tuple3.apply) {
+        .fromGraph(GraphDSL.createGraph(Sink.seq[Int], Sink.seq[Int], Sink.seq[Int])(Tuple3.apply) {
           implicit b => (sink1, sink2, sink3) =>
             val partition = b.add(Partition[Int](3, {
               case g if g > 3  => 0
@@ -301,9 +300,9 @@ class GraphPartitionSpec extends StreamSpec("""
       s3.futureValue.toSet should ===(Set())
     }
 
-    "partition to three subscribers, with Restart supervision" in assertAllStagesStopped {
+    "partition to three subscribers, with Restart supervision" in {
       val (s1, s2, s3) = RunnableGraph
-        .fromGraph(GraphDSL.create(Sink.seq[Int], Sink.seq[Int], Sink.seq[Int])(Tuple3.apply) {
+        .fromGraph(GraphDSL.createGraph(Sink.seq[Int], Sink.seq[Int], Sink.seq[Int])(Tuple3.apply) {
           implicit b => (sink1, sink2, sink3) =>
             val partition = b.add(Partition[Int](3, {
               case g if g > 3  => 0
@@ -324,10 +323,10 @@ class GraphPartitionSpec extends StreamSpec("""
       s3.futureValue.toSet should ===(Set())
     }
 
-    "support supervision for PartitionOutOfBoundsException" in assertAllStagesStopped {
+    "support supervision for PartitionOutOfBoundsException" in {
 
       val (s1, s2, s3) = RunnableGraph
-        .fromGraph(GraphDSL.create(Sink.seq[Int], Sink.seq[Int], Sink.seq[Int])(Tuple3.apply) {
+        .fromGraph(GraphDSL.createGraph(Sink.seq[Int], Sink.seq[Int], Sink.seq[Int])(Tuple3.apply) {
           implicit b => (sink1, sink2, sink3) =>
             val partition = b.add(Partition[Int](3, {
               case g if g > 3  => 0
@@ -350,7 +349,7 @@ class GraphPartitionSpec extends StreamSpec("""
 
   }
 
-  "divertTo must send matching elements to the sink" in assertAllStagesStopped {
+  "divertTo must send matching elements to the sink" in {
     val odd = TestSubscriber.probe[Int]()
     val even = TestSubscriber.probe[Int]()
     Source(1 to 2).divertTo(Sink.fromSubscriber(odd), _ % 2 != 0).to(Sink.fromSubscriber(even)).run()
@@ -363,7 +362,7 @@ class GraphPartitionSpec extends StreamSpec("""
     even.expectComplete()
   }
 
-  "divertTo must cancel when any of the downstreams cancel" in assertAllStagesStopped {
+  "divertTo must cancel when any of the downstreams cancel" in {
     val pub = TestPublisher.probe[Int]()
     val odd = TestSubscriber.probe[Int]()
     val even = TestSubscriber.probe[Int]()

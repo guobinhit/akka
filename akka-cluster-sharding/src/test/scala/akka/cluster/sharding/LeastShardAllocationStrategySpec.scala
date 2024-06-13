@@ -1,10 +1,12 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
 
 import scala.collection.immutable
+import scala.collection.immutable.SortedSet
+
 import akka.actor.ActorPath
 import akka.actor.ActorRef
 import akka.actor.ActorRefProvider
@@ -19,13 +21,11 @@ import akka.cluster.MemberStatus
 import akka.cluster.UniqueAddress
 import akka.cluster.sharding.ShardCoordinator.ShardAllocationStrategy
 import akka.cluster.sharding.ShardRegion.ShardId
-import akka.cluster.sharding.internal.AbstractLeastShardAllocationStrategy
-import akka.cluster.sharding.internal.AbstractLeastShardAllocationStrategy.RegionEntry
+import akka.cluster.sharding.internal.ClusterShardAllocationMixin.RegionEntry
+import akka.cluster.sharding.internal.ClusterShardAllocationMixin.ShardSuitabilityOrdering
 import akka.cluster.sharding.internal.LeastShardAllocationStrategy
 import akka.testkit.AkkaSpec
 import akka.util.Version
-
-import scala.collection.immutable.SortedSet
 
 object LeastShardAllocationStrategySpec {
 
@@ -247,7 +247,7 @@ class LeastShardAllocationStrategySpec extends AkkaSpec {
           RegionEntry(fakeRegionC, newVersionMember2, Vector("ShardId1")))
 
       val sortedRegions =
-        shardsAndMembers.sorted(AbstractLeastShardAllocationStrategy.ShardSuitabilityOrdering).map(_.region)
+        shardsAndMembers.sorted(ShardSuitabilityOrdering).map(_.region)
 
       // only node b has the new version
       sortedRegions should ===(
@@ -264,36 +264,35 @@ class LeastShardAllocationStrategySpec extends AkkaSpec {
         new LeastShardAllocationStrategy(absoluteLimit = 1000, relativeLimit = 1.0) {
 
           val member1 = newUpMember("127.0.0.1", version = Version("1.0.0"))
-          val member2 = newUpMember("127.0.0.1", version = Version("1.0.1"))
+          val member2 = newUpMember("127.0.0.2", version = Version("1.0.1"))
+          val member3 = newUpMember("127.0.0.3", version = Version("1.0.0"))
 
           // multiple versions to simulate rolling update in progress
           override protected def clusterState: CurrentClusterState =
-            CurrentClusterState(SortedSet(member1, member2))
+            CurrentClusterState(SortedSet(member1, member2, member3))
 
           override protected def selfMember: Member = member1
         }
       val allocations = createAllocations(aCount = 5, bCount = 5)
-      allocationStrategy.rebalance(allocations, Set.empty).futureValue should ===(Set.empty)
-      allocationStrategy.rebalance(allocations, Set("001", "002")).futureValue should ===(Set.empty)
-      allocationStrategy.rebalance(allocations, Set("001", "002", "051", "052")).futureValue should ===(Set.empty)
+      allocationStrategy.rebalance(allocations, Set.empty).futureValue should ===(Set.empty[String])
+      allocationStrategy.rebalance(allocations, Set("001", "002")).futureValue should ===(Set.empty[String])
+      allocationStrategy.rebalance(allocations, Set("001", "002", "051", "052")).futureValue should ===(
+        Set.empty[String])
     }
 
     "not rebalance when regions are unreachable" in {
       val allocationStrategy =
         new LeastShardAllocationStrategy(absoluteLimit = 1000, relativeLimit = 1.0) {
 
-          val member1 = newUpMember("127.0.0.1")
-          val member2 = newUpMember("127.0.0.2")
-
-          // multiple versions to simulate rolling update in progress
           override protected def clusterState: CurrentClusterState =
-            CurrentClusterState(SortedSet(member1, member2), unreachable = Set(member2))
-          override protected def selfMember: Member = member2
+            CurrentClusterState(SortedSet(memberA, memberB, memberC), unreachable = Set(memberB))
+          override protected def selfMember: Member = memberB
         }
       val allocations = createAllocations(aCount = 5, bCount = 5)
-      allocationStrategy.rebalance(allocations, Set.empty).futureValue should ===(Set.empty)
-      allocationStrategy.rebalance(allocations, Set("001", "002")).futureValue should ===(Set.empty)
-      allocationStrategy.rebalance(allocations, Set("001", "002", "051", "052")).futureValue should ===(Set.empty)
+      allocationStrategy.rebalance(allocations, Set.empty).futureValue should ===(Set.empty[String])
+      allocationStrategy.rebalance(allocations, Set("001", "002")).futureValue should ===(Set.empty[String])
+      allocationStrategy.rebalance(allocations, Set("001", "002", "051", "052")).futureValue should ===(
+        Set.empty[String])
     }
     "not rebalance when members are joining dc" in {
       val allocationStrategy =
@@ -305,16 +304,17 @@ class LeastShardAllocationStrategySpec extends AkkaSpec {
               UniqueAddress(Address("akka", "myapp", "127.0.0.2", 252525), 1L),
               Set(ClusterSettings.DcRolePrefix + ClusterSettings.DefaultDataCenter),
               member1.appVersion)
+          val member3 = newUpMember("127.0.0.3")
 
-          // multiple versions to simulate rolling update in progress
           override protected def clusterState: CurrentClusterState =
-            CurrentClusterState(SortedSet(member1, member2), unreachable = Set(member2))
+            CurrentClusterState(SortedSet(member1, member2, member3), unreachable = Set.empty)
           override protected def selfMember: Member = member2
         }
       val allocations = createAllocations(aCount = 5, bCount = 5)
-      allocationStrategy.rebalance(allocations, Set.empty).futureValue should ===(Set.empty)
-      allocationStrategy.rebalance(allocations, Set("001", "002")).futureValue should ===(Set.empty)
-      allocationStrategy.rebalance(allocations, Set("001", "002", "051", "052")).futureValue should ===(Set.empty)
+      allocationStrategy.rebalance(allocations, Set.empty).futureValue should ===(Set.empty[String])
+      allocationStrategy.rebalance(allocations, Set("001", "002")).futureValue should ===(Set.empty[String])
+      allocationStrategy.rebalance(allocations, Set("001", "002", "051", "052")).futureValue should ===(
+        Set.empty[String])
     }
 
   }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl.io.compression
@@ -11,7 +11,7 @@ import akka.util.ByteString
 
 /** INTERNAL API */
 @InternalApi private[akka] class GzipCompressor(compressionLevel: Int = Deflater.BEST_COMPRESSION)
-    extends DeflateCompressor(compressionLevel, true) {
+    extends DeflateCompressor(compressionLevel, nowrap = true) {
   override protected lazy val deflater = new Deflater(compressionLevel, true)
   private val checkSum = new CRC32 // CRC32 of uncompressed data
   private var headerSent = false
@@ -26,7 +26,7 @@ import akka.util.ByteString
     header() ++ super.finishWithBuffer(buffer) ++ trailer()
 
   private def updateCrc(input: ByteString): Unit = {
-    checkSum.update(input.toArray)
+    checkSum.update(input.toArrayUnsafe())
     bytesRead += input.length
   }
   private def header(): ByteString =

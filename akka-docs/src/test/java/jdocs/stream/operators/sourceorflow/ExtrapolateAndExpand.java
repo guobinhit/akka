@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.stream.operators.sourceorflow;
@@ -15,7 +15,6 @@ import akka.stream.javadsl.Source;
 import akka.util.ByteString;
 import docs.stream.operators.sourceorflow.ExtrapolateAndExpandCommon;
 import docs.stream.operators.sourceorflow.ExtrapolateAndExpandCommon.Frame;
-
 import java.time.Duration;
 import java.util.stream.Stream;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -82,7 +82,7 @@ class RemoteWatcherSpec
 
   val remoteSystem = newRemoteSystem(name = Some("RemoteSystem"))
   val remoteAddress = address(remoteSystem)
-  def remoteAddressUid = AddressUidExtension(remoteSystem).longAddressUid
+  def remoteAddressUid = remoteSystem.asInstanceOf[ExtendedActorSystem].uid
 
   override def afterTermination(): Unit = {
     shutdown(remoteSystem)

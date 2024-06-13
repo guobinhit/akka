@@ -1,17 +1,13 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.ddata;
 
 // #data-bot
-import java.time.Duration;
-import java.util.concurrent.ThreadLocalRandom;
-
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
 import akka.actor.Cancellable;
-import akka.cluster.Cluster;
 import akka.cluster.ddata.DistributedData;
 import akka.cluster.ddata.Key;
 import akka.cluster.ddata.ORSet;
@@ -24,6 +20,8 @@ import akka.cluster.ddata.Replicator.UpdateResponse;
 import akka.cluster.ddata.SelfUniqueAddress;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
+import java.time.Duration;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class DataBot extends AbstractActor {
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.discovery.dns
@@ -71,7 +71,7 @@ private[akka] class DnsServiceDiscovery(system: ExtendedActorSystem) extends Ser
   import DnsServiceDiscovery._
   import ServiceDiscovery._
 
-  private val log = Logging(system, getClass)
+  private val log = Logging(system, classOf[DnsServiceDiscovery])
   private val dns = initializeDns()
 
   // exposed for testing
@@ -97,7 +97,7 @@ private[akka] class DnsServiceDiscovery(system: ExtendedActorSystem) extends Ser
     case Success(other) =>
       log.error("Expected AsyncDnsCache but got [{}]", other.getClass.getName)
     case Failure(e) =>
-      log.error(e, "Couldn't retrieve DNS cache: {}")
+      log.error(e, "Couldn't retrieve DNS cache")
   }
 
   private def cleanIpString(ipString: String): String =
@@ -131,16 +131,20 @@ private[akka] class DnsServiceDiscovery(system: ExtendedActorSystem) extends Ser
 
     asyncDnsCache match {
       case OptionVal.Some(cache) =>
-        cache.get((srvRequest, mode)) match {
+        val requestAndMode = (srvRequest, mode)
+        if (lookup.discardCache) {
+          log.debug("Dropping cache for {} ({})", srvRequest, mode)
+          cache.drop(requestAndMode)
+        }
+        cache.get(requestAndMode) match {
           case Some(resolved) =>
             log.debug("{} lookup cached: {}", mode, resolved)
             Future.successful(srvRecordsToResolved(srvRequest, resolved))
           case None =>
             askResolve()
         }
-      case OptionVal.None =>
+      case _ =>
         askResolve()
-
     }
   }
 
@@ -187,7 +191,7 @@ private[akka] class DnsServiceDiscovery(system: ExtendedActorSystem) extends Ser
         }
       case OptionVal.None =>
         askResolve()
-
+      case unexpected => throw new RuntimeException(s"Unexpected: $unexpected") // OptionVal exhaustiveness problem
     }
 
   }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -13,7 +13,7 @@ import akka.testkit.ImplicitSender
 import akka.testkit.TestActors
 
 object HandshakeRetrySpec {
-  val commonConfig = ConfigFactory.parseString(s"""
+  val commonConfig = ConfigFactory.parseString("""
      akka.remote.artery.advanced.handshake-timeout = 10s
      akka.remote.artery.advanced.aeron.image-liveness-timeout = 7s
   """).withFallback(ArterySpecSupport.defaultConfig)

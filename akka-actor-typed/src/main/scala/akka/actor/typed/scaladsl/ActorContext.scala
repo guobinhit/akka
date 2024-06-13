@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.scaladsl
@@ -8,7 +8,9 @@ import scala.concurrent.{ ExecutionContextExecutor, Future }
 import scala.concurrent.duration.FiniteDuration
 import scala.reflect.ClassTag
 import scala.util.Try
+
 import org.slf4j.Logger
+
 import akka.actor.ClassicActorContextProvider
 import akka.actor.typed._
 import akka.annotation.DoNotInherit
@@ -63,7 +65,7 @@ trait ActorContext[T] extends TypedActorContext[T] with ClassicActorContextProvi
    * This field is thread-safe and can be called from other threads than the ordinary
    * actor message processing thread, such as [[scala.concurrent.Future]] callbacks.
    */
-  def system: ActorSystem[Nothing]
+  implicit def system: ActorSystem[Nothing]
 
   /**
    * An actor specific logger.
@@ -79,7 +81,7 @@ trait ActorContext[T] extends TypedActorContext[T] with ClassicActorContextProvi
 
   /**
    * Replace the current logger (or initialize a new logger if the logger was not touched before) with one that
-   * has ghe given name as logger name. Logger source MDC entry "akkaSource" will be the actor path.
+   * has the given name as logger name. Logger source MDC entry "akkaSource" will be the actor path.
    *
    * *Warning*: This method is not thread-safe and must not be accessed from threads other
    * than the ordinary actor message processing thread, such as [[java.util.concurrent.CompletionStage]] callbacks.
@@ -88,7 +90,7 @@ trait ActorContext[T] extends TypedActorContext[T] with ClassicActorContextProvi
 
   /**
    * Replace the current logger (or initialize a new logger if the logger was not touched before) with one that
-   * has ghe given class name as logger name. Logger source MDC entry "akkaSource" will be the actor path.
+   * has the given class name as logger name. Logger source MDC entry "akkaSource" will be the actor path.
    *
    * *Warning*: This method is not thread-safe and must not be accessed from threads other
    * than the ordinary actor message processing thread, such as [[scala.concurrent.Future]] callbacks.
@@ -128,6 +130,16 @@ trait ActorContext[T] extends TypedActorContext[T] with ClassicActorContextProvi
    * than the ordinary actor message processing thread, such as [[scala.concurrent.Future]] callbacks.
    */
   def spawn[U](behavior: Behavior[U], name: String, props: Props = Props.empty): ActorRef[U]
+
+  /**
+   * Delegate message and signal's execution by given [[akka.actor.typed.Behavior]]
+   * using [[Behavior.interpretMessage]] or [[Behavior.interpretSignal]]
+   *
+   * note: if given [[akka.actor.typed.Behavior]] resulting [[Behaviors.same]] that will cause context switching to the given behavior
+   * and if result is [[Behaviors.unhandled]] that will trigger the [[akka.actor.typed.scaladsl.ActorContext.onUnhandled]]
+   * then switching to the given behavior.
+   */
+  def delegate(delegator: Behavior[T], msg: T): Behavior[T]
 
   /**
    * Force the child Actor under the given name to terminate after it finishes

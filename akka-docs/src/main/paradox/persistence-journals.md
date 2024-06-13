@@ -59,7 +59,7 @@ The plugin section of the actor system's config will be passed in the config con
 of the plugin is passed in the `String` parameter.
 
 The `plugin-dispatcher` is the dispatcher used for the plugin actor. If not specified, it defaults to
-`akka.persistence.dispatchers.default-plugin-dispatcher`.
+`akka.actor.default-dispatcher`.
 
 Don't run journal tasks/futures on the system default dispatcher, since that might starve other tasks.
 
@@ -91,7 +91,7 @@ The plugin section of the actor system's config will be passed in the config con
 of the plugin is passed in the `String` parameter.
 
 The `plugin-dispatcher` is the dispatcher used for the plugin actor. If not specified, it defaults to
-`akka.persistence.dispatchers.default-plugin-dispatcher`.
+`akka.actor.default-dispatcher`.
 
 Don't run snapshot store tasks/futures on the system default dispatcher, since that might starve other tasks.
 
@@ -99,9 +99,21 @@ Don't run snapshot store tasks/futures on the system default dispatcher, since t
 
 In order to help developers build correct and high quality storage plugins, we provide a Technology Compatibility Kit ([TCK](https://en.wikipedia.org/wiki/Technology_Compatibility_Kit) for short).
 
-The TCK is usable from Java as well as Scala projects. To test your implementation (independently of language) you need to include the akka-persistence-tck dependency:
+The TCK is usable from Java as well as Scala projects. To test your implementation (independently of language) you 
+need to include the akka-persistence-tck dependency.
+
+The Akka dependencies are available from Akka's library repository. To access them there, you need to configure the URL for this repository.
+
+@@repository [sbt,Maven,Gradle] {
+id="akka-repository"
+name="Akka library repository"
+url="https://repo.akka.io/maven"
+}
+
+Additionally, add the dependency as below.
 
 @@dependency[sbt,Maven,Gradle] {
+  bomGroup=com.typesafe.akka bomArtifact=akka-bom_$scala.binary.version$ bomVersionSymbols=AkkaVersion
   symbol1=AkkaVersion
   value1="$akka.version$"
   group="com.typesafe.akka"

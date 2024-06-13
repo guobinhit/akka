@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.delivery
@@ -12,9 +12,9 @@ import scala.util.Success
 
 import akka.Done
 import akka.actor.typed.ActorRef
-import com.github.ghik.silencer.silent
+import scala.annotation.nowarn
 
-@silent("never used")
+@nowarn("msg=never used")
 object WorkPullingDocExample {
 
   //#imports
@@ -67,7 +67,7 @@ object WorkPullingDocExample {
   import akka.actor.typed.scaladsl.StashBuffer
 
   object ImageWorkManager {
-    trait Command
+    sealed trait Command
     final case class Convert(fromFormat: String, toFormat: String, image: Array[Byte]) extends Command
     private case class WrappedRequestNext(r: WorkPullingProducerController.RequestNext[ImageConverter.ConversionJob])
         extends Command
@@ -130,14 +130,16 @@ object WorkPullingDocExample {
 
   }
 
+  //#ask
+
   final class ImageWorkManager(
       context: ActorContext[ImageWorkManager.Command],
       stashBuffer: StashBuffer[ImageWorkManager.Command]) {
-
+    //#ask
     import ImageWorkManager._
 
     private def waitForNext(): Behavior[Command] = {
-      Behaviors.receiveMessage {
+      Behaviors.receiveMessagePartial {
         case WrappedRequestNext(next) =>
           stashBuffer.unstashAll(active(next))
         case c: Convert =>
@@ -156,7 +158,7 @@ object WorkPullingDocExample {
 
     private def active(
         next: WorkPullingProducerController.RequestNext[ImageConverter.ConversionJob]): Behavior[Command] = {
-      Behaviors.receiveMessage {
+      Behaviors.receiveMessagePartial {
         case Convert(from, to, image) =>
           val resultId = UUID.randomUUID()
           next.sendNextTo ! ImageConverter.ConversionJob(resultId, from, to, image)
@@ -178,7 +180,7 @@ object WorkPullingDocExample {
       implicit val askTimeout: Timeout = 5.seconds
 
       private def waitForNext(): Behavior[Command] = {
-        Behaviors.receiveMessage {
+        Behaviors.receiveMessagePartial {
           case WrappedRequestNext(next) =>
             stashBuffer.unstashAll(active(next))
           case c: ConvertRequest =>
@@ -201,7 +203,7 @@ object WorkPullingDocExample {
 
       private def active(
           next: WorkPullingProducerController.RequestNext[ImageConverter.ConversionJob]): Behavior[Command] = {
-        Behaviors.receiveMessage {
+        Behaviors.receiveMessagePartial {
           case ConvertRequest(from, to, image, originalReplyTo) =>
             val resultId = UUID.randomUUID()
             context.ask[MessageWithConfirmation[ImageConverter.ConversionJob], Done](
@@ -227,7 +229,9 @@ object WorkPullingDocExample {
       //#ask
     }
     //#producer
+    //#ask
   }
+  //#ask
   //#producer
 
 }

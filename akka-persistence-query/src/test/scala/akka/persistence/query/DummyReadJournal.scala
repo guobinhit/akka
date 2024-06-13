@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.query
@@ -56,11 +56,15 @@ class DummyReadJournalProvider(dummyValue: String) extends ReadJournalProvider {
   // mandatory zero-arg constructor
   def this() = this("dummy")
 
-  override val scaladslReadJournal: DummyReadJournal =
-    new DummyReadJournal(dummyValue)
+  val readJournal = new DummyReadJournal(dummyValue)
 
-  override val javadslReadJournal: DummyReadJournalForJava =
-    new DummyReadJournalForJava(scaladslReadJournal)
+  override def scaladslReadJournal(): DummyReadJournal =
+    readJournal
+
+  val javaReadJournal = new DummyReadJournalForJava(readJournal)
+
+  override def javadslReadJournal(): DummyReadJournalForJava =
+    javaReadJournal
 }
 
 class DummyReadJournalProvider2(@unused sys: ExtendedActorSystem) extends DummyReadJournalProvider

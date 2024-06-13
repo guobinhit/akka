@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.singleton
@@ -54,10 +54,6 @@ class ClusterSingletonLeavingSpeedSpec
   # akka.cluster.gossip-interval = 2s
 
   akka.remote {
-    classic.netty.tcp {
-      hostname = "127.0.0.1"
-      port = 0
-    }
     artery.canonical {
       hostname = "127.0.0.1"
       port = 0

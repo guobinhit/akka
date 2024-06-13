@@ -1,12 +1,15 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
 
+import scala.annotation.nowarn
 import scala.concurrent.duration._
 import scala.language.postfixOps
+
 import com.typesafe.config.ConfigFactory
+
 import akka.actor._
 import akka.cluster.Cluster
 import akka.cluster.ddata.{ Replicator, ReplicatorSettings }
@@ -16,8 +19,8 @@ import akka.cluster.sharding.ShardRegion.{ CurrentRegions, GetCurrentRegions, Pa
 import akka.cluster.sharding.internal.{ DDataRememberEntitiesProvider, EventSourcedRememberEntitiesProvider }
 import akka.cluster.singleton.{ ClusterSingletonManager, ClusterSingletonManagerSettings }
 import akka.pattern.BackoffOpts
-import akka.persistence.journal.leveldb.{ SharedLeveldbJournal, SharedLeveldbStore }
 import akka.persistence.{ Persistence, PersistentActor }
+import akka.persistence.journal.leveldb.{ SharedLeveldbJournal, SharedLeveldbStore }
 import akka.remote.testconductor.RoleName
 import akka.testkit._
 import akka.testkit.TestEvent.Mute
@@ -78,6 +81,7 @@ object ClusterShardingSpec {
     case EntityEnvelope(id, _)       => (id % numberOfShards).toString
     case Get(id)                     => (id % numberOfShards).toString
     case ShardRegion.StartEntity(id) => (id.toLong % numberOfShards).toString
+    case _                           => throw new IllegalArgumentException()
   }
 
   def qualifiedCounterProps(typeName: String): Props =
@@ -193,6 +197,7 @@ object ClusterShardingDocCode {
     case ShardRegion.StartEntity(id) =>
       // StartEntity is used by remembering entities feature
       (id.toLong % numberOfShards).toString
+    case _ => throw new IllegalArgumentException()
   }
   //#counter-extractor
 
@@ -204,6 +209,7 @@ object ClusterShardingDocCode {
       case ShardRegion.StartEntity(id) =>
         // StartEntity is used by remembering entities feature
         (id.toLong % numberOfShards).toString
+      case _ => throw new IllegalArgumentException()
     }
     //#extractShardId-StartEntity
     extractShardId.toString() // keep the compiler happy
@@ -270,6 +276,7 @@ class DDataClusterShardingWithEntityRecoveryMultiJvmNode5 extends DDataClusterSh
 class DDataClusterShardingWithEntityRecoveryMultiJvmNode6 extends DDataClusterShardingWithEntityRecoverySpec
 class DDataClusterShardingWithEntityRecoveryMultiJvmNode7 extends DDataClusterShardingWithEntityRecoverySpec
 
+@nowarn("msg=deprecated")
 abstract class ClusterShardingSpec(multiNodeConfig: ClusterShardingSpecConfig)
     extends MultiNodeClusterShardingSpec(multiNodeConfig)
     with ImplicitSender
@@ -368,6 +375,7 @@ abstract class ClusterShardingSpec(multiNodeConfig: ClusterShardingSpecConfig)
           case ClusterShardingSettings.RememberEntitiesStoreDData => Some(ddataRememberEntitiesProvider(typeName))
           case ClusterShardingSettings.RememberEntitiesStoreEventsourced =>
             Some(eventSourcedRememberEntitiesProvider(typeName, settings))
+          case _ => fail()
         }
 
     system.actorOf(
@@ -392,7 +400,7 @@ abstract class ClusterShardingSpec(multiNodeConfig: ClusterShardingSpecConfig)
   lazy val rebalancingPersistentRegion = createRegion("RebalancingRememberCounter", rememberEntities = true)
   lazy val autoMigrateRegion = createRegion("AutoMigrateRememberRegionTest", rememberEntities = true)
 
-  s"Cluster sharding ($mode)" must {
+  s"Cluster sharding (${multiNodeConfig.mode})" must {
 
     // must be done also in ddata mode since Counter is PersistentActor
     "setup shared journal" in {
@@ -1002,6 +1010,7 @@ abstract class ClusterShardingSpec(multiNodeConfig: ClusterShardingSpecConfig)
             receiveOne(3 seconds) match {
               case ActorIdentity(id, Some(_)) if id == n => count = count + 1
               case ActorIdentity(_, None)                => //Not on the fifth shard
+              case _                                     => fail()
             }
           }
           count should be >= (2)

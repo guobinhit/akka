@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.testkit.typed.scaladsl
@@ -33,7 +33,16 @@ import akka.actor.testkit.typed.internal.CapturingAppender
 trait LogCapturing extends BeforeAndAfterAll { self: TestSuite =>
 
   // eager access of CapturingAppender to fail fast if misconfigured
-  private val capturingAppender = CapturingAppender.get("")
+  private val capturingAppender =
+    try {
+      CapturingAppender.get("")
+    } catch {
+      case iae: IllegalArgumentException if iae.getMessage.contains("it was a [org.slf4j.helpers.NOPLogger]") =>
+        throw new RuntimeException(
+          "SLF could not initialize the logger, this is may be caused by accidentally having the slf4j-api dependency " +
+          "evicted/bumped to 2.2 by transitive dependencies while Akka only supports slf4j-api 1.7",
+          iae)
+    }
 
   private val myLogger = LoggerFactory.getLogger(classOf[LogCapturing])
 
@@ -66,9 +75,10 @@ trait LogCapturing extends BeforeAndAfterAll { self: TestSuite =>
   def clearCapturedLogs(): Unit = capturingAppender.clear()
 
   abstract override def withFixture(test: NoArgTest): Outcome = {
-    myLogger.info(s"Logging started for test [${self.getClass.getName}: ${test.name}]")
+    myLogger.info(s"${Console.BLUE}Logging started for test [${self.getClass.getName}: ${test.name}]${Console.RESET}")
     val res = test()
-    myLogger.info(s"Logging finished for test [${self.getClass.getName}: ${test.name}] that [$res]")
+    myLogger.info(
+      s"${Console.BLUE}Logging finished for test [${self.getClass.getName}: ${test.name}] that [$res]${Console.RESET}")
 
     if (!(res.isSucceeded || res.isPending)) {
       println(

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -9,12 +9,13 @@ import scala.collection.immutable
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import akka.NotUsed
+import akka.annotation.ApiMayChange
 import akka.dispatch.ExecutionContexts
 import akka.event.{ LogMarker, LoggingAdapter, MarkerLoggingAdapter }
 import akka.stream._
 import akka.stream.impl.Throttle
-import akka.util.{ ccompat, ConstantFun }
-import ccompat._
+import akka.util.ccompat._
+import akka.util.ConstantFun
 
 /**
  * Shared stream operations for [[FlowWithContext]] and [[SourceWithContext]] that automatically propagate a context
@@ -42,6 +43,21 @@ trait FlowWithContextOps[+Out, +Ctx, +Mat] {
    * @see [[akka.stream.scaladsl.FlowOps.via]]
    */
   def via[Out2, Ctx2, Mat2](flow: Graph[FlowShape[(Out, Ctx), (Out2, Ctx2)], Mat2]): Repr[Out2, Ctx2]
+
+  /**
+   * Transform this flow by the regular flow. The given flow works on the data portion of the stream and
+   * ignores the context.
+   *
+   * The given flow *must* not re-order, drop or emit multiple elements for one incoming
+   * element, the sequence of incoming contexts is re-combined with the outgoing
+   * elements of the stream. If a flow not fulfilling this requirement is used the stream
+   * will not fail but continue running in a corrupt state and re-combine incorrect pairs
+   * of elements and contexts or deadlock.
+   *
+   * For more background on these requirements
+   *  see https://doc.akka.io/docs/akka/current/stream/stream-context.html.
+   */
+  @ApiMayChange def unsafeDataVia[Out2, Mat2](viaFlow: Graph[FlowShape[Out, Out2], Mat2]): Repr[Out2, Ctx]
 
   /**
    * Transform this flow by the regular flow. The given flow must support manual context propagation by
@@ -87,6 +103,24 @@ trait FlowWithContextOps[+Out, +Ctx, +Mat] {
     via(flow.mapAsync(parallelism) {
       case (e, ctx) => f(e).map(o => (o, ctx))(ExecutionContexts.parasitic)
     })
+
+  /**
+   * Context-preserving variant of [[akka.stream.scaladsl.FlowOps.mapAsyncPartitioned]].
+   *
+   * @see [[akka.stream.scaladsl.FlowOps.mapAsyncPartitioned]]
+   */
+  def mapAsyncPartitioned[Out2, P](parallelism: Int, perPartition: Int)(partitioner: Out => P)(
+      f: (Out, P) => Future[Out2]): Repr[Out2, Ctx] = {
+    val pairPartitioner = { (pair: (Out, Ctx)) =>
+      partitioner(pair._1)
+    }
+    val pairF = { (pair: (Out, Ctx), partition: P) =>
+      val (elem, context) = pair
+      f(elem, partition).map(_ -> context)(ExecutionContexts.parasitic)
+    }
+
+    via(flow.mapAsyncPartitioned(parallelism, perPartition)(pairPartitioner)(pairF))
+  }
 
   /**
    * Context-preserving variant of [[akka.stream.scaladsl.FlowOps.collect]].

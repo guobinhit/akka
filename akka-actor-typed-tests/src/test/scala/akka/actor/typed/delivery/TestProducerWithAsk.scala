@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.delivery
 
-import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration._
+import scala.concurrent.duration.FiniteDuration
 import scala.util.Failure
 import scala.util.Success
 
@@ -43,17 +43,15 @@ object TestProducerWithAsk {
   }
 
   private def idle(n: Int, replyProbe: ActorRef[Long]): Behavior[Command] = {
-    Behaviors.receive { (ctx, msg) =>
-      msg match {
-        case Tick                => Behaviors.same
-        case RequestNext(sendTo) => active(n + 1, replyProbe, sendTo)
-        case Confirmed(seqNr) =>
-          replyProbe ! seqNr
-          Behaviors.same
-        case AskTimeout =>
-          ctx.log.warn("Timeout")
-          Behaviors.same
-      }
+    Behaviors.receivePartial {
+      case (_, Tick)                => Behaviors.same
+      case (_, RequestNext(sendTo)) => active(n + 1, replyProbe, sendTo)
+      case (_, Confirmed(seqNr)) =>
+        replyProbe ! seqNr
+        Behaviors.same
+      case (ctx, AskTimeout) =>
+        ctx.log.warn("Timeout")
+        Behaviors.same
     }
   }
 
@@ -61,33 +59,32 @@ object TestProducerWithAsk {
       n: Int,
       replyProbe: ActorRef[Long],
       sendTo: ActorRef[ProducerController.MessageWithConfirmation[TestConsumer.Job]]): Behavior[Command] = {
-    Behaviors.receive { (ctx, msg) =>
-      msg match {
-        case Tick =>
-          val msg = s"msg-$n"
-          ctx.log.info("sent {}", msg)
-          ctx.ask(
-            sendTo,
-            (askReplyTo: ActorRef[Long]) =>
-              ProducerController.MessageWithConfirmation(TestConsumer.Job(msg), askReplyTo)) {
-            case Success(seqNr) => Confirmed(seqNr)
-            case Failure(_)     => AskTimeout
-          }
-          idle(n, replyProbe)
+    Behaviors.receivePartial {
+      case (ctx, Tick) =>
+        val msg = s"msg-$n"
+        ctx.log.info("sent {}", msg)
+        ctx.ask(
+          sendTo,
+          (askReplyTo: ActorRef[Long]) =>
+            ProducerController.MessageWithConfirmation(TestConsumer.Job(msg), askReplyTo)) {
+          case Success(seqNr) => Confirmed(seqNr)
+          case Failure(_)     => AskTimeout
+        }
+        idle(n, replyProbe)
 
-        case RequestNext(_) =>
-          throw new IllegalStateException("Unexpected RequestNext, already got one.")
+      case (_, RequestNext(_)) =>
+        throw new IllegalStateException("Unexpected RequestNext, already got one.")
 
-        case Confirmed(seqNr) =>
-          ctx.log.info("Reply Confirmed [{}]", seqNr)
-          replyProbe ! seqNr
-          Behaviors.same
+      case (ctx, Confirmed(seqNr)) =>
+        ctx.log.info("Reply Confirmed [{}]", seqNr)
+        replyProbe ! seqNr
+        Behaviors.same
 
-        case AskTimeout =>
-          ctx.log.warn("Timeout")
-          Behaviors.same
-      }
+      case (ctx, AskTimeout) =>
+        ctx.log.warn("Timeout")
+        Behaviors.same
     }
+
   }
 
 }

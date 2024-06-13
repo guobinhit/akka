@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -9,6 +9,7 @@ import java.nio.{ ByteBuffer, ByteOrder }
 import org.agrona.concurrent.{ ManyToManyConcurrentArrayQueue, UnsafeBuffer }
 
 import akka.actor.ActorRef
+import akka.actor.InternalActorRef
 import akka.io.DirectByteBufferPool
 import akka.remote.artery.compress.{ CompressionTable, InboundCompressions, NoInboundCompressions }
 import akka.serialization.Serialization
@@ -198,6 +199,9 @@ private[remote] sealed trait HeaderBuilder {
 }
 
 /**
+ * Cache of the serialized path for the most used actor refs, performance critical as applied once for every
+ * outgoing message. Depends on the Serialization#withTransportInformation thread local to be set for serialization.
+ *
  * INTERNAL API
  */
 private[remote] final class SerializationFormatCache
@@ -208,6 +212,10 @@ private[remote] final class SerializationFormatCache
   // Not calling ref.hashCode since it does a path.hashCode if ActorCell.undefinedUid is encountered.
   // Refs with ActorCell.undefinedUid will now collide all the time, but this is not a usual scenario anyway.
   override protected def hash(ref: ActorRef): Int = ref.path.uid
+
+  override protected def isKeyCacheable(k: ActorRef): Boolean =
+    // "temp" only for one request-response interaction so don't cache
+    !InternalActorRef.isTemporaryRef(k)
 
   override protected def isCacheable(v: String): Boolean = true
 }
@@ -557,7 +565,7 @@ private[remote] final class EnvelopeBuffer(val byteBuffer: ByteBuffer) {
     byteBuffer.rewind()
     val bytes = new Array[Byte](byteBuffer.remaining)
     byteBuffer.get(bytes)
-    val newByteBuffer = ByteBuffer.wrap(bytes)
+    val newByteBuffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
     newByteBuffer.position(p)
     byteBuffer.position(p)
     new EnvelopeBuffer(newByteBuffer)

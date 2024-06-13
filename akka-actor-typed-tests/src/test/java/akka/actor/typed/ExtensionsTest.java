@@ -1,21 +1,20 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed;
+
+import static junit.framework.TestCase.assertSame;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import akka.actor.setup.ActorSystemSetup;
 import akka.actor.typed.javadsl.Behaviors;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.util.function.Function;
 import org.junit.Test;
 import org.scalatestplus.junit.JUnitSuite;
-
-import java.util.function.Function;
-
-import static junit.framework.TestCase.assertSame;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 public class ExtensionsTest extends JUnitSuite {
 

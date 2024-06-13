@@ -1,16 +1,15 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdoc.akka.serialization.jackson.v2a;
 
+import akka.serialization.jackson.JsonSerializable;
 import com.fasterxml.jackson.annotation.JsonCreator;
-import jdoc.akka.serialization.jackson.MySerializable;
-
 import java.util.Optional;
 
 // #add-optional
-public class ItemAdded implements MySerializable {
+public class ItemAdded implements JsonSerializable {
   public final String shoppingCartId;
   public final String productId;
   public final int quantity;

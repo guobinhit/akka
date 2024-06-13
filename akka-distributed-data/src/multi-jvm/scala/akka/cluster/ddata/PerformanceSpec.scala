@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.ddata
@@ -33,8 +33,6 @@ object PerformanceSpec extends MultiNodeConfig {
     akka.actor.provider = "cluster"
     akka.log-dead-letters = off
     akka.log-dead-letters-during-shutdown = off
-    akka.remote.classic.log-remote-lifecycle-events = ERROR
-    akka.remote.classic.log-frame-size-exceeding=1000b
     akka.remote.artery.log-frame-size-exceeding=1000b
     akka.testconductor.barrier-timeout = 60 s
     akka.cluster.distributed-data.gossip-interval = 1 s

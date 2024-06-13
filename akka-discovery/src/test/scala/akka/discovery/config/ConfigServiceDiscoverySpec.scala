@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.discovery.config
@@ -38,7 +38,7 @@ akka {
             }
           ]
         },
-        service2 = {
+        "service2.domain.com" = {
           endpoints = []
         }
       }
@@ -70,7 +70,11 @@ class ConfigServiceDiscoverySpec
         ResolvedTarget(host = "cat", port = Some(1233), address = None),
         ResolvedTarget(host = "dog", port = None, address = None))
     }
-
+    "return no resolved targets if no endpoints" in {
+      val result = discovery.lookup("service2.domain.com", 100.millis).futureValue
+      result.serviceName shouldEqual "service2.domain.com"
+      result.addresses shouldEqual immutable.Seq.empty
+    }
     "return no resolved targets if not in config" in {
       val result = discovery.lookup("dontexist", 100.millis).futureValue
       result.serviceName shouldEqual "dontexist"

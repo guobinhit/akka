@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding.typed.internal.testkit
@@ -7,8 +7,9 @@ package akka.cluster.sharding.typed.internal.testkit
 import java.time.Duration
 import java.util.concurrent.CompletionStage
 
-import scala.concurrent.Future
 import scala.compat.java8.FutureConverters._
+import scala.concurrent.Future
+
 import akka.actor.ActorRefProvider
 import akka.actor.typed.ActorRef
 import akka.actor.typed.Scheduler
@@ -25,11 +26,17 @@ import akka.util.Timeout
 /**
  * INTERNAL API
  */
-@InternalApi private[akka] final class TestEntityRefImpl[M](entityId: String, probe: ActorRef[M])
+@InternalApi private[akka] final class TestEntityRefImpl[M](
+    override val entityId: String,
+    probe: ActorRef[M],
+    override val typeKey: scaladsl.EntityTypeKey[M])
     extends javadsl.EntityRef[M]
     with scaladsl.EntityRef[M]
     with InternalRecipientRef[M] {
+
   import akka.actor.typed.scaladsl.adapter._
+
+  override def dataCenter: Option[String] = None
 
   override def tell(msg: M): Unit =
     probe ! msg

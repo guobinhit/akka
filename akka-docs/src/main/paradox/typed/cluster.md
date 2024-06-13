@@ -23,9 +23,18 @@ recommendation if you don't have other preferences or constraints.
 
 ## Module info
 
+The Akka dependencies are available from Akka's library repository. To access them there, you need to configure the URL for this repository.
+
+@@repository [sbt,Maven,Gradle] {
+id="akka-repository"
+name="Akka library repository"
+url="https://repo.akka.io/maven"
+}
+
 To use Akka Cluster add the following dependency in your project:
 
 @@dependency[sbt,Maven,Gradle] {
+  bomGroup=com.typesafe.akka bomArtifact=akka-bom_$scala.binary.version$ bomVersionSymbols=AkkaVersion
   symbol1=AkkaVersion
   value1="$akka.version$"
   group=com.typesafe.akka
@@ -41,11 +50,11 @@ The Cluster extension gives you access to management tasks such as @ref:[Joining
 and subscription of cluster membership events such as @ref:[MemberUp, MemberRemoved and UnreachableMember](cluster-membership.md#membership-lifecycle),
 which are exposed as event APIs.  
 
-It does this through these references on the `Cluster` extension:
+It does this through these references on the @apidoc[typed.Cluster$] extension:
 
-* `manager`: An @scala[`ActorRef[akka.cluster.typed.ClusterCommand]`]@java[`ActorRef<akka.cluster.typed.ClusterCommand>`] where a `ClusterCommand` is a command such as: `Join`, `Leave` and `Down`
-* `subscriptions`: An @scala[`ActorRef[akka.cluster.typed.ClusterStateSubscription]`]@java[`ActorRef<akka.cluster.typed.ClusterStateSubscription>`] where a `ClusterStateSubscription` is one of `GetCurrentState` or `Subscribe` and `Unsubscribe` to cluster events like `MemberRemoved`
-* `state`: The current `CurrentClusterState`
+* `manager`: An @scala[@apidoc[typed.ActorRef]\[@apidoc[akka.cluster.typed.ClusterCommand](typed.ClusterCommand)\]]@java[@apidoc[typed.ActorRef]<@apidoc[akka.cluster.typed.ClusterCommand](typed.ClusterCommand)>] where a `ClusterCommand` is a command such as: @apidoc[Join], @apidoc[Leave] and @apidoc[Down]
+* `subscriptions`: An @scala[@apidoc[typed.ActorRef]\[@apidoc[akka.cluster.typed.ClusterStateSubscription](typed.ClusterStateSubscription)\]]@java[@apidoc[typed.ActorRef]<@apidoc[akka.cluster.typed.ClusterStateSubscription](typed.ClusterStateSubscription)>] where a `ClusterStateSubscription` is one of @apidoc[GetCurrentState] or @apidoc[Subscribe] and @apidoc[Unsubscribe] to cluster events like @apidoc[MemberRemoved](ClusterEvent.MemberRemoved)
+* `state`: The current @apidoc[CurrentClusterState](ClusterEvent.CurrentClusterState)
 
 All of the examples below assume the following imports:
 
@@ -60,7 +69,7 @@ The minimum configuration required is to set a host/port for remoting and the `a
 
 @@snip [BasicClusterExampleSpec.scala](/akka-cluster-typed/src/test/scala/docs/akka/cluster/typed/BasicClusterExampleSpec.scala) { #config-seeds }
 
-Accessing the `Cluster` extension on each node:
+Accessing the @apidoc[typed.Cluster$] extension on each node:
 
 Scala
 :  @@snip [BasicClusterExampleSpec.scala](/akka-cluster-typed/src/test/scala/docs/akka/cluster/typed/BasicClusterExampleSpec.scala) { #cluster-create }
@@ -70,13 +79,13 @@ Java
 
 @@@ note
   
-  The name of the cluster's `ActorSystem` must be the same for all members, which is passed in when you start the `ActorSystem`.
+  The name of the cluster's @apidoc[typed.ActorSystem] must be the same for all members, which is passed in when you start the `ActorSystem`.
 
 @@@
 
 ### Joining and Leaving a Cluster 
 
-If not using configuration to specify @ref:[seed nodes to join](#joining), joining the cluster can be done programmatically via the `manager`.
+If not using configuration to specify @ref:[seed nodes to join](#joining), joining the cluster can be done programmatically via the @scala[@scaladoc[manager](akka.cluster.typed.Cluster#manager:akka.actor.typed.ActorRef[akka.cluster.typed.ClusterCommand])]@java[@javadoc[manager()](akka.cluster.typed.Cluster#manager())].
 
 Scala
 :  @@snip [BasicClusterExampleSpec.scala](/akka-cluster-typed/src/test/scala/docs/akka/cluster/typed/BasicClusterExampleSpec.scala) { #cluster-join }
@@ -94,8 +103,8 @@ Java
 
 ### Cluster Subscriptions
 
-Cluster `subscriptions` can be used to receive messages when cluster state changes. For example, registering
-for all `MemberEvent`s, then using the `manager` to have a node leave the cluster will result in events
+Cluster @scala[@scaladoc[subscriptions](akka.cluster.typed.Cluster#subscriptions:akka.actor.typed.ActorRef[akka.cluster.typed.ClusterStateSubscription])]@java[@javadoc[subscriptions()](akka.cluster.typed.Cluster#subscriptions())] can be used to receive messages when cluster state changes. For example, registering
+for all @apidoc[MemberEvent](ClusterEvent.MemberEvent)'s, then using the `manager` to have a node leave the cluster will result in events
 for the node going through the @ref:[Membership Lifecycle](cluster-membership.md#membership-lifecycle).
 
 This example subscribes to a @scala[`subscriber: ActorRef[MemberEvent]`]@java[`ActorRef<MemberEvent> subscriber`]:
@@ -118,12 +127,12 @@ Java
 ### Cluster State
 
 Instead of subscribing to cluster events it can sometimes be convenient to only get the full membership state with
-@scala[`Cluster(system).state`]@java[`Cluster.get(system).state()`]. Note that this state is not necessarily in sync with the events published to a
+@scala[@scaladoc[Cluster(system).state](akka.cluster.typed.Cluster#state:akka.cluster.ClusterEvent.CurrentClusterState)]@java[@javadoc[Cluster.get(system).state()](akka.cluster.typed.Cluster#state())]. Note that this state is not necessarily in sync with the events published to a
 cluster subscription.
 
 See @ref:[Cluster Membership](cluster-membership.md#member-events) more information on member events specifically.
 There are more types of change events, consult the API documentation
-of classes that extends `akka.cluster.ClusterEvent.ClusterDomainEvent` for details about the events.
+of classes that extends @apidoc[akka.cluster.ClusterEvent.ClusterDomainEvent](ClusterEvent.ClusterDomainEvent) for details about the events.
  
 ## Cluster Membership API
 
@@ -141,14 +150,14 @@ way as other nodes.
 #### Joining automatically to seed nodes with Cluster Bootstrap
 
 Automatic discovery of nodes for the joining process is available
-using the open source Akka Management project's module, 
+using the Akka Management project's module, 
 @ref:[Cluster Bootstrap](../additional/operations.md#cluster-bootstrap).
 Please refer to its documentation for more details.
 
 #### Joining configured seed nodes
 
-When a new node is started it sends a message to all seed nodes and then sends join command to the one that
-answers first. If no one of the seed nodes replied (might not be started yet)
+When a new node is started it sends a message to all seed nodes and then sends a join command to the one that
+answers first. If none of the seed nodes replies (might not be started yet)
 it retries this procedure until success or shutdown.
 
 You can define the seed nodes in the @ref:[configuration](#configuration) file (application.conf):
@@ -168,7 +177,7 @@ This can also be defined as Java system properties when starting the JVM using t
 
 
 When a new node is started it sends a message to all configured `seed-nodes` and then sends a join command to the
-one that answers first. If none of the seed nodes replied (might not be started yet) it retries this procedure
+one that answers first. If none of the seed nodes replies (might not be started yet) it retries this procedure
 until successful or shutdown.
 
 The seed nodes can be started in any order. It is not necessary to have all
@@ -248,7 +257,7 @@ and attempts to join, the existing member will be removed and its new incarnatio
 There are a few ways to remove a member from the cluster.
 
 1. The recommended way to leave a cluster is a graceful exit, informing the cluster that a node shall leave.
-  This is performed by @ref:[Coordinated Shutdown](../coordinated-shutdown.md) when the `ActorSystem`
+  This is performed by @ref:[Coordinated Shutdown](../coordinated-shutdown.md) when the @apidoc[typed.ActorSystem]
   is terminated and also when a SIGTERM is sent from the environment to stop the JVM process.
 1. Graceful exit can also be performed using @ref:[HTTP](../additional/operations.md#http) or @ref:[JMX](../additional/operations.md#jmx). 
 1. When a graceful exit is not possible, for example in case of abrupt termination of the the JVM process, the node
@@ -296,7 +305,7 @@ are running on a crashed (unreachable) node will not be started on another node 
 been removed from the Cluster. Removal of crashed (unreachable) nodes is performed after a downing decision.
 
 Downing can also be performed programmatically with @scala[`Cluster(system).manager ! Down(address)`]@java[`Cluster.get(system).manager().tell(Down(address))`],
-but that is mostly useful from tests and when implementing a `DowningProvider`.
+but that is mostly useful from tests and when implementing a @apidoc[DowningProvider].
 
 If a crashed node is restarted and joining the cluster again with the same hostname and port, the previous incarnation
 of that member will first be downed and removed. The new join attempt with same hostname and port is used as evidence
@@ -315,8 +324,8 @@ for example cluster-aware routers, can take node roles into account to achieve t
 The node roles are defined in the configuration property named `akka.cluster.roles`
 and typically defined in the start script as a system property or environment variable.
 
-The roles are part of the membership information in `MemberEvent` that you can subscribe to. The roles
-of the own node are available from the `selfMember` and that can be used for conditionally starting certain
+The roles are part of the membership information in @apidoc[MemberEvent](ClusterEvent.MemberEvent) that you can subscribe to. The roles
+of the own node are available from the @scala[@scaladoc[selfMember](akka.cluster.typed.Cluster#selfMember:akka.cluster.Member)]@java[@javadoc[selfMember()](akka.cluster.typed.Cluster#selfMember())] and that can be used for conditionally starting certain
 actors:
 
 Scala
@@ -336,8 +345,8 @@ unreachable from the rest of the cluster. Please see:
  
 ### Using the Failure Detector
  
-Cluster uses the `akka.remote.PhiAccrualFailureDetector` failure detector by default, or you can provide your by
-implementing the `akka.remote.FailureDetector` and configuring it:
+Cluster uses the @apidoc[akka.remote.PhiAccrualFailureDetector](PhiAccrualFailureDetector) failure detector by default, or you can provide your by
+implementing the @apidoc[akka.remote.FailureDetector](FailureDetector) and configuring it:
 
 ```
 akka.cluster.implementation-class = "com.example.CustomFailureDetector"
@@ -368,14 +377,14 @@ configuration descriptions, default values and options.
 A common use case is to start actors after the cluster has been initialized,
 members have joined, and the cluster has reached a certain size.
 
-With a configuration option you can define required number of members
+With a configuration option you can define the required number of members
 before the leader changes member status of 'Joining' members to 'Up'.:
 
 ```
 akka.cluster.min-nr-of-members = 3
 ```
 
-In a similar way you can define required number of members of a certain role
+In a similar way you can define the required number of members of a certain role
 before the leader changes member status of 'Joining' members to 'Up'.:
 
 ```
@@ -413,7 +422,7 @@ Creating a cluster is about deploying two or more nodes and having them behave a
 
 The Configuration Compatibility Check feature ensures that all nodes in a cluster have a compatible configuration. Whenever a new node is joining an existing cluster, a subset of its configuration settings (only those that are required to be checked) is sent to the nodes in the cluster for verification. Once the configuration is checked on the cluster side, the cluster sends back its own set of required configuration settings. The joining node will then verify if it's compliant with the cluster configuration. The joining node will only proceed if all checks pass, on both sides.   
 
-New custom checkers can be added by extending `akka.cluster.JoinConfigCompatChecker` and including them in the configuration. Each checker must be associated with a unique key:
+New custom checkers can be added by extending @apidoc[akka.cluster.JoinConfigCompatChecker](JoinConfigCompatChecker) and including them in the configuration. Each checker must be associated with a unique key:
 
 ```
 akka.cluster.configuration-compatibility-check.checkers {
@@ -456,8 +465,8 @@ See @ref:[Reliable Delivery](reliable-delivery.md)
 
 ## Example project
 
-@java[@extref[Cluster example project](samples:akka-samples-cluster-java)]
-@scala[@extref[Cluster example project](samples:akka-samples-cluster-scala)]
+@java[[Cluster example project](https://github.com/akka/akka/tree/main/samples/akka-sample-cluster-java#readme) [(sources zip)](../attachments/akka-samples-cluster-java.zip)]
+@scala[[Cluster example project](https://github.com/akka/akka/tree/main/samples/akka-sample-cluster-scala#readme) [(sources zip)](../attachments/akka-samples-cluster-scala.zip)]
 is an example project that can be downloaded, and with instructions of how to run.
 
 This project contains samples illustrating different Cluster features, such as

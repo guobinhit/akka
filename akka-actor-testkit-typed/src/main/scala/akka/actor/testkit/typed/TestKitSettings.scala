@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2017-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.testkit.typed
@@ -44,7 +44,7 @@ object TestKitSettings {
 
   private object Ext extends ExtensionId[Ext] {
     override def createExtension(system: ActorSystem[_]): Ext = new Ext(system)
-    def get(system: ActorSystem[_]): Ext = apply(system)
+    def get(system: ActorSystem[_]): Ext = Ext.apply(system)
   }
 
   private class Ext(system: ActorSystem[_]) extends Extension {

@@ -1,15 +1,11 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.singleton;
 
-import akka.actor.ActorSystem;
-
-import java.util.HashMap;
-import java.util.Map;
-
 import akka.actor.ActorRef;
+import akka.actor.ActorSystem;
 import akka.actor.Props;
 
 public class ClusterSingletonManagerTest {

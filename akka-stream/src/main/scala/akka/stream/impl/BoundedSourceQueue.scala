@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl
@@ -133,6 +133,8 @@ import akka.stream.stage.{ GraphStageLogic, GraphStageWithMaterializedValue, Out
         if (setDone(Done(QueueOfferResult.Failure(ex))))
           Logic.callback.invoke(()) // if this thread won the completion race also schedule an async callback
       }
+
+      override def size(): Int = queue.size()
     }
 
     // some state transition helpers

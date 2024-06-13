@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor
 
 import java.util.concurrent.atomic.AtomicReference
 
+import scala.annotation.nowarn
 import scala.annotation.tailrec
 
-import com.github.ghik.silencer.silent
 import com.typesafe.config._
 
 import akka.annotation.InternalApi
@@ -172,7 +172,7 @@ trait Scope {
   def withFallback(other: Scope): Scope
 }
 
-@silent("@SerialVersionUID has no effect")
+@nowarn("msg=@SerialVersionUID has no effect")
 @SerialVersionUID(1L)
 abstract class LocalScope extends Scope
 
@@ -181,7 +181,7 @@ abstract class LocalScope extends Scope
  * which do not set a different scope. It is also the only scope handled by
  * the LocalActorRefProvider.
  */
-@silent("@SerialVersionUID has no effect")
+@nowarn("msg=@SerialVersionUID has no effect")
 @SerialVersionUID(1L)
 case object LocalScope extends LocalScope {
 
@@ -196,7 +196,7 @@ case object LocalScope extends LocalScope {
 /**
  * This is the default value and as such allows overrides.
  */
-@silent("@SerialVersionUID has no effect")
+@nowarn("msg=@SerialVersionUID has no effect")
 @SerialVersionUID(1L)
 abstract class NoScopeGiven extends Scope
 @SerialVersionUID(1L)
@@ -211,7 +211,10 @@ case object NoScopeGiven extends NoScopeGiven {
 
 /**
  * Deployer maps actor paths to actor deployments.
+ *
+ * INTERNAL API
  */
+@InternalApi
 private[akka] class Deployer(val settings: ActorSystem.Settings, val dynamicAccess: DynamicAccess) {
 
   import akka.util.ccompat.JavaConverters._
@@ -301,8 +304,8 @@ private[akka] class Deployer(val settings: ActorSystem.Settings, val dynamicAcce
             dynamicAccess
               .createInstanceFor[RouterConfig](fqn, args2)
               .recover {
-                case e @ (_: IllegalArgumentException | _: ConfigException) => throw e
-                case _                                                      => throwCannotInstantiateRouter(args2, e)
+                case e2 @ (_: IllegalArgumentException | _: ConfigException) => throw e2
+                case _                                                       => throwCannotInstantiateRouter(args2, e)
               }
               .get
           case e => throwCannotInstantiateRouter(args2, e)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.remote.artery
@@ -15,9 +15,9 @@ import com.typesafe.config.ConfigFactory
 import akka.NotUsed
 import akka.actor.ActorIdentity
 import akka.actor.ActorSystem
+import akka.actor.ExtendedActorSystem
 import akka.actor.Identify
 import akka.actor.RootActorPath
-import akka.remote.AddressUidExtension
 import akka.remote.RARP
 import akka.remote.UniqueAddress
 import akka.remote.artery.SystemMessageDelivery._
@@ -37,7 +37,7 @@ object SystemMessageDeliverySpec {
 
   case class TestSysMsg(s: String) extends SystemMessageDelivery.AckedDeliveryMessage
 
-  val safe = ConfigFactory.parseString(s"""
+  val safe = ConfigFactory.parseString("""
        akka.loglevel = INFO
        akka.remote.artery.advanced.stop-idle-outbound-after = 1000 ms
        akka.remote.artery.advanced.inject-handshake-interval = 500 ms
@@ -55,9 +55,9 @@ abstract class AbstractSystemMessageDeliverySpec(c: Config) extends ArteryMultiN
 
   import SystemMessageDeliverySpec._
 
-  val addressA = UniqueAddress(address(system), AddressUidExtension(system).longAddressUid)
+  val addressA = UniqueAddress(address(system), system.asInstanceOf[ExtendedActorSystem].uid)
   val systemB = newRemoteSystem(name = Some("systemB"))
-  val addressB = UniqueAddress(address(systemB), AddressUidExtension(systemB).longAddressUid)
+  val addressB = UniqueAddress(address(systemB), systemB.asInstanceOf[ExtendedActorSystem].uid)
   val rootB = RootActorPath(addressB.address)
 
   private val outboundEnvelopePool = ReusableOutboundEnvelope.createObjectPool(capacity = 16)
@@ -82,6 +82,7 @@ abstract class AbstractSystemMessageDeliverySpec(c: Config) extends ArteryMultiN
         outboundEnvelope.message match {
           case sysEnv: SystemMessageEnvelope =>
             InboundEnvelope(recipient, sysEnv, OptionVal.None, addressA.uid, inboundContext.association(addressA.uid))
+          case _ => throw new RuntimeException()
         })
       .async
       .via(new SystemMessageAcker(inboundContext))
@@ -196,7 +197,7 @@ class SystemMessageDeliverySpec extends AbstractSystemMessageDeliverySpec(System
         .via(drop(dropSeqNumbers = Vector(3L, 4L)))
         .via(inbound(inboundContextB))
         .map(_.message.asInstanceOf[TestSysMsg])
-        .runWith(TestSink.probe[TestSysMsg])
+        .runWith(TestSink[TestSysMsg]())
 
       sink.request(100)
       sink.expectNext(TestSysMsg("msg-1"))
@@ -230,7 +231,7 @@ class SystemMessageDeliverySpec extends AbstractSystemMessageDeliverySpec(System
         .via(drop(dropSeqNumbers = Vector(1L)))
         .via(inbound(inboundContextB))
         .map(_.message.asInstanceOf[TestSysMsg])
-        .runWith(TestSink.probe[TestSysMsg])
+        .runWith(TestSink[TestSysMsg]())
 
       sink.request(100)
       replyProbe.expectMsg(Nack(0L, addressB)) // from receiving 2
@@ -259,7 +260,7 @@ class SystemMessageDeliverySpec extends AbstractSystemMessageDeliverySpec(System
         .via(drop(dropSeqNumbers = Vector(3L)))
         .via(inbound(inboundContextB))
         .map(_.message.asInstanceOf[TestSysMsg])
-        .runWith(TestSink.probe[TestSysMsg])
+        .runWith(TestSink[TestSysMsg]())
 
       sink.request(100)
       sink.expectNext(TestSysMsg("msg-1"))

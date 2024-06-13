@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed.delivery
@@ -237,7 +237,7 @@ object WorkPullingProducerController {
   /**
    * Java API
    */
-  def apply[A: ClassTag](
+  def apply[A](
       messageClass: Class[A],
       producerId: String,
       workerServiceKey: ServiceKey[ConsumerController.Command[A]],

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl
@@ -136,7 +136,7 @@ import akka.util.OptionVal
         case subscription: Subscription =>
           if (VirtualProcessor.Debug)
             println(s"VirtualPublisher#$hashCode($subscription).subscribe.rec($s) -> Establishing(sub)")
-          val establishing = Establishing(sub, false)
+          val establishing = Establishing(sub, onCompleteBuffered = false)
           if (compareAndSet(subscription, establishing)) establishSubscription(establishing, subscription)
           else rec(sub)
         case pub: Publisher[_] =>
@@ -179,6 +179,8 @@ import akka.util.OptionVal
                 case Inert => // nothing to be done
                 case _     => pub.subscribe(subscriber.asInstanceOf[Subscriber[Any]])
               }
+            case other =>
+              throw new IllegalStateException(s"Unexpected state in VirtualProcessor: $other")
           }
         case state @ _ =>
           if (VirtualProcessor.Debug) println(s"VirtualPublisher#$hashCode(_).onSubscribe.rec($s) spec violation")
@@ -477,6 +479,8 @@ import akka.util.OptionVal
 
         case _: Subscriber[_] =>
           rejectAdditionalSubscriber(subscriber, "Sink.asPublisher(fanout = false)")
+
+        case unexpected => throw new IllegalStateException(s"Unexpected state in VirtualPublisher: $unexpected")
       }
     }
     rec() // return value is boolean only to make the expressions above compile

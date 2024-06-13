@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed
@@ -97,7 +97,7 @@ class TypedActorBenchmark {
   @Benchmark
   @OperationsPerInvocation(totalMessages)
   def echo(): Unit = {
-    Await.result(system.ask(Start), timeout)
+    Await.result(system.ask(Start(_)), timeout)
   }
 
 }

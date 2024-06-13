@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -12,7 +12,6 @@ import akka.stream.FlowShape
 import akka.stream.OverflowStrategy
 import akka.stream.testkit._
 import akka.stream.testkit.scaladsl._
-import akka.stream.testkit.scaladsl.StreamTestKit._
 
 class FlowJoinSpec extends StreamSpec("""
     akka.stream.materializer.initial-input-buffer-size = 2
@@ -22,7 +21,7 @@ class FlowJoinSpec extends StreamSpec("""
     PatienceConfig(timeout = Span(2, Seconds), interval = Span(200, Millis))
 
   "A Flow using join" must {
-    "allow for cycles" in assertAllStagesStopped {
+    "allow for cycles" in {
       val end = 47
       val (even, odd) = (0 to end).partition(_ % 2 == 0)
       val result = Set() ++ even ++ odd ++ odd.map(_ * 10)
@@ -54,10 +53,10 @@ class FlowJoinSpec extends StreamSpec("""
       sub.cancel()
     }
 
-    "allow for merge cycle" in assertAllStagesStopped {
+    "allow for merge cycle" in {
       val source = Source.single("lonely traveler")
 
-      val flow1 = Flow.fromGraph(GraphDSL.create(Sink.head[String]) { implicit b => sink =>
+      val flow1 = Flow.fromGraph(GraphDSL.createGraph(Sink.head[String]) { implicit b => sink =>
         import GraphDSL.Implicits._
         val merge = b.add(Merge[String](2))
         val broadcast = b.add(Broadcast[String](2, eagerCancel = true))
@@ -71,10 +70,10 @@ class FlowJoinSpec extends StreamSpec("""
       whenReady(flow1.join(Flow[String]).run())(_ shouldBe "lonely traveler")
     }
 
-    "allow for merge preferred cycle" in assertAllStagesStopped {
+    "allow for merge preferred cycle" in {
       val source = Source.single("lonely traveler")
 
-      val flow1 = Flow.fromGraph(GraphDSL.create(Sink.head[String]) { implicit b => sink =>
+      val flow1 = Flow.fromGraph(GraphDSL.createGraph(Sink.head[String]) { implicit b => sink =>
         import GraphDSL.Implicits._
         val merge = b.add(MergePreferred[String](1))
         val broadcast = b.add(Broadcast[String](2, eagerCancel = true))
@@ -88,10 +87,10 @@ class FlowJoinSpec extends StreamSpec("""
       whenReady(flow1.join(Flow[String]).run())(_ shouldBe "lonely traveler")
     }
 
-    "allow for zip cycle" in assertAllStagesStopped {
+    "allow for zip cycle" in {
       val source = Source(immutable.Seq("traveler1", "traveler2"))
 
-      val flow = Flow.fromGraph(GraphDSL.create(TestSink.probe[(String, String)]) { implicit b => sink =>
+      val flow = Flow.fromGraph(GraphDSL.createGraph(TestSink[(String, String)]()) { implicit b => sink =>
         import GraphDSL.Implicits._
         val zip = b.add(Zip[String, String]())
         val broadcast = b.add(Broadcast[(String, String)](2))
@@ -102,7 +101,7 @@ class FlowJoinSpec extends StreamSpec("""
         FlowShape(zip.in1, broadcast.out(1))
       })
 
-      val feedback = Flow.fromGraph(GraphDSL.create(Source.single("ignition")) { implicit b => ignition =>
+      val feedback = Flow.fromGraph(GraphDSL.createGraph(Source.single("ignition")) { implicit b => ignition =>
         import GraphDSL.Implicits._
         val flow = b.add(Flow[(String, String)].map(_._1))
         val merge = b.add(Merge[String](2))
@@ -118,8 +117,8 @@ class FlowJoinSpec extends StreamSpec("""
       probe.requestNext(("traveler2", "traveler1"))
     }
 
-    "allow for concat cycle" in assertAllStagesStopped {
-      val flow = Flow.fromGraph(GraphDSL.create(TestSource.probe[String](system), Sink.head[String])(Keep.both) {
+    "allow for concat cycle" in {
+      val flow = Flow.fromGraph(GraphDSL.createGraph(TestSource[String]()(system), Sink.head[String])(Keep.both) {
         implicit b => (source, sink) =>
           import GraphDSL.Implicits._
           val concat = b.add(Concat[String](2))
@@ -139,10 +138,10 @@ class FlowJoinSpec extends StreamSpec("""
       }
     }
 
-    "allow for interleave cycle" in assertAllStagesStopped {
+    "allow for interleave cycle" in {
       val source = Source.single("lonely traveler")
 
-      val flow1 = Flow.fromGraph(GraphDSL.create(Sink.head[String]) { implicit b => sink =>
+      val flow1 = Flow.fromGraph(GraphDSL.createGraph(Sink.head[String]) { implicit b => sink =>
         import GraphDSL.Implicits._
         val merge = b.add(Interleave[String](2, 1))
         val broadcast = b.add(Broadcast[String](2, eagerCancel = true))

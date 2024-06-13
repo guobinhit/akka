@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.testkit.typed.scaladsl
@@ -66,7 +66,9 @@ abstract class ScalaTestWithActorTestKit(testKit: ActorTestKit)
     this(ActorTestKit(ActorTestKitBase.testNameFromCallStack(), config, settings))
 
   /**
-   * `PatienceConfig` from [[akka.actor.testkit.typed.TestKitSettings#DefaultTimeout]]
+   * `PatienceConfig` from [[akka.actor.testkit.typed.TestKitSettings#DefaultTimeout]].
+   * `DefaultTimeout` is dilated with [[akka.actor.testkit.typed.TestKitSettings#TestTimeFactor]],
+   * which means that the patience is also dilated.
    */
   implicit val patience: PatienceConfig =
     PatienceConfig(testKit.testKitSettings.DefaultTimeout.duration, Span(100, org.scalatest.time.Millis))

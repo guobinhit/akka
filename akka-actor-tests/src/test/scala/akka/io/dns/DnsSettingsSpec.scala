@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.io.dns
@@ -24,6 +24,7 @@ class DnsSettingsSpec extends AkkaSpec {
           ndots = 1
           positive-ttl = forever
           negative-ttl = never
+          id-strategy = ""
         """)
 
   "DNS settings" must {

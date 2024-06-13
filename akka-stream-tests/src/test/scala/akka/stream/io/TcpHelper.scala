@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.io
@@ -55,7 +55,7 @@ object TcpHelper {
         writePending = true
         connection ! Tcp.Write(bytes, WriteAck)
       case ClientWrite(bytes) =>
-        queuedWrites = queuedWrites.enqueue(bytes)
+        queuedWrites = queuedWrites :+ bytes
       case WriteAck if queuedWrites.nonEmpty =>
         val (next, remaining) = queuedWrites.dequeue
         queuedWrites = remaining

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding.typed
@@ -29,7 +29,6 @@ object JoinConfigCompatCheckerClusterShardingSpec {
       akka.cluster.sharding.state-store-mode = "persistence"
       akka.cluster.configuration-compatibility-check.enforce-on-join = on
       akka.cluster.jmx.enabled = off
-      akka.remote.classic.netty.tcp.port = 0
       akka.remote.artery.canonical.port = 0
     """)
 

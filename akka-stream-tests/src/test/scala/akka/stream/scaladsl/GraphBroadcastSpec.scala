@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.scaladsl
@@ -10,7 +10,6 @@ import scala.concurrent.duration._
 
 import akka.stream._
 import akka.stream.testkit._
-import akka.stream.testkit.scaladsl.StreamTestKit._
 import akka.stream.testkit.scaladsl.TestSink
 import akka.stream.testkit.scaladsl.TestSource
 
@@ -21,7 +20,7 @@ class GraphBroadcastSpec extends StreamSpec("""
   "A broadcast" must {
     import GraphDSL.Implicits._
 
-    "broadcast to other subscriber" in assertAllStagesStopped {
+    "broadcast to other subscriber" in {
       val c1 = TestSubscriber.manualProbe[Int]()
       val c2 = TestSubscriber.manualProbe[Int]()
 
@@ -53,7 +52,7 @@ class GraphBroadcastSpec extends StreamSpec("""
       c2.expectComplete()
     }
 
-    "work with one-way broadcast" in assertAllStagesStopped {
+    "work with one-way broadcast" in {
       val result = Source
         .fromGraph(GraphDSL.create() { implicit b =>
           val broadcast = b.add(Broadcast[Int](1))
@@ -68,28 +67,29 @@ class GraphBroadcastSpec extends StreamSpec("""
       Await.result(result, 3.seconds) should ===(Seq(1, 2, 3))
     }
 
-    "work with n-way broadcast" in assertAllStagesStopped {
+    "work with n-way broadcast" in {
       val headSink = Sink.head[Seq[Int]]
 
       import system.dispatcher
       val result = RunnableGraph
-        .fromGraph(GraphDSL.create(headSink, headSink, headSink, headSink, headSink)((fut1, fut2, fut3, fut4, fut5) =>
-          Future.sequence(List(fut1, fut2, fut3, fut4, fut5))) { implicit b => (p1, p2, p3, p4, p5) =>
-          val bcast = b.add(Broadcast[Int](5))
-          Source(List(1, 2, 3)) ~> bcast.in
-          bcast.out(0).grouped(5) ~> p1.in
-          bcast.out(1).grouped(5) ~> p2.in
-          bcast.out(2).grouped(5) ~> p3.in
-          bcast.out(3).grouped(5) ~> p4.in
-          bcast.out(4).grouped(5) ~> p5.in
-          ClosedShape
-        })
+        .fromGraph(
+          GraphDSL.createGraph(headSink, headSink, headSink, headSink, headSink)((fut1, fut2, fut3, fut4, fut5) =>
+            Future.sequence(List(fut1, fut2, fut3, fut4, fut5))) { implicit b => (p1, p2, p3, p4, p5) =>
+            val bcast = b.add(Broadcast[Int](5))
+            Source(List(1, 2, 3)) ~> bcast.in
+            bcast.out(0).grouped(5) ~> p1.in
+            bcast.out(1).grouped(5) ~> p2.in
+            bcast.out(2).grouped(5) ~> p3.in
+            bcast.out(3).grouped(5) ~> p4.in
+            bcast.out(4).grouped(5) ~> p5.in
+            ClosedShape
+          })
         .run()
 
       Await.result(result, 3.seconds) should be(List.fill(5)(List(1, 2, 3)))
     }
 
-    "work with 22-way broadcast" in assertAllStagesStopped {
+    "work with 22-way broadcast" in {
       type T = Seq[Int]
       type FT = Future[Seq[Int]]
       val headSink: Sink[T, FT] = Sink.head[T]
@@ -102,7 +102,7 @@ class GraphBroadcastSpec extends StreamSpec("""
             List(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22))
 
       val result = RunnableGraph
-        .fromGraph(GraphDSL.create(
+        .fromGraph(GraphDSL.createGraph(
           headSink,
           headSink,
           headSink,
@@ -158,7 +158,7 @@ class GraphBroadcastSpec extends StreamSpec("""
       Await.result(result, 3.seconds) should be(List.fill(22)(List(1, 2, 3)))
     }
 
-    "produce to other even though downstream cancels" in assertAllStagesStopped {
+    "produce to other even though downstream cancels" in {
       val c1 = TestSubscriber.manualProbe[Int]()
       val c2 = TestSubscriber.manualProbe[Int]()
 
@@ -182,7 +182,7 @@ class GraphBroadcastSpec extends StreamSpec("""
       c2.expectComplete()
     }
 
-    "produce to downstream even though other cancels" in assertAllStagesStopped {
+    "produce to downstream even though other cancels" in {
       val c1 = TestSubscriber.manualProbe[Int]()
       val c2 = TestSubscriber.manualProbe[Int]()
 
@@ -206,7 +206,7 @@ class GraphBroadcastSpec extends StreamSpec("""
       c1.expectComplete()
     }
 
-    "cancel upstream when downstreams cancel" in assertAllStagesStopped {
+    "cancel upstream when downstreams cancel" in {
       val p1 = TestPublisher.manualProbe[Int]()
       val c1 = TestSubscriber.manualProbe[Int]()
       val c2 = TestSubscriber.manualProbe[Int]()
@@ -238,7 +238,7 @@ class GraphBroadcastSpec extends StreamSpec("""
       bsub.expectCancellation()
     }
 
-    "pass along early cancellation" in assertAllStagesStopped {
+    "pass along early cancellation" in {
       val c1 = TestSubscriber.manualProbe[Int]()
       val c2 = TestSubscriber.manualProbe[Int]()
 
@@ -263,8 +263,8 @@ class GraphBroadcastSpec extends StreamSpec("""
       upsub.expectCancellation()
     }
 
-    "alsoTo must broadcast" in assertAllStagesStopped {
-      val p, p2 = TestSink.probe[Int](system)
+    "alsoTo must broadcast" in {
+      val p, p2 = TestSink[Int]()(system)
       val (ps1, ps2) = Source(1 to 6).alsoToMat(p)(Keep.right).toMat(p2)(Keep.both).run()
       ps1.request(6)
       ps2.request(6)
@@ -274,18 +274,18 @@ class GraphBroadcastSpec extends StreamSpec("""
       ps2.expectComplete()
     }
 
-    "cancel if alsoTo side branch cancels" in assertAllStagesStopped {
-      val in = TestSource.probe[Int](system)
-      val outSide = TestSink.probe[Int](system)
+    "cancel if alsoTo side branch cancels" in {
+      val in = TestSource[Int]()(system)
+      val outSide = TestSink[Int]()(system)
       val (pIn, pSide) = in.alsoToMat(outSide)(Keep.both).toMat(Sink.ignore)(Keep.left).run()
 
       pSide.cancel()
       pIn.expectCancellation()
     }
 
-    "cancel if alsoTo main branch cancels" in assertAllStagesStopped {
-      val in = TestSource.probe[Int](system)
-      val outMain = TestSink.probe[Int](system)
+    "cancel if alsoTo main branch cancels" in {
+      val in = TestSource[Int]()(system)
+      val outMain = TestSink[Int]()(system)
       val (pIn, pMain) = in.alsoToMat(Sink.ignore)(Keep.left).toMat(outMain)(Keep.both).run()
 
       pMain.cancel()

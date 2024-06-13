@@ -1,23 +1,22 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed.javadsl;
 
-import akka.actor.typed.Behavior;
-import akka.actor.typed.javadsl.ActorContext;
+import static akka.actor.typed.javadsl.AskPattern.ask;
+
+import akka.actor.testkit.typed.javadsl.TestInbox;
 import akka.actor.typed.ActorRef;
+import akka.actor.typed.Behavior;
 import akka.actor.typed.Scheduler;
+import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.japi.function.Procedure;
 import akka.persistence.typed.*;
-import akka.actor.testkit.typed.javadsl.TestInbox;
-
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletionStage;
-
-import static akka.actor.typed.javadsl.AskPattern.ask;
 
 public class PersistentActorCompileOnlyTest {
 

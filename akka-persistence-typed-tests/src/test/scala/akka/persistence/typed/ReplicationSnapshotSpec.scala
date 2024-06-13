@@ -1,20 +1,21 @@
 /*
- * Copyright (C) 2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.typed
 import java.util.concurrent.atomic.AtomicInteger
 
+import org.scalatest.concurrent.Eventually
+import org.scalatest.wordspec.AnyWordSpecLike
+
 import akka.Done
 import akka.actor.testkit.typed.scaladsl.{ LogCapturing, ScalaTestWithActorTestKit }
 import akka.actor.typed.{ ActorRef, Behavior }
 import akka.persistence.testkit.{ PersistenceTestKitPlugin, PersistenceTestKitSnapshotPlugin }
-import akka.persistence.testkit.scaladsl.{ PersistenceTestKit, SnapshotTestKit }
 import akka.persistence.testkit.query.scaladsl.PersistenceTestKitReadJournal
+import akka.persistence.testkit.scaladsl.{ PersistenceTestKit, SnapshotTestKit }
 import akka.persistence.typed.internal.{ ReplicatedPublishedEventMetaData, VersionVector }
 import akka.persistence.typed.scaladsl.ReplicatedEventSourcing
-import org.scalatest.concurrent.Eventually
-import org.scalatest.wordspec.AnyWordSpecLike
 
 object ReplicationSnapshotSpec {
 
@@ -86,7 +87,8 @@ class ReplicationSnapshotSpec
           1L,
           "two-again",
           System.currentTimeMillis(),
-          Some(new ReplicatedPublishedEventMetaData(R1, VersionVector.empty)))
+          Some(new ReplicatedPublishedEventMetaData(R1, VersionVector.empty)),
+          None)
 
         // r2 should now filter out that event if it receives it again
         r2EventProbe.expectNoMessage()
@@ -100,7 +102,8 @@ class ReplicationSnapshotSpec
           1L,
           "two-again",
           System.currentTimeMillis(),
-          Some(new ReplicatedPublishedEventMetaData(R1, VersionVector.empty)))
+          Some(new ReplicatedPublishedEventMetaData(R1, VersionVector.empty)),
+          None)
         r2EventProbe.expectNoMessage()
 
         val stateProbe = createTestProbe[State]()

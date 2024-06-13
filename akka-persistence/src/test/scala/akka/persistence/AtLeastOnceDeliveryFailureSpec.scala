@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence
@@ -15,7 +15,8 @@ import akka.actor._
 import akka.testkit._
 
 object AtLeastOnceDeliveryFailureSpec {
-  val config = ConfigFactory.parseString(s"""
+  val config = ConfigFactory.parseString(
+    """
       akka.persistence.sender.chaos.live-processing-failure-rate = 0.3
       akka.persistence.sender.chaos.replay-processing-failure-rate = 0.1
       akka.persistence.destination.chaos.confirm-failure-rate = 0.3

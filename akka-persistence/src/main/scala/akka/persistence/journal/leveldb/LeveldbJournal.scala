@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.persistence.journal.leveldb
@@ -24,6 +24,7 @@ import akka.util.Timeout
  *
  * Journal backed by a local LevelDB store. For production use.
  */
+@deprecated("Use another journal implementation", "2.6.15")
 private[persistence] class LeveldbJournal(cfg: Config) extends AsyncWriteJournal with LeveldbStore {
   import LeveldbJournal._
 

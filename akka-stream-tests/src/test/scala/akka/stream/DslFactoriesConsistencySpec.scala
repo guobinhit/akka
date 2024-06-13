@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2014-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream
@@ -29,7 +29,8 @@ class DslFactoriesConsistencySpec extends AnyWordSpec with Matchers {
       "lazyFutureFlow", // lazyCompletionStageFlow
       "futureFlow", // completionStageFlow
       "futureSink", // completionStageSink
-      "lazyFutureSink" // lazyCompletionStageSink
+      "lazyFutureSink", // lazyCompletionStageSink
+      "createGraph" // renamed/overload of create for getting type inference working in Scala 3
     )
 
   val javaIgnore =
@@ -62,6 +63,7 @@ class DslFactoriesConsistencySpec extends AnyWordSpec with Matchers {
       (classOf[akka.stream.scaladsl.Sink[_, _]],           classOf[akka.stream.javadsl.Sink[_, _]]) ::
       (classOf[akka.stream.scaladsl.Flow[_, _, _]],        classOf[akka.stream.javadsl.Flow[_, _, _]]) ::
       (classOf[akka.stream.scaladsl.RunnableGraph[_]],     classOf[akka.stream.javadsl.RunnableGraph[_]]) ::
+      (classOf[scala.concurrent.duration.FiniteDuration],  classOf[java.time.Duration]) ::
       (2 to 22) .map { i => (Class.forName(s"scala.Function$i"), Class.forName(s"akka.japi.function.Function$i")) }.toList
   // format: ON
 

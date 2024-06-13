@@ -1,12 +1,11 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.javadsl;
 
 import akka.actor.ActorSystem;
 import akka.stream.Materializer;
-
 import java.util.concurrent.CompletableFuture;
 
 public class SourceRunWithTest {

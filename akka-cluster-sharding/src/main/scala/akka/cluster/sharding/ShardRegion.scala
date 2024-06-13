@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
@@ -13,22 +13,25 @@ import scala.concurrent.duration._
 import scala.reflect.ClassTag
 import scala.runtime.AbstractFunction1
 import scala.util.{ Failure, Success }
+
 import akka.Done
 import akka.actor._
 import akka.annotation.{ InternalApi, InternalStableApi }
+import akka.annotation.ApiMayChange
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent._
 import akka.cluster.ClusterSettings
 import akka.cluster.ClusterSettings.DataCenter
 import akka.cluster.Member
 import akka.cluster.MemberStatus
+import akka.cluster.sharding.ClusterShardingSettings.PassivationStrategy
 import akka.cluster.sharding.Shard.ShardStats
 import akka.cluster.sharding.internal.RememberEntitiesProvider
+import akka.cluster.sharding.internal.RememberEntityStarterManager
 import akka.event.Logging
 import akka.pattern.ask
 import akka.pattern.pipe
 import akka.util.MessageBufferMap
-import akka.util.PrettyDuration
 import akka.util.Timeout
 
 /**
@@ -438,7 +441,7 @@ object ShardRegion {
    * Response is [[ShardRegionState]]
    */
   @InternalApi
-  private[akka] final object GetShardRegionStatus extends ShardRegionQuery
+  private[akka] object GetShardRegionStatus extends ShardRegionQuery
 
   /**
    * INTERNAL API
@@ -489,6 +492,23 @@ object ShardRegion {
       with DeadLetterSuppression
 
   /**
+   * API MAY CHANGE: Messages for passivation strategies may change after additional testing and feedback.
+   *
+   * When limit-based automatic passivation is enabled, set a new active entity limit for a shard region.
+   */
+  @ApiMayChange
+  final case class SetActiveEntityLimit(perRegionLimit: Int)
+
+  /**
+   * INTERNAL API
+   *
+   * Updated shard details sent to all active shards when a shard is started or stopped.
+   * Used for passivation strategies that change limits based on the number of active shards.
+   */
+  @InternalApi
+  private[akka] final case class ShardsUpdated(activeShards: Int) extends DeadLetterSuppression
+
+  /**
    * INTERNAL API. Sends stopMessage (e.g. `PoisonPill`) to the entities and when all of
    * them have terminated it replies with `ShardStopped`.
    * If the entities don't terminate after `handoffTimeout` it will try stopping them forcefully.
@@ -506,8 +526,9 @@ object ShardRegion {
     import HandOffStopper._
     import ShardCoordinator.Internal.ShardStopped
 
+    val entityHandOffTimeout = (handoffTimeout - 5.seconds).max(1.seconds)
     timers.startSingleTimer(StopTimeoutWarning, StopTimeoutWarning, StopTimeoutWarningAfter)
-    timers.startSingleTimer(StopTimeout, StopTimeout, handoffTimeout)
+    timers.startSingleTimer(StopTimeout, StopTimeout, entityHandOffTimeout)
 
     entities.foreach { a =>
       context.watch(a)
@@ -534,7 +555,7 @@ object ShardRegion {
           if (CoordinatedShutdown(context.system).getShutdownReason().isPresent)
             "" // the region will be shutdown earlier so would be confusing to say more
           else
-            s"Waiting additional [${handoffTimeout.toCoarsest}] before stopping the remaining entities.")
+            s"Waiting additional [${(entityHandOffTimeout - StopTimeoutWarningAfter).toCoarsest}] before stopping the remaining entities.")
 
       case StopTimeout =>
         log.warning(
@@ -542,8 +563,9 @@ object ShardRegion {
           "stopping the remaining [{}] entities.",
           stopMessage.getClass.getName,
           shard,
-          handoffTimeout.toCoarsest,
+          entityHandOffTimeout.toCoarsest,
           remaining.size)
+        timers.cancel(StopTimeoutWarning)
 
         remaining.foreach { ref =>
           context.stop(ref)
@@ -612,6 +634,7 @@ private[akka] class ShardRegion(
 
   // sort by age, oldest first
   val ageOrdering = Member.ageOrdering
+  // membersByAge is only used for tracking where coordinator is running
   var membersByAge: immutable.SortedSet[Member] = immutable.SortedSet.empty(ageOrdering)
   // membersByAge contains members with these status
   private val memberStatusOfInterest: Set[MemberStatus] =
@@ -626,11 +649,18 @@ private[akka] class ShardRegion(
   var startingShards = Set.empty[ShardId]
   var handingOff = Set.empty[ActorRef]
   var gracefulShutdownInProgress = false
+  var preparingForShutdown = false
 
   import context.dispatcher
   var retryCount = 0
   val initRegistrationDelay: FiniteDuration = 100.millis.max(retryInterval / 2 / 2 / 2)
   var nextRegistrationDelay: FiniteDuration = initRegistrationDelay
+
+  private val rememberEntityStarterManager =
+    if (rememberEntitiesProvider.isDefined)
+      context.actorOf(RememberEntityStarterManager.props(context.self, settings), "RememberEntityStarter")
+    else
+      context.system.deadLetters
 
   // for CoordinatedShutdown
   val gracefulShutdownProgress = Promise[Done]()
@@ -649,24 +679,32 @@ private[akka] class ShardRegion(
     cluster.subscribe(self, classOf[MemberEvent])
     timers.startTimerWithFixedDelay(Retry, Retry, retryInterval)
     startRegistration()
-    logPassivateIdleEntities()
+    logPassivationStrategy()
   }
 
   override def postStop(): Unit = {
     super.postStop()
+    log.debug("{}: Region stopped", typeName)
+    coordinator.foreach(_ ! RegionStopped(context.self))
     cluster.unsubscribe(self)
     gracefulShutdownProgress.trySuccess(Done)
   }
 
-  private def logPassivateIdleEntities(): Unit = {
-    if (settings.shouldPassivateIdleEntities)
+  private def logPassivationStrategy(): Unit = {
+    if (settings.passivationStrategySettings.oldSettingUsed) {
+      log.warning(
+        "The `akka.cluster.sharding.passivate-idle-entity-after` setting and associated methods are deprecated. " +
+        "Use the `akka.cluster.sharding.passivation.default-idle-strategy.idle-entity.timeout` setting instead. " +
+        "See the documentation and reference config for more information on automatic passivation strategies.")
+    }
+    if (settings.rememberEntities) {
+      log.debug("{}: Entities will not be passivated automatically because 'rememberEntities' is enabled.", typeName)
+    } else {
       log.info(
-        "{}: Idle entities will be passivated after [{}]",
+        "{}: Automatic entity passivation: {}",
         typeName,
-        PrettyDuration.format(settings.passivateIdleEntityAfter))
-
-    if (settings.rememberEntities)
-      log.debug("{}: Idle entities will not be passivated because 'rememberEntities' is enabled.", typeName)
+        PassivationStrategy.describe(settings.passivationStrategy))
+    }
   }
 
   // when using proxy the data center can be different from the own data center
@@ -675,8 +713,8 @@ private[akka] class ShardRegion(
     case None    => ClusterSettings.DcRolePrefix + cluster.settings.SelfDataCenter
   }
 
-  def matchingRole(member: Member): Boolean =
-    member.hasRole(targetDcRole) && role.forall(member.hasRole)
+  def matchingCoordinatorRole(member: Member): Boolean =
+    member.hasRole(targetDcRole) && coordinatorSingletonRole.forall(member.hasRole)
 
   /**
    * When leaving the coordinator singleton is started rather quickly on next
@@ -727,6 +765,8 @@ private[akka] class ShardRegion(
     case query: ShardRegionQuery                 => receiveQuery(query)
     case msg: RestartShard                       => deliverMessage(msg, sender())
     case msg: StartEntity                        => deliverStartEntity(msg, sender())
+    case msg: SetActiveEntityLimit               => deliverToAllShards(msg, sender())
+    case msg: CoordinatorCommand                 => deliverToCoordinator(msg, sender())
     case msg if extractEntityId.isDefinedAt(msg) => deliverMessage(msg, sender())
     case unknownMsg =>
       log.warning("{}: Message does not have an extractor defined in shard so it was ignored: {}", typeName, unknownMsg)
@@ -736,7 +776,7 @@ private[akka] class ShardRegion(
     changeMembers(
       immutable.SortedSet
         .empty(ageOrdering)
-        .union(state.members.filter(m => memberStatusOfInterest(m.status) && matchingRole(m))))
+        .union(state.members.filter(m => memberStatusOfInterest(m.status) && matchingCoordinatorRole(m))))
   }
 
   def receiveClusterEvent(evt: ClusterDomainEvent): Unit = evt match {
@@ -750,7 +790,7 @@ private[akka] class ShardRegion(
     case MemberRemoved(m, _) =>
       if (m.uniqueAddress == cluster.selfUniqueAddress)
         context.stop(self)
-      else if (matchingRole(m))
+      else if (matchingCoordinatorRole(m))
         changeMembers(membersByAge.filterNot(_.uniqueAddress == m.uniqueAddress))
 
     case MemberDowned(m) =>
@@ -759,13 +799,19 @@ private[akka] class ShardRegion(
         context.stop(self)
       }
 
+    case _: MemberReadyForShutdown | _: MemberPreparingForShutdown =>
+      if (!preparingForShutdown) {
+        log.info("{}. preparing for shutdown", typeName)
+      }
+      preparingForShutdown = true
+
     case _: MemberEvent => // these are expected, no need to warn about them
 
     case _ => unhandled(evt)
   }
 
   private def addMember(m: Member): Unit = {
-    if (matchingRole(m) && memberStatusOfInterest(m.status)) {
+    if (matchingCoordinatorRole(m) && memberStatusOfInterest(m.status)) {
       // replace, it's possible that the status, or upNumber is changed
       changeMembers(membersByAge.filterNot(_.uniqueAddress == m.uniqueAddress) + m)
     }
@@ -792,24 +838,15 @@ private[akka] class ShardRegion(
       }
 
     case ShardHome(shard, shardRegionRef) =>
-      log.debug("{}: Shard [{}] located at [{}]", typeName, shard, shardRegionRef)
-      regionByShard.get(shard) match {
-        case Some(r) if r == self && shardRegionRef != self =>
-          // should not happen, inconsistency between ShardRegion and ShardCoordinator
-          throw new IllegalStateException(
-            s"$typeName: Unexpected change of shard [$shard] from self to [$shardRegionRef]")
-        case _ =>
+      receiveShardHome(shard, shardRegionRef)
+
+    case ShardHomes(homes) =>
+      if (log.isDebugEnabled)
+        log.debug("Got shard homes for regions [{}]", homes.keySet.mkString(", "))
+      homes.foreach {
+        case (shardRegionRef, shards) =>
+          shards.foreach(shardId => receiveShardHome(shardId, shardRegionRef))
       }
-      regionByShard = regionByShard.updated(shard, shardRegionRef)
-      regions = regions.updated(shardRegionRef, regions.getOrElse(shardRegionRef, Set.empty) + shard)
-
-      if (shardRegionRef != self)
-        context.watch(shardRegionRef)
-
-      if (shardRegionRef == self)
-        getShard(shard).foreach(deliverBufferedMessages(shard, _))
-      else
-        deliverBufferedMessages(shard, shardRegionRef)
 
     case RegisterAck(coord) =>
       context.watch(coord)
@@ -819,14 +856,18 @@ private[akka] class ShardRegion(
 
     case BeginHandOff(shard) =>
       log.debug("{}: BeginHandOff shard [{}]", typeName, shard)
-      if (regionByShard.contains(shard)) {
-        val regionRef = regionByShard(shard)
-        val updatedShards = regions(regionRef) - shard
-        if (updatedShards.isEmpty) regions -= regionRef
-        else regions = regions.updated(regionRef, updatedShards)
-        regionByShard -= shard
+      if (!preparingForShutdown) {
+        if (regionByShard.contains(shard)) {
+          val regionRef = regionByShard(shard)
+          val updatedShards = regions(regionRef) - shard
+          if (updatedShards.isEmpty) regions -= regionRef
+          else regions = regions.updated(regionRef, updatedShards)
+          regionByShard -= shard
+        }
+        sender() ! BeginHandOffAck(shard)
+      } else {
+        log.debug("{}: Ignoring begin handoff of shard [{}] as preparing to shutdown", typeName, shard)
       }
-      sender() ! BeginHandOffAck(shard)
 
     case msg @ HandOff(shard) =>
       log.debug("{}: HandOff shard [{}]", typeName, shard)
@@ -885,20 +926,28 @@ private[akka] class ShardRegion(
       }
 
     case GracefulShutdown =>
-      log.debug("{}: Starting graceful shutdown of region and all its shards", typeName)
+      if (preparingForShutdown) {
+        log.debug(
+          "{}: Skipping graceful shutdown of region and all its shards as cluster is preparing for shutdown",
+          typeName)
+        gracefulShutdownProgress.trySuccess(Done)
+        context.stop(self)
+      } else {
+        log.debug("{}: Starting graceful shutdown of region and all its shards", typeName)
 
-      val coordShutdown = CoordinatedShutdown(context.system)
-      if (coordShutdown.getShutdownReason().isPresent) {
-        // use a shorter timeout than the coordinated shutdown phase to be able to log better reason for the timeout
-        val timeout = coordShutdown.timeout(CoordinatedShutdown.PhaseClusterShardingShutdownRegion) - 1.second
-        if (timeout > Duration.Zero) {
-          timers.startSingleTimer(GracefulShutdownTimeout, GracefulShutdownTimeout, timeout)
+        val coordShutdown = CoordinatedShutdown(context.system)
+        if (coordShutdown.getShutdownReason().isPresent) {
+          // use a shorter timeout than the coordinated shutdown phase to be able to log better reason for the timeout
+          val timeout = coordShutdown.timeout(CoordinatedShutdown.PhaseClusterShardingShutdownRegion) - 1.second
+          if (timeout > Duration.Zero) {
+            timers.startSingleTimer(GracefulShutdownTimeout, GracefulShutdownTimeout, timeout)
+          }
         }
-      }
 
-      gracefulShutdownInProgress = true
-      sendGracefulShutdownToCoordinatorIfInProgress()
-      tryCompleteGracefulShutdownIfInProgress()
+        gracefulShutdownInProgress = true
+        sendGracefulShutdownToCoordinatorIfInProgress()
+        tryCompleteGracefulShutdownIfInProgress()
+      }
 
     case GracefulShutdownTimeout =>
       log.warning(
@@ -931,7 +980,7 @@ private[akka] class ShardRegion(
     case GetShardRegionStatus =>
       sender() ! new ShardRegionStatus(typeName, coordinator.isDefined)
 
-    case _ => unhandled(query)
+    case null => unhandled(query)
   }
 
   def receiveTerminated(ref: ActorRef): Unit = {
@@ -959,6 +1008,9 @@ private[akka] class ShardRegion(
       shardsByRef = shardsByRef - ref
       shards = shards - shardId
       startingShards -= shardId
+      if (settings.passivationStrategy != ClusterShardingSettings.NoPassivationStrategy) {
+        shards.values.foreach(_ ! ShardsUpdated(shards.size))
+      }
       if (handingOff.contains(ref)) {
         handingOff = handingOff - ref
         log.debug("{}: Shard [{}] handoff complete", typeName, shardId)
@@ -974,6 +1026,27 @@ private[akka] class ShardRegion(
       // If so, we can try to speed-up the region shutdown. We don't need to wait for the next tick.
       tryCompleteGracefulShutdownIfInProgress()
     }
+  }
+
+  def receiveShardHome(shard: ShardId, shardRegionRef: ActorRef): Unit = {
+    log.debug("{}: Shard [{}] located at [{}]", typeName, shard, shardRegionRef)
+    regionByShard.get(shard) match {
+      case Some(r) if r == self && shardRegionRef != self =>
+        // should not happen, inconsistency between ShardRegion and ShardCoordinator
+        throw new IllegalStateException(
+          s"$typeName: Unexpected change of shard [$shard] from self to [$shardRegionRef]")
+      case _ =>
+    }
+    regionByShard = regionByShard.updated(shard, shardRegionRef)
+    regions = regions.updated(shardRegionRef, regions.getOrElse(shardRegionRef, Set.empty) + shard)
+
+    if (shardRegionRef != self)
+      context.watch(shardRegionRef)
+
+    if (shardRegionRef == self)
+      getShard(shard).foreach(deliverBufferedMessages(shard, _))
+    else
+      deliverBufferedMessages(shard, shardRegionRef)
   }
 
   def replyToRegionStateQuery(ref: ActorRef): Unit = {
@@ -1199,6 +1272,12 @@ private[akka] class ShardRegion(
     }
   }
 
+  def deliverToAllShards(msg: Any, snd: ActorRef): Unit =
+    shards.values.foreach(_.tell(msg, snd))
+
+  def deliverToCoordinator(msg: CoordinatorCommand, snd: ActorRef): Unit =
+    coordinator.foreach(_.tell(msg, snd))
+
   def deliverMessage(msg: Any, snd: ActorRef): Unit =
     msg match {
       case RestartShard(shardId) =>
@@ -1258,9 +1337,7 @@ private[akka] class ShardRegion(
         .orElse(entityProps match {
           case Some(props) if !shardsByRef.values.exists(_ == id) =>
             log.debug(ShardingLogMarker.shardStarted(typeName, id), "{}: Starting shard [{}] in region", typeName, id)
-
             val name = URLEncoder.encode(id, "utf-8")
-
             val shard = context.watch(
               context.actorOf(
                 Shard
@@ -1272,12 +1349,16 @@ private[akka] class ShardRegion(
                     extractEntityId,
                     extractShardId,
                     handOffStopMessage,
-                    rememberEntitiesProvider)
+                    rememberEntitiesProvider,
+                    rememberEntityStarterManager)
                   .withDispatcher(context.props.dispatcher),
                 name))
             shardsByRef = shardsByRef.updated(shard, id)
             shards = shards.updated(id, shard)
             startingShards += id
+            if (settings.passivationStrategy != ClusterShardingSettings.NoPassivationStrategy) {
+              shards.values.foreach(_ ! ShardsUpdated(shards.size))
+            }
             None
           case Some(_) =>
             None

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.ddata
@@ -8,7 +8,6 @@ import scala.annotation.tailrec
 import scala.collection.immutable
 
 import akka.annotation.InternalApi
-import akka.cluster.Cluster
 import akka.cluster.UniqueAddress
 import akka.util.{ unused, HashCode }
 
@@ -61,7 +60,7 @@ object ORSet {
         // Note that we only merge deltas originating from the same node
         AddDeltaOp(
           new ORSet(concatElementsMap(u.elementsMap.asInstanceOf[Map[A, Dot]]), underlying.vvector.merge(u.vvector)))
-      case _: AtomicDeltaOp[A] => DeltaGroup(Vector(this, that))
+      case _: AtomicDeltaOp[_] => DeltaGroup(Vector(this, that))
       case DeltaGroup(ops)     => DeltaGroup(this +: ops)
     }
 
@@ -80,7 +79,7 @@ object ORSet {
       throw new IllegalArgumentException(s"RemoveDeltaOp should contain one removed element, but was $underlying")
 
     override def merge(that: DeltaOp): DeltaOp = that match {
-      case _: AtomicDeltaOp[A] => DeltaGroup(Vector(this, that)) // keep it simple for removals
+      case _: AtomicDeltaOp[_] => DeltaGroup(Vector(this, that)) // keep it simple for removals
       case DeltaGroup(ops)     => DeltaGroup(this +: ops)
     }
   }
@@ -88,7 +87,7 @@ object ORSet {
   /** INTERNAL API: Used for `clear` but could be used for other cases also */
   @InternalApi private[akka] final case class FullStateDeltaOp[A](underlying: ORSet[A]) extends AtomicDeltaOp[A] {
     override def merge(that: DeltaOp): DeltaOp = that match {
-      case _: AtomicDeltaOp[A] => DeltaGroup(Vector(this, that))
+      case _: AtomicDeltaOp[_] => DeltaGroup(Vector(this, that))
       case DeltaGroup(ops)     => DeltaGroup(this +: ops)
     }
   }
@@ -100,10 +99,10 @@ object ORSet {
       extends DeltaOp
       with ReplicatedDeltaSize {
     override def merge(that: DeltaOp): DeltaOp = that match {
-      case thatAdd: AddDeltaOp[A] =>
+      case thatAdd: AddDeltaOp[_] =>
         // merge AddDeltaOp into last AddDeltaOp in the group, if possible
         ops.last match {
-          case thisAdd: AddDeltaOp[A] => DeltaGroup(ops.dropRight(1) :+ thisAdd.merge(thatAdd))
+          case thisAdd: AddDeltaOp[_] => DeltaGroup(ops.dropRight(1) :+ thisAdd.merge(thatAdd))
           case _                      => DeltaGroup(ops :+ thatAdd)
         }
       case DeltaGroup(thatOps) => DeltaGroup(ops ++ thatOps)
@@ -265,7 +264,7 @@ object ORSet {
  * over remove.
  *
  * It is not implemented as in the paper
- * <a href="http://hal.upmc.fr/file/index/docid/555588/filename/techreport.pdf">A comprehensive study of Convergent and Commutative Replicated Data Types</a>.
+ * <a href="https://hal.inria.fr/file/index/docid/555588/filename/techreport.pdf">A comprehensive study of Convergent and Commutative Replicated Data Types</a>.
  * This is more space efficient and doesn't accumulate garbage for removed elements.
  * It is described in the paper
  * <a href="https://hal.inria.fr/file/index/docid/738680/filename/RR-8083.pdf">An optimized conflict-free replicated set</a>
@@ -323,15 +322,8 @@ final class ORSet[A] private[akka] (
   /** Adds an element to the set. */
   def :+(element: A)(implicit node: SelfUniqueAddress): ORSet[A] = add(node, element)
 
-  @deprecated("Use `:+` that takes a `SelfUniqueAddress` parameter instead.", since = "2.5.20")
-  def +(element: A)(implicit node: Cluster): ORSet[A] = add(node.selfUniqueAddress, element)
-
   /** Adds an element to the set. */
   def add(node: SelfUniqueAddress, element: A): ORSet[A] = add(node.uniqueAddress, element)
-
-  @Deprecated
-  @deprecated("Use `add` that takes a `SelfUniqueAddress` parameter instead.", since = "2.5.20")
-  def add(node: Cluster, element: A): ORSet[A] = add(node.selfUniqueAddress, element)
 
   /**
    * INTERNAL API
@@ -342,7 +334,7 @@ final class ORSet[A] private[akka] (
     val newDelta = delta match {
       case None =>
         ORSet.AddDeltaOp(new ORSet(Map(element -> newDot), newDot))
-      case Some(existing: ORSet.AddDeltaOp[A]) =>
+      case Some(existing: ORSet.AddDeltaOp[_]) =>
         existing.merge(ORSet.AddDeltaOp(new ORSet(Map(element -> newDot), newDot)))
       case Some(d) =>
         d.merge(ORSet.AddDeltaOp(new ORSet(Map(element -> newDot), newDot)))
@@ -361,18 +353,6 @@ final class ORSet[A] private[akka] (
    * Removes an element from the set.
    */
   def remove(node: SelfUniqueAddress, element: A): ORSet[A] = remove(node.uniqueAddress, element)
-
-  /**
-   * Removes an element from the set.
-   */
-  @deprecated("Use `remove` that takes a `SelfUniqueAddress` parameter instead.", since = "2.5.20")
-  def -(element: A)(implicit node: Cluster): ORSet[A] = remove(node.selfUniqueAddress, element)
-
-  /**
-   * Removes an element from the set.
-   */
-  @deprecated("Use `remove` that takes a `SelfUniqueAddress` parameter instead.", since = "2.5.20")
-  def remove(node: Cluster, element: A): ORSet[A] = remove(node.selfUniqueAddress, element)
 
   /**
    * INTERNAL API
@@ -394,9 +374,6 @@ final class ORSet[A] private[akka] (
    * for each element, but it is more efficient.
    */
   def clear(@unused node: SelfUniqueAddress): ORSet[A] = clear()
-
-  @deprecated("Use `remove` that takes a `SelfUniqueAddress` parameter instead.", since = "2.5.20")
-  def clear(@unused node: Cluster): ORSet[A] = clear()
 
   /**
    * INTERNAL API
@@ -454,15 +431,18 @@ final class ORSet[A] private[akka] (
 
   override def mergeDelta(thatDelta: ORSet.DeltaOp): ORSet[A] = {
     thatDelta match {
-      case d: ORSet.AddDeltaOp[A]       => dryMerge(d.underlying, addDeltaOp = true)
-      case d: ORSet.RemoveDeltaOp[A]    => mergeRemoveDelta(d)
-      case d: ORSet.FullStateDeltaOp[A] => dryMerge(d.underlying, addDeltaOp = false)
+      case d: ORSet.AddDeltaOp[_]    => dryMerge(d.asInstanceOf[ORSet.AddDeltaOp[A]].underlying, addDeltaOp = true)
+      case d: ORSet.RemoveDeltaOp[_] => mergeRemoveDelta(d.asInstanceOf[ORSet.RemoveDeltaOp[A]])
+      case d: ORSet.FullStateDeltaOp[_] =>
+        dryMerge(d.asInstanceOf[ORSet.FullStateDeltaOp[A]].underlying, addDeltaOp = false)
       case ORSet.DeltaGroup(ops) =>
         ops.foldLeft(this) {
-          case (acc, op: ORSet.AddDeltaOp[A])       => acc.dryMerge(op.underlying, addDeltaOp = true)
-          case (acc, op: ORSet.RemoveDeltaOp[A])    => acc.mergeRemoveDelta(op)
-          case (acc, op: ORSet.FullStateDeltaOp[A]) => acc.dryMerge(op.underlying, addDeltaOp = false)
-          case (_, _: ORSet.DeltaGroup[A]) =>
+          case (acc, op: ORSet.AddDeltaOp[_]) =>
+            acc.dryMerge(op.asInstanceOf[ORSet.AddDeltaOp[A]].underlying, addDeltaOp = true)
+          case (acc, op: ORSet.RemoveDeltaOp[_]) => acc.mergeRemoveDelta(op.asInstanceOf[ORSet.RemoveDeltaOp[A]])
+          case (acc, op: ORSet.FullStateDeltaOp[_]) =>
+            acc.dryMerge(op.asInstanceOf[ORSet.FullStateDeltaOp[A]].underlying, addDeltaOp = false)
+          case (_, _: ORSet.DeltaGroup[_]) =>
             throw new IllegalArgumentException("ORSet.DeltaGroup should not be nested")
         }
     }
@@ -564,4 +544,7 @@ object ORSetKey {
 }
 
 @SerialVersionUID(1L)
-final case class ORSetKey[A](_id: String) extends Key[ORSet[A]](_id) with ReplicatedDataSerialization
+final case class ORSetKey[A](_id: String) extends Key[ORSet[A]](_id) with ReplicatedDataSerialization {
+  override def withId(newId: Key.KeyId): ORSetKey[A] =
+    ORSetKey(newId)
+}

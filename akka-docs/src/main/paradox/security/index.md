@@ -1,5 +1,11 @@
 # Security Announcements
 
+@@@note
+
+Security announcements has moved to a shared page for all Akka projects and can now be found at [akka.io/security](https://akka.io/security)
+
+@@@
+
 ## Receiving Security Advisories
 
 The best way to receive any and all security announcements is to subscribe to the [Akka security list](https://groups.google.com/forum/#!forum/akka-security).
@@ -19,7 +25,7 @@ to ensure that a fix can be provided without delay.
 ## Security Related Documentation
 
  * @ref:[Java Serialization](../serialization.md#java-serialization)
- * @ref:[Remote deployment allow list](../remoting.md#remote-deployment-allow-list)
+ * @ref:[Remote deployment allow list](../remoting-artery.md#remote-deployment-allow-list)
  * @ref:[Remote Security](../remoting-artery.md#remote-security)
 
 ## Fixed Security Vulnerabilities

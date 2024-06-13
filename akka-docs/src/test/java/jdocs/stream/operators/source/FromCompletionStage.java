@@ -1,17 +1,16 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.stream.operators.source;
 
 // #sourceFromCompletionStage
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.CompletableFuture;
-
-import akka.NotUsed;
 import akka.Done;
+import akka.NotUsed;
 import akka.actor.typed.ActorSystem;
 import akka.stream.javadsl.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
 // #sourceFromCompletionStage
 

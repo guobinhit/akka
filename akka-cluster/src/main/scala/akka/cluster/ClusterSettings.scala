@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster
@@ -77,7 +77,10 @@ final class ClusterSettings(val config: Config, val systemName: String) {
   }
 
   val SeedNodes: immutable.IndexedSeq[Address] =
-    immutableSeq(cc.getStringList("seed-nodes")).map { case AddressFromURIString(address) => address }.toVector
+    immutableSeq(cc.getStringList("seed-nodes")).map {
+      case AddressFromURIString(address) => address
+      case _                             => throw new RuntimeException() // compiler exhaustiveness check pleaser
+    }.toVector
   val SeedNodeTimeout: FiniteDuration = cc.getMillisDuration("seed-node-timeout")
   val RetryUnsuccessfulJoinAfter: Duration = {
     val key = "retry-unsuccessful-join-after"

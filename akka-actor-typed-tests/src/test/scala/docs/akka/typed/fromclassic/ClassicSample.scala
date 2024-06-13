@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package docs.akka.typed.fromclassic
@@ -27,7 +27,6 @@ object ClassicSample {
 
     override def receive: Receive = {
       case Greet(whom) =>
-        //#fiddle_code
         log.info("Hello {}!", whom)
         sender() ! Greeted(whom)
     }

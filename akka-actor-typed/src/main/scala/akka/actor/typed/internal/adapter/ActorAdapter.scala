@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2016-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.actor.typed
@@ -62,7 +62,7 @@ import akka.util.OptionVal
   // when the adapter is used for the user guardian (which avoids touching context until it is safe)
   private var _ctx: ActorContextAdapter[T] = _
   def ctx: ActorContextAdapter[T] = {
-    if (_ctx eq null) _ctx = new ActorContextAdapter[T](context, this)
+    if (_ctx eq null) _ctx = new ActorContextAdapter[T](this)
     _ctx
   }
 
@@ -90,7 +90,9 @@ import akka.util.OptionVal
             } else Terminated(ActorRefAdapter(ref))
           handleSignal(msg)
         case classic.ReceiveTimeout =>
-          handleMessage(ctx.receiveTimeoutMsg)
+          // discard when null as timeout was cancelled after RecieveTimeout was already enqueued into the mailbox
+          if (ctx.receiveTimeoutMsg != null)
+            handleMessage(ctx.receiveTimeoutMsg)
         case wrapped: AdaptMessage[Any, T] @unchecked =>
           withSafelyAdapted(() => wrapped.adapt()) {
             case AdaptWithRegisteredMessageAdapter(msg) =>
@@ -102,8 +104,9 @@ import akka.util.OptionVal
           adaptAndHandle(msg)
         case signal: Signal =>
           handleSignal(signal)
-        case msg: T @unchecked =>
-          handleMessage(msg)
+        case msg =>
+          val t = msg.asInstanceOf[T]
+          handleMessage(t)
       }
     } finally {
       ctx.clearCurrentActorThread()
@@ -117,10 +120,11 @@ import akka.util.OptionVal
       if (c.hasTimer) {
         msg match {
           case timerMsg: TimerMsg =>
-            c.timer.interceptTimerMsg(ctx.log, timerMsg) match {
-              case OptionVal.None => // means TimerMsg not applicable, discard
+            //we can only get this kind of message if the timer is of this concrete class
+            c.timer.asInstanceOf[TimerSchedulerImpl[T]].interceptTimerMsg(ctx.log, timerMsg) match {
               case OptionVal.Some(m) =>
                 next(Behavior.interpretMessage(behavior, c, m), m)
+              case _ => // means TimerMsg not applicable, discard
             }
           case _ =>
             next(Behavior.interpretMessage(behavior, c, msg), msg)
@@ -184,16 +188,23 @@ import akka.util.OptionVal
   }
 
   private def withSafelyAdapted[U, V](adapt: () => U)(body: U => V): Unit = {
-    try {
-      val a = adapt()
-      if (a != null) body(a)
-      else
-        ctx.log.warn(
-          "Adapter function returned null which is not valid as an actor message, ignoring. This can happen for example when using pipeToSelf and returning null from the adapt function. Null value is ignored and not passed on to actor.")
+    var failed = false
+    val adapted: U = try {
+      adapt()
     } catch {
       case NonFatal(ex) =>
         // pass it on through the signal handler chain giving supervision a chance to deal with it
         handleSignal(MessageAdaptionFailure(ex))
+        // Signal handler should actually throw so this is mostly to keep compiler happy (although a user could override
+        // the MessageAdaptionFailure handling to do something weird)
+        failed = true
+        null.asInstanceOf[U]
+    }
+    if (!failed) {
+      if (adapted != null) body(adapted)
+      else
+        ctx.log.warn(
+          "Adapter function returned null which is not valid as an actor message, ignoring. This can happen for example when using pipeToSelf and returning null from the adapt function. Null value is ignored and not passed on to actor.")
     }
   }
 
@@ -209,7 +220,7 @@ import akka.util.OptionVal
       super.unhandled(other)
   }
 
-  override val supervisorStrategy = classic.OneForOneStrategy(loggingEnabled = false) {
+  final override def supervisorStrategy = classic.OneForOneStrategy(loggingEnabled = false) {
     case ex =>
       ctx.setCurrentActorThread()
       try ex match {
@@ -228,8 +239,8 @@ import akka.util.OptionVal
           val logMessage = ex match {
             case e: ActorInitializationException if e.getCause ne null =>
               e.getCause match {
-                case ex: InvocationTargetException if ex.getCause ne null => ex.getCause.getMessage
-                case ex                                                   => ex.getMessage
+                case cause: InvocationTargetException if ex.getCause ne null => cause.getCause.getMessage
+                case cause                                                   => cause.getMessage
               }
             case e => e.getMessage
           }

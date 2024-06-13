@@ -1,19 +1,16 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.persistence.query;
 
 import akka.actor.ActorSystem;
-import akka.japi.Pair;
-import akka.persistence.PersistentRepr;
 import akka.persistence.query.EventEnvelope;
 import akka.persistence.query.Offset;
 import akka.serialization.Serialization;
 import akka.serialization.SerializationExtension;
 import akka.stream.*;
 import akka.stream.stage.*;
-
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -21,8 +18,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
-
-import static java.util.stream.Collectors.toList;
 
 // #events-by-tag-publisher
 public class MyEventsByTagSource extends GraphStage<SourceShape<EventEnvelope>> {

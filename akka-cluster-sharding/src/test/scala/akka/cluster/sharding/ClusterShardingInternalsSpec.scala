@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
@@ -11,8 +11,8 @@ import akka.cluster.ClusterSettings.DataCenter
 import akka.cluster.sharding.ShardCoordinator.Internal.ShardStopped
 import akka.cluster.sharding.ShardCoordinator.ShardAllocationStrategy
 import akka.cluster.sharding.ShardRegion.{ ExtractEntityId, ExtractShardId, HandOffStopper, Msg }
-import akka.testkit.WithLogCapturing
 import akka.testkit.{ AkkaSpec, TestProbe }
+import akka.testkit.WithLogCapturing
 
 object ClusterShardingInternalsSpec {
   case class HandOffStopMessage() extends NoSerializationVerificationNeeded
@@ -29,7 +29,6 @@ object ClusterShardingInternalsSpec {
 
 class ClusterShardingInternalsSpec extends AkkaSpec("""
     |akka.actor.provider = cluster
-    |akka.remote.classic.netty.tcp.port = 0
     |akka.remote.artery.canonical.port = 0
     |akka.loglevel = DEBUG
     |akka.cluster.sharding.verbose-debug-logging = on

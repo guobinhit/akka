@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.stream.impl.io
@@ -50,7 +50,7 @@ private[akka] final class OutputStreamGraphStage(factory: () => OutputStream, au
       override def onPush(): Unit = {
         val next = grab(in)
         try {
-          outputStream.write(next.toArray)
+          outputStream.write(next.toArrayUnsafe())
           if (autoFlush) outputStream.flush()
 
           bytesWritten += next.size

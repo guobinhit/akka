@@ -1,26 +1,25 @@
 /*
- * Copyright (C) 2018-2020 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2018-2023 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package jdocs.cluster;
 
+import akka.actor.AbstractActor;
+import akka.actor.ActorRef;
+import akka.actor.Props;
 import akka.cluster.routing.ClusterRouterGroup;
 import akka.cluster.routing.ClusterRouterGroupSettings;
 import akka.cluster.routing.ClusterRouterPool;
 import akka.cluster.routing.ClusterRouterPoolSettings;
 import akka.routing.ConsistentHashingGroup;
 import akka.routing.ConsistentHashingPool;
-import jdocs.cluster.StatsMessages.StatsJob;
-import akka.actor.ActorRef;
-import akka.actor.Props;
-import akka.actor.AbstractActor;
 import akka.routing.ConsistentHashingRouter.ConsistentHashableEnvelope;
 import akka.routing.FromConfig;
-
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import jdocs.cluster.StatsMessages.StatsJob;
 
 // #service
 public class StatsService extends AbstractActor {
